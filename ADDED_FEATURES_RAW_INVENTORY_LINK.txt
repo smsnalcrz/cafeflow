@@ -1,0 +1,186 @@
+================================================================================
+                    CAFEFLOW POS & INVENTORY MANAGEMENT SYSTEM
+             ENHANCEMENTS FOR THE RAW INVENTORY SUPPLY LINK (PRODUCTS TAB)
+================================================================================
+Date: October 17, 2026
+System: CafeFlow (DK Cafe)
+Location: c:\xampp\htdocs\cafeflow_v4
+
+--------------------------------------------------------------------------------
+1. INCREASED PRODUCTS TAB POPUP SIZE & RESPONSIVE LAYOUT
+--------------------------------------------------------------------------------
+- Significantly expanded the Add/Edit Product popup modal (#productSheet .sheet-card)
+  from a cramped 560px width to min(840px, calc(100% - 32px)) with a max-height
+  of min(90vh, calc(100vh - var(--topbar-h) - 24px)).
+- Provides generous breathing room for product metadata (name, category, price,
+  direct stock count, image upload) as well as the new search bar, scrollable
+  inventory supplies list, and action buttons.
+- Centered on screen with smooth backdrop overlay and spring entrance animations.
+- Fully responsive on mobile and tablet displays (@media max-width: 680px and 600px),
+  dynamically scaling padding, gap, and child elements to guarantee zero overflow
+  outside the screen viewport.
+- Preserves all standard modal behaviors (open from "+ Add Product" or "Edit",
+  close via Cancel, ESC key, or backdrop click).
+
+--------------------------------------------------------------------------------
+2. SELECTABLE MULTI-ITEM RAW INVENTORY SUPPLY LIST
+--------------------------------------------------------------------------------
+- Replaced the legacy single-item <select> dropdown with a clean, structured,
+  vertical list of raw supplies retrieved live from inventory_api.php.
+- Each inventory item features its own dedicated checkbox allowing simultaneous
+  multi-selection. Selecting one item never deselects other selected items.
+- Displays comprehensive, concise details for each raw inventory item:
+  * Item Name (bold, stylized in espresso theme)
+  * Current Available Stock with Unit of Measurement (e.g., "2,000.00 g", "48.00 pcs")
+  * Real-time Stock Status Badge (OK "In Stock", Low "Low Stock", Out "Out of Stock")
+- Each selected item displays an inline deduction amount input:
+  * Example: [ 18 ] g / order, [ 200 ] ml / order
+  * Cashiers/managers can customize the exact quantity consumed per sold order.
+  * Inputs isolate click events so entering deduction numbers never toggles checkboxes.
+
+--------------------------------------------------------------------------------
+3. FULL DATABASE & ORDER PROCESS INTEGRATION (MULTI-INGREDIENT RECIPES)
+--------------------------------------------------------------------------------
+- Database Schema Expansion:
+  * Created the `product_ingredients` table in schema.sql, db.php (ensure_schema),
+    and migrate.php:
+      - id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+      - product_id INT UNSIGNED NOT NULL (FK -> menu_products.product_id ON DELETE CASCADE)
+      - item_id INT UNSIGNED NOT NULL (FK -> inventory.item_id ON DELETE CASCADE)
+      - deduction_amount DECIMAL(10,2) NOT NULL DEFAULT 1.00
+      - UNIQUE KEY (product_id, item_id)
+  * Maintains backward compatibility by syncing the primary linked item into
+    `menu_products.linked_inventory_id` and `deduction_amount`.
+- Non-Destructive Selection:
+  * Toggling checkboxes and saving products strictly registers recipes. It NEVER
+    causes premature or unintended inventory deductions.
+- Authentic Barista Order Deduction:
+  * In complete_order.php, when the barista marks an order "Completed":
+    - Automatically calculates quantity sold x deduction amount for ALL linked
+      ingredients in `product_ingredients` across the whole order.
+    - Atomically deducts each ingredient from `inventory.current_stock` using
+      database transaction locking and GREATEST(..., 0) safety bounds.
+    - Continues to safely deduct direct `stock_quantity` for tracked items that
+      do not link to raw inventory supplies.
+    - Checks all touched recipe ingredients and flags low-stock alerts.
+- Menu Grid Stock Status Integration:
+  * In fetch_menu.php and products_api.php, a product's real-time stock status
+    (ok, low, out) is dynamically evaluated across ALL linked ingredients.
+    If any single required ingredient is depleted, the product shows "Out of stock";
+    if any is at or below its restock threshold, it shows "Low stock".
+
+--------------------------------------------------------------------------------
+4. DEDICATED VERTICAL SCROLLABLE LIST WITH SCROLL-CHAINING PREVENTION
+--------------------------------------------------------------------------------
+- Implemented a dedicated scrollable area (.supply-list-container) with a 250px
+  max-height and custom-styled minimalist scrollbar.
+- Employs `overscroll-behavior: contain` to prevent scroll chaining so mouse wheel
+  or trackpad scrolling inside the list never scrolls the modal or page behind it.
+- Keeps the modal header, search input, and action buttons fixed and visible
+  while the inventory items scroll.
+- Checkbox selections and entered deduction amounts are stored in application
+  state (selectedSupplies Map) and are 100% preserved during scrolling.
+
+--------------------------------------------------------------------------------
+5. REAL-TIME SEARCH & FILTERING BAR
+--------------------------------------------------------------------------------
+- Integrated a search bar directly above the supply list with a clear 🔍 icon
+  and an instant ✕ clear button.
+- Live case-insensitive filtering as the cashier/manager types:
+  * Matches raw supply names (e.g. searching "bean" matches "Espresso Beans").
+  * Matches unit of measurement (e.g. searching "ml" or "g").
+  * Matches numeric item IDs.
+- Non-destructive filtering:
+  * Hiding an item through a search filter does NOT deselect it or erase its
+    custom deduction amount.
+  * Clearing search immediately restores the entire list with selections intact.
+
+--------------------------------------------------------------------------------
+6. EMPTY STATES & SELECTION FEEDBACK BADGE
+--------------------------------------------------------------------------------
+- Informative Empty States:
+  * If no raw inventory items exist: displays "No inventory items available."
+    along with a "+ Add Your First Supply Item" button.
+  * If no items match search query: displays "No matching items found." with a
+    "Clear Search" button.
+- Selection Counter Feedback Badge:
+  * Displays real-time selection count badge (#supplySelectionCount), e.g.,
+    "0 items selected", "2 items selected".
+  * Changes to caramel highlight pill when 1 or more items are selected.
+- Quick Add Raw Supply Integration:
+  * Preserved the "+ Add Item" inline card (#quickAddSupplyCard).
+  * Adding a new raw supply item through the inline card immediately inserts it
+    into the inventory database, adds it to the list, and automatically marks it
+    as selected for the active product.
+
+--------------------------------------------------------------------------------
+7. UI THEME & DESIGN PRESERVATION
+--------------------------------------------------------------------------------
+- Seamlessly fits DK Cafe's brand identity:
+  * Warm palette: --espresso (#2c1a0e), --caramel (#c07c2e), --cream (#faf6f0),
+    --parchment (#f5ede2), and --line (#e5dacb).
+  * Checkboxes styled with theme accent color and rounded corners.
+  * Clear visual state differentiation: unselected items use a white background
+    and subtle hover state; selected items use a warm highlight (#fff8f0),
+    caramel border, and subtle glow.
+  * Standardized input styles, action buttons, and status tags.
+
+================================================================================
+                           SUMMARY OF MODIFIED FILES
+================================================================================
+
+1. db.php
+   - Added automatic verification and creation of `product_ingredients` table
+     with foreign key cascade constraints inside `ensure_schema()`.
+
+2. schema.sql
+   - Added `product_ingredients` table definition and foreign key constraints
+     for fresh database imports.
+
+3. migrate.php
+   - Added migration check and table creation statement for `product_ingredients`.
+
+4. products_api.php
+   - GET: Queries and returns all linked recipe ingredients per product
+     (item_id, name, unit_measure, current_stock, restock_threshold, deduction_amount)
+     and calculates composite stock_state.
+   - POST (add & update): Added parse_incoming_ingredients() to process multi-item
+     recipes, insert/update `product_ingredients`, and sync primary linked item
+     in `menu_products`.
+   - POST (delete): Ensures recipe ingredient relations are cleanly deleted.
+
+5. fetch_menu.php
+   - Updated menu query and stock state calculation to inspect all linked ingredients
+     in `product_ingredients` so out-of-stock and low-stock indicators reflect
+     the availability of all required recipe ingredients.
+
+6. complete_order.php
+   - Added deduction logic for multi-ingredient recipes in `product_ingredients`
+     when an order is marked Completed by the barista.
+   - Preserves fallback deduction for single-linked products and direct product
+     stock deduction for untracked/direct products.
+   - Updated low stock query to alert barista for any touched recipe ingredients.
+
+7. index.php
+   - Upgraded `#productSheet` markup: added selection count badge, raw inventory
+     search bar with clear button, and dedicated scrollable list container
+     (`#supplyListContainer`).
+   - Retained Quick Add Raw Supply inline drawer for seamless ingredient creation.
+
+8. style.css
+   - Added responsive modal sizing for `#productSheet .sheet-card` (840px max width).
+   - Styled raw inventory search bar (.supply-search-wrap, .supply-search-field).
+   - Styled dedicated scrollable list container with `overscroll-behavior: contain`.
+   - Styled selectable list item cards (.supply-item), hover states, active selection
+     highlights, custom checkboxes, deduction inputs, badges, and empty states.
+   - Added mobile/tablet media query adjustments.
+
+9. script.js
+   - Implemented `loadSupplyList()`, `renderSupplyList()`, and `updateSupplySelectionCount()`.
+   - Implemented real-time search filtering and clear button interactions.
+   - Managed multi-item selection state with per-item deduction amounts using Map.
+   - Pre-fills all linked ingredients and deduction amounts when editing existing products.
+   - Updated `submitProductForm()` to serialize ingredients into JSON payload.
+   - Updated `submitQuickAddSupply()` to automatically select newly created items.
+   - Updated stock display in product management table for multi-supply products.
+================================================================================

@@ -1,0 +1,226 @@
+================================================================================
+                    CAFEFLOW POS & INVENTORY MANAGEMENT SYSTEM
+                            SUMMARY OF ADDED FEATURES
+================================================================================
+Date: October 16, 2026
+System: CafeFlow (DK Cafe)
+Location: c:\xampp\htdocs\PROJECT WEB SYS\cafeflow
+
+--------------------------------------------------------------------------------
+1. REMOVED DEFAULT PRODUCT MENU & ADDED MANUAL PRODUCT MANAGEMENT
+--------------------------------------------------------------------------------
+- Completely wiped the preloaded/sample products (IDs 1-11) from the database
+  and schema.sql.
+- Menu now starts completely empty until products are registered manually.
+- Added "🏷️ Products" management interface accessible via the navigation bar.
+- Implemented full CRUD operations for products:
+  * Add new product (name, category, price, available stock, tracking toggle,
+    optional ingredient link).
+  * Edit product details, update pricing, and adjust stock quantities.
+  * Delete products with safe foreign key handling.
+  * Fast inline quick-stock adjustment modal.
+- Added a welcoming empty-state card with an "Add Your First Product" button
+  when no products exist in the database.
+
+--------------------------------------------------------------------------------
+2. PRODUCT IMAGE UPLOAD & VISUAL POS MENU
+--------------------------------------------------------------------------------
+- Added file upload capability for product images when adding or editing items.
+- Client-side and server-side validation supporting JPG, JPEG, PNG, and WebP.
+- File size limit enforced (maximum 5MB) with MIME-type verification.
+- Stored on server in uploads/products/ with randomized, collision-proof filenames.
+- Live preview thumbnail displayed directly inside the product creation/edit form.
+- Displayed prominently on POS menu product cards for quick cashier recognition.
+- Added a stylized coffee cup placeholder icon when a product has no image
+  or when an image fails to load.
+- Automatic server-side file deletion: when a product is deleted, its uploaded
+  image file is automatically unlinked and removed from the server disk.
+
+--------------------------------------------------------------------------------
+3. REAL-TIME PRODUCT SEARCH BAR & CATEGORY FILTER PILLS
+--------------------------------------------------------------------------------
+- Positioned a search bar prominently at the top of the POS menu section.
+- Instant, dynamic filtering as the cashier types without full page reloads.
+- Searches match product names and category names simultaneously.
+- Dynamic category filter pills ("All", "Coffee", "Tea", "Pastry", etc.) that
+  automatically adapt based on registered product categories.
+- Works in tandem: cashiers can click a category tab and search within it.
+- Non-destructive: searching or switching categories NEVER alters or removes
+  items already present in the active cart.
+- Added a clear "No products match your search or filter" notification when no
+  items match the search term.
+
+--------------------------------------------------------------------------------
+4. EXPANDABLE DAILY TRANSACTIONS & AUTHENTIC E-RECEIPTS
+--------------------------------------------------------------------------------
+- Upgraded transaction history with calendar date picker and filter presets:
+  * Specific Date (calendar date selector)
+  * Specific Month (YYYY-MM selector)
+  * Specific 7-Day Window
+  * Quick Today preset
+- Daily transactions table listing:
+  * Receipt Number (#00001)
+  * Exact Time & Date
+  * Order Status (Completed / Pending)
+  * Payment Method (Cash / GCash)
+  * Line Item Summary (e.g., "2× Spanish Latte, 1× Butter Croissant")
+  * Total Amount Paid
+  * Action buttons ("Expand" and "View Receipt")
+- Expandable table rows: click any row or the chevron to reveal the full itemized
+  list of products, quantities, unit prices, and subtotals inline.
+- Electronic Receipt (E-Receipt) modal:
+  * Store details (DK Cafe branding, address, contact, and TIN).
+  * Transaction timestamp and official receipt number.
+  * Itemized product breakdown (quantity, product name, unit price, line total).
+  * Subtotal, VAT/tax breakdown, and discounts applied.
+  * Total amount due, amount paid / tendered, and change returned.
+- Historical Snapshot Integrity:
+  * Snapshot unit price (unit_price) and product name (product_name) are
+    permanently recorded in transaction_items upon checkout.
+  * Future product price adjustments or product deletions will NEVER distort
+    past e-receipts or financial records.
+  * Viewing receipts is strictly read-only and never creates or updates data.
+
+--------------------------------------------------------------------------------
+5. EXCEL EXPORT (.XLSX) REPLACED PRINT FUNCTION
+--------------------------------------------------------------------------------
+- Completely removed the browser print button from the transaction/report view.
+- Added a dedicated "📥 Export to Excel" button (#exportExcelBtn).
+- Built a native OpenXML spreadsheet generator in pure PHP (export_excel.php)
+  utilizing gzdeflate (works out-of-the-box on XAMPP without php_zip extension).
+- Generates authentic, standard .xlsx workbooks compatible with Microsoft Excel,
+  Google Sheets, Apple Numbers, and LibreOffice Calc.
+- Exported spreadsheet contains 12 structured columns:
+  1. Receipt #
+  2. Date & Time
+  3. Payment Method
+  4. Status
+  5. Product Name
+  6. Category
+  7. Unit Price (₱)
+  8. Quantity Sold
+  9. Line Total (₱)
+  10. Order Total (₱)
+  11. Amount Paid (₱)
+  12. Change Due (₱)
+- Multi-item transactions clearly list each product item linked to the parent
+  order, finalized with a bold summary totals row.
+- Exports can be filtered by selected date, date range, or all historical records.
+
+--------------------------------------------------------------------------------
+6. CASH PAYMENT TENDER & CHANGE CALCULATOR DIALOG
+--------------------------------------------------------------------------------
+- Enhanced checkout flow: selecting "Cash" prompts a dedicated Cash Tender dialog.
+- Cashiers can input the exact cash handed by the customer or click quick
+  denomination buttons:
+  * Exact Amount
+  * +₱50
+  * +₱100
+  * +₱500
+  * +₱1,000
+- Computes and displays the change due in real time.
+- Validates that tendered amount is greater than or equal to the total amount
+  before permitting checkout.
+- Automatically saves amount_paid and change_due into the database.
+
+--------------------------------------------------------------------------------
+7. SALES REPORT DATE & CALENDAR FILTER CONTROLS
+--------------------------------------------------------------------------------
+- Added calendar date controls to the Sales Report view:
+  * Single specific date picker (with calendar icon)
+  * Month picker (YYYY-MM)
+  * 7-day range selector
+  * Quick filter buttons: Today, Last 7 Days, This Month, Specific Date
+- Dynamically updates KPI metrics (Total Sales, Total Orders, Average Order
+  Value, Cash vs GCash breakdown) for the selected period.
+
+--------------------------------------------------------------------------------
+8. BACKEND & DATABASE SCHEMA IMPROVEMENTS
+--------------------------------------------------------------------------------
+- menu_products:
+  * ADD category VARCHAR(50) NOT NULL DEFAULT 'Coffee'
+  * ADD image_url VARCHAR(255) NULL DEFAULT NULL
+  * ADD stock_quantity DECIMAL(10,2) NOT NULL DEFAULT 0.00
+  * ADD track_stock TINYINT(1) NOT NULL DEFAULT 1
+- transactions:
+  * ADD amount_paid DECIMAL(10,2) NULL DEFAULT NULL
+  * ADD change_due DECIMAL(10,2) NULL DEFAULT 0.00
+  * ADD subtotal DECIMAL(10,2) NULL DEFAULT NULL
+  * ADD tax DECIMAL(10,2) NULL DEFAULT 0.00
+  * ADD discount DECIMAL(10,2) NULL DEFAULT 0.00
+- transaction_items:
+  * ADD product_name VARCHAR(100) NULL DEFAULT NULL (snapshot)
+  * ADD unit_price DECIMAL(8,2) NOT NULL DEFAULT 0.00 (snapshot)
+  * Modified product_id to nullable with ON DELETE SET NULL constraint so
+    deleting menu items preserves past transaction records.
+- complete_order.php:
+  * Extended to automatically deduct direct product stock_quantity for tracked
+    products upon barista order completion in addition to linked raw ingredients.
+
+================================================================================
+                          SUMMARY OF MODIFIED & NEW FILES
+================================================================================
+
+1.  db.php
+    - Added ensure_schema() for auto-running database migrations on startup.
+    - Protected database constants with defined() checks.
+    - Added header guard checks (!headers_sent()) in send_json() and require_method().
+
+2.  schema.sql
+    - Cleaned out hardcoded starter products.
+    - Updated table structures with category, image_url, stock_quantity,
+      track_stock, snapshot columns, and nullable foreign key constraints.
+
+3.  migrate.php
+    - Standalone migration script to update existing databases safely.
+
+4.  products_api.php [NEW]
+    - RESTful endpoint handling product listing, multipart image upload, product
+      addition, updates, stock adjustments, safe deletion, and image cleanup.
+
+5.  fetch_menu.php
+    - Updated query to return category, image_url, stock_quantity, track_stock,
+      and real-time stock_state (ok, low, out).
+
+6.  checkout.php
+    - Updated to record snapshot product_name and unit_price into transaction_items,
+      and amount_paid / change_due into transactions.
+
+7.  complete_order.php
+    - Added deduction logic for menu_products.stock_quantity when orders are completed.
+
+8.  transactions_api.php [NEW]
+    - Returns daily transaction lists (?date=YYYY-MM-DD) and full e-receipt details
+      (?transaction_id=ID) with business metadata.
+
+9.  export_excel.php [NEW]
+    - Pure PHP OpenXML (.xlsx) builder creating real Microsoft Excel spreadsheets
+      from live database records without any external library dependencies.
+
+10. report.php
+    - Updated to support single date, 7-day window, and month calendar filters
+      for sales summaries and daily transaction tables.
+
+11. index.php
+    - Added "🏷️ Products" nav button, search bar, category pill bar, Product
+      Management modal, Cash Tender modal, E-Receipt modal, and replaced the
+      print button with the Export to Excel button.
+
+12. style.css
+    - Added styles for product cards, image thumbnails, search input, category
+      tabs, product management sheet, cash tender dialog, expandable daily
+      transaction table, and thermal e-receipt slip.
+
+13. script.js
+    - Client-side controllers for product search, category pills, product CRUD
+      modal, image preview, cash tender math, daily transactions table, modal
+      e-receipt viewing, and Excel export downloads.
+
+14. uploads/products/ [NEW DIRECTORY]
+    - Secure storage directory for uploaded product images.
+================================================================================
+
+
+can you give me an idea on the product and inventory linking logic.
+
+- when the user added a product on the menu and selects multiple ingredients based on the product details or recipe,  

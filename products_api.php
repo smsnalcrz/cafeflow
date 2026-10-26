@@ -1,0 +1,427 @@
+<?php
+/**
+ * products_api.php - Product management API for CafeFlow POS.
+ *
+ * GET  -> List all products and distinct categories
+ * POST -> Add, update, delete products or quick update stock (supports multipart/form-data with image upload)
+ */
+require_once __DIR__ . '/db.php';
+
+$pdo = db();
+
+const UPLOADS_DIR = __DIR__ . '/uploads/products/';
+const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+
+// -----------------------------------------------------------------------------
+// GET: Fetch products list
+// -----------------------------------------------------------------------------
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    $rows = $pdo->query(
+        'SELECT p.product_id, p.name, p.category, p.price, p.image_url,
+                p.stock_quantity, p.track_stock, p.linked_inventory_id, p.deduction_amount,
+                i.name AS linked_inventory_name, i.current_stock, i.restock_threshold, i.unit_measure
+           FROM menu_products p
+           LEFT JOIN inventory i ON i.item_id = p.linked_inventory_id
+          ORDER BY p.category ASC, p.name ASC'
+    )->fetchAll();
+
+    // Fetch multi-ingredient linkages if present
+    $allIngs = $pdo->query(
+        'SELECT pi.product_id, pi.item_id, pi.deduction_amount,
+                i.name AS item_name, i.current_stock, i.unit_measure, i.restock_threshold
+           FROM product_ingredients pi
+           JOIN inventory i ON i.item_id = pi.item_id
+          ORDER BY pi.id ASC'
+    )->fetchAll();
+    $ingsByProd = [];
+    foreach ($allIngs as $ing) {
+        $ingsByProd[$ing['product_id']][] = [
+            'item_id'           => (int) $ing['item_id'],
+            'name'              => $ing['item_name'],
+            'current_stock'     => (float) $ing['current_stock'],
+            'unit_measure'      => $ing['unit_measure'],
+            'restock_threshold' => (float) $ing['restock_threshold'],
+            'deduction_amount'  => (float) $ing['deduction_amount'],
+        ];
+    }
+
+    $products = [];
+    $categorySet = [];
+
+    foreach ($rows as $r) {
+        $state = null;
+        $category = trim($r['category'] ?? '') !== '' ? trim($r['category']) : 'General';
+        $categorySet[$category] = true;
+
+        $pId = (int) $r['product_id'];
+        $linkedIngredients = $ingsByProd[$pId] ?? [];
+        $linkedIds = array_map(static fn($item) => $item['item_id'], $linkedIngredients);
+
+        if ((int)$r['track_stock'] === 1) {
+            if (!empty($linkedIngredients)) {
+                $hasOut = false;
+                $hasLow = false;
+                foreach ($linkedIngredients as $ing) {
+                    $stock = (float) $ing['current_stock'];
+                    $deduct = (float) $ing['deduction_amount'];
+                    if ($stock <= 0 || ($deduct > 0 && $stock < $deduct)) {
+                        $hasOut = true;
+                        break;
+                    } elseif ($stock <= (float) $ing['restock_threshold']) {
+                        $hasLow = true;
+                    }
+                }
+                if ($hasOut) {
+                    $state = 'out';
+                } elseif ($hasLow) {
+                    $state = 'low';
+                } else {
+                    $state = 'ok';
+                }
+            } elseif ($r['linked_inventory_id'] !== null && $r['current_stock'] !== null) {
+                // Linked to raw inventory ingredient (legacy fallback)
+                $stock = (float) $r['current_stock'];
+                $deduct = (float) $r['deduction_amount'];
+                if ($stock <= 0 || ($deduct > 0 && $stock < $deduct)) {
+                    $state = 'out';
+                } elseif ($stock <= (float) $r['restock_threshold']) {
+                    $state = 'low';
+                } else {
+                    $state = 'ok';
+                }
+            } else {
+                // Direct product stock count
+                $directStock = (float) ($r['stock_quantity'] ?? 0);
+                if ($directStock <= 0) {
+                    $state = 'out';
+                } elseif ($directStock <= 5) {
+                    $state = 'low';
+                } else {
+                    $state = 'ok';
+                }
+            }
+        }
+
+        $firstIng = !empty($linkedIngredients) ? $linkedIngredients[0] : null;
+
+        $products[] = [
+            'product_id'            => (int) $r['product_id'],
+            'name'                  => $r['name'],
+            'category'              => $category,
+            'price'                 => (float) $r['price'],
+            'image_url'             => $r['image_url'],
+            'stock_quantity'        => (float) ($r['stock_quantity'] ?? 0),
+            'track_stock'           => (int) ($r['track_stock'] ?? 1),
+            'linked_inventory_id'   => $r['linked_inventory_id'] !== null ? (int) $r['linked_inventory_id'] : ($firstIng ? $firstIng['item_id'] : null),
+            'linked_inventory_name' => $r['linked_inventory_name'] ?? ($firstIng ? $firstIng['name'] : null),
+            'deduction_amount'      => (float) ($r['deduction_amount'] ?? ($firstIng ? $firstIng['deduction_amount'] : 0)),
+            'unit_measure'          => $r['unit_measure'] ?? ($firstIng ? $firstIng['unit_measure'] : 'pcs'),
+            'stock_state'           => $state,
+            'ingredients'           => $linkedIngredients,
+            'linked_inventory_ids'  => $linkedIds,
+        ];
+    }
+
+    $defaultCategories = ['Coffee', 'Non-Coffee', 'Tea', 'Pastry', 'Meals', 'Dessert', 'Snacks', 'Beverages'];
+    $allCategories = array_values(array_unique(array_merge($defaultCategories, array_keys($categorySet))));
+
+    send_json([
+        'success'    => true,
+        'products'   => $products,
+        'categories' => $allCategories,
+    ]);
+}
+
+// -----------------------------------------------------------------------------
+// POST: Add / Update / Delete / Quick stock
+// -----------------------------------------------------------------------------
+require_method('POST');
+
+// Handle either multipart/form-data or application/json
+$isMultipart = str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'multipart/form-data');
+if ($isMultipart) {
+    $data = $_POST;
+} else {
+    $data = read_json();
+}
+
+$action = $data['action'] ?? '';
+
+function handle_image_upload(?array $file): ?string
+{
+    if (!$file || !isset($file['error']) || $file['error'] === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        fail(400, 'Image upload failed. Error code: ' . $file['error']);
+    }
+    if ($file['size'] > MAX_IMAGE_BYTES) {
+        fail(400, 'Image file size must be 5MB or less.');
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($file['tmp_name']);
+    if (!in_array($mime, ALLOWED_MIMES, true)) {
+        fail(400, 'Invalid image format. Allowed formats: JPG, JPEG, PNG, WebP.');
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if ($ext === 'jpeg') $ext = 'jpg';
+    if (!in_array($ext, ALLOWED_EXTS, true)) {
+        fail(400, 'Invalid image file extension. Allowed: .jpg, .png, .webp.');
+    }
+
+    if (!is_dir(UPLOADS_DIR) && !mkdir(UPLOADS_DIR, 0777, true) && !is_dir(UPLOADS_DIR)) {
+        fail(500, 'Cannot create upload directory.');
+    }
+
+    $safeName = 'prod_' . bin2hex(random_bytes(6)) . '_' . time() . '.' . $ext;
+    $targetPath = UPLOADS_DIR . $safeName;
+
+    if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
+        fail(500, 'Failed to save uploaded image.');
+    }
+
+    return 'uploads/products/' . $safeName;
+}
+
+function safe_delete_image(?string $url): void
+{
+    if (!$url) return;
+    $relative = str_replace(['..', '\\'], ['', '/'], $url);
+    if (str_starts_with($relative, 'uploads/products/')) {
+        $fullPath = __DIR__ . '/' . $relative;
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+    }
+}
+
+function parse_incoming_ingredients(array $data): array
+{
+    $res = []; // item_id => deduction_amount (decimal string)
+    if (!empty($data['ingredients_json'])) {
+        $raw = $data['ingredients_json'];
+        $decoded = is_string($raw) ? json_decode($raw, true) : (is_array($raw) ? $raw : []);
+        if (is_array($decoded)) {
+            foreach ($decoded as $it) {
+                $itemId = as_int($it['item_id'] ?? null, 1, 4294967295);
+                if ($itemId !== null) {
+                    $deduct = as_decimal($it['deduction_amount'] ?? 1, 0.00, 999999.99);
+                    $res[$itemId] = $deduct !== null ? $deduct : '1.00';
+                }
+            }
+        }
+    } elseif (isset($data['linked_inventory_ids']) && is_array($data['linked_inventory_ids'])) {
+        foreach ($data['linked_inventory_ids'] as $id) {
+            $itemId = as_int($id, 1, 4294967295);
+            if ($itemId !== null) {
+                $res[$itemId] = '1.00';
+            }
+        }
+    } elseif (!empty($data['linked_inventory_id'])) {
+        $itemId = as_int($data['linked_inventory_id'], 1, 4294967295);
+        if ($itemId !== null) {
+            $deduct = as_decimal($data['deduction_amount'] ?? 1, 0.00, 999999.99);
+            $res[$itemId] = $deduct !== null ? $deduct : '1.00';
+        }
+    }
+    return $res;
+}
+
+switch ($action) {
+    case 'add':
+        $name     = trim((string) ($data['name'] ?? ''));
+        $category = trim((string) ($data['category'] ?? 'Coffee'));
+        $price    = as_decimal($data['price'] ?? null, 0.00, 999999.99);
+        $stock    = as_decimal($data['stock_quantity'] ?? 0, 0.00, 999999.99);
+        $track    = isset($data['track_stock']) ? (int) (bool) $data['track_stock'] : 1;
+
+        if ($name === '' || strlen($name) > 100) {
+            fail(422, 'Product name is required (max 100 characters).');
+        }
+        if ($category === '' || strlen($category) > 50) {
+            $category = 'General';
+        }
+        if ($price === null) {
+            fail(422, 'Price must be a valid amount of 0.00 or more.');
+        }
+
+        // Handle ingredients and fallback link
+        $incomingIngs  = parse_incoming_ingredients($data);
+        $primaryInvId  = !empty($incomingIngs) ? array_key_first($incomingIngs) : as_int($data['linked_inventory_id'] ?? null, 1, 4294967295);
+        $primaryDeduct = $primaryInvId !== null && isset($incomingIngs[$primaryInvId]) ? $incomingIngs[$primaryInvId] : as_decimal($data['deduction_amount'] ?? 0, 0.00, 999999.99);
+
+        // Handle image upload
+        $imageUrl = handle_image_upload($_FILES['image'] ?? null);
+
+        $stmt = $pdo->prepare(
+            'INSERT INTO menu_products (name, category, price, image_url, stock_quantity, track_stock, linked_inventory_id, deduction_amount)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            $name,
+            $category,
+            $price,
+            $imageUrl,
+            $stock ?? '0.00',
+            $track,
+            $primaryInvId,
+            $primaryDeduct ?? '0.00'
+        ]);
+
+        $newId = (int) $pdo->lastInsertId();
+
+        // Save linked ingredients
+        if (!empty($incomingIngs)) {
+            $insIng = $pdo->prepare('INSERT INTO product_ingredients (product_id, item_id, deduction_amount) VALUES (?, ?, ?)');
+            foreach ($incomingIngs as $itemId => $amt) {
+                $insIng->execute([$newId, $itemId, $amt]);
+            }
+        }
+
+        send_json([
+            'success'    => true,
+            'message'    => 'Product created successfully.',
+            'product_id' => $newId,
+        ], 201);
+        break;
+
+    case 'update':
+        $productId = as_int($data['product_id'] ?? null, 1, 4294967295);
+        if ($productId === null) {
+            fail(422, 'Invalid product ID.');
+        }
+
+        // Find existing product
+        $st = $pdo->prepare('SELECT * FROM menu_products WHERE product_id = ?');
+        $st->execute([$productId]);
+        $existing = $st->fetch();
+        if (!$existing) {
+            fail(404, 'Product not found.');
+        }
+
+        $name     = trim((string) ($data['name'] ?? $existing['name']));
+        $category = trim((string) ($data['category'] ?? $existing['category']));
+        $price    = as_decimal($data['price'] ?? $existing['price'], 0.00, 999999.99);
+        $stock    = as_decimal($data['stock_quantity'] ?? $existing['stock_quantity'], 0.00, 999999.99);
+        $track    = isset($data['track_stock']) ? (int) (bool) $data['track_stock'] : (int) $existing['track_stock'];
+
+        if ($name === '' || strlen($name) > 100) {
+            fail(422, 'Product name is required (max 100 characters).');
+        }
+        if ($price === null) {
+            fail(422, 'Price must be a valid amount of 0.00 or more.');
+        }
+
+        // Handle ingredients update
+        $hasIngsParam = array_key_exists('ingredients_json', $data) || array_key_exists('linked_inventory_id', $data);
+        if ($hasIngsParam) {
+            $incomingIngs  = parse_incoming_ingredients($data);
+            $primaryInvId  = !empty($incomingIngs) ? array_key_first($incomingIngs) : null;
+            $primaryDeduct = $primaryInvId !== null && isset($incomingIngs[$primaryInvId]) ? $incomingIngs[$primaryInvId] : '0.00';
+        } else {
+            $primaryInvId  = $existing['linked_inventory_id'];
+            $primaryDeduct = $existing['deduction_amount'];
+            $incomingIngs  = null;
+        }
+
+        $imageUrl = $existing['image_url'];
+        $newUploaded = handle_image_upload($_FILES['image'] ?? null);
+        if ($newUploaded !== null) {
+            safe_delete_image($existing['image_url']);
+            $imageUrl = $newUploaded;
+        } elseif (!empty($data['remove_image'])) {
+            safe_delete_image($existing['image_url']);
+            $imageUrl = null;
+        }
+
+        $stmt = $pdo->prepare(
+            'UPDATE menu_products
+                SET name = ?, category = ?, price = ?, image_url = ?,
+                    stock_quantity = ?, track_stock = ?, linked_inventory_id = ?, deduction_amount = ?
+              WHERE product_id = ?'
+        );
+        $stmt->execute([
+            $name,
+            $category,
+            $price,
+            $imageUrl,
+            $stock ?? '0.00',
+            $track,
+            $primaryInvId,
+            $primaryDeduct ?? '0.00',
+            $productId
+        ]);
+
+        if ($incomingIngs !== null) {
+            $pdo->prepare('DELETE FROM product_ingredients WHERE product_id = ?')->execute([$productId]);
+            if (!empty($incomingIngs)) {
+                $insIng = $pdo->prepare('INSERT INTO product_ingredients (product_id, item_id, deduction_amount) VALUES (?, ?, ?)');
+                foreach ($incomingIngs as $itemId => $amt) {
+                    $insIng->execute([$productId, $itemId, $amt]);
+                }
+            }
+        }
+
+        send_json([
+            'success' => true,
+            'message' => 'Product updated successfully.',
+        ]);
+        break;
+
+    case 'delete':
+        $productId = as_int($data['product_id'] ?? null, 1, 4294967295);
+        if ($productId === null) {
+            fail(422, 'Invalid product ID.');
+        }
+
+        $st = $pdo->prepare('SELECT name, price, image_url FROM menu_products WHERE product_id = ?');
+        $st->execute([$productId]);
+        $row = $st->fetch();
+        if (!$row) {
+            fail(404, 'Product not found.');
+        }
+
+        // Preserve snapshot name and unit_price in past transactions before unlinking
+        $pdo->prepare(
+            'UPDATE transaction_items
+                SET product_name = COALESCE(product_name, ?),
+                    unit_price   = CASE WHEN unit_price = 0 THEN ? ELSE unit_price END
+              WHERE product_id = ?'
+        )->execute([$row['name'], $row['price'], $productId]);
+
+        // Unlink from past transactions so deletion never violates foreign keys or destroys sales history
+        $pdo->prepare('UPDATE transaction_items SET product_id = NULL WHERE product_id = ?')->execute([$productId]);
+
+        safe_delete_image($row['image_url']);
+
+        $pdo->prepare('DELETE FROM menu_products WHERE product_id = ?')->execute([$productId]);
+
+        send_json([
+            'success' => true,
+            'message' => 'Product deleted successfully.',
+        ]);
+        break;
+
+    case 'update_stock':
+        $productId = as_int($data['product_id'] ?? null, 1, 4294967295);
+        $stock     = as_decimal($data['stock_quantity'] ?? null, 0.00, 999999.99);
+        if ($productId === null || $stock === null) {
+            fail(422, 'Invalid product ID or stock quantity.');
+        }
+
+        $pdo->prepare('UPDATE menu_products SET stock_quantity = ? WHERE product_id = ?')
+            ->execute([$stock, $productId]);
+
+        send_json([
+            'success' => true,
+            'message' => 'Stock updated.',
+        ]);
+        break;
+
+    default:
+        fail(422, 'Unknown action.');
+}
