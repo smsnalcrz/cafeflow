@@ -1843,6 +1843,20 @@
   $$('.nav-btn').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
   $$('[data-close]').forEach(b => b.addEventListener('click', () => showView('pos')));
 
+  // Brand logo click returns to POS and clears filters
+  const brandEl = $('.brand');
+  if (brandEl) {
+    brandEl.addEventListener('click', () => {
+      showView('pos');
+      activeCategory = 'all';
+      searchQuery = '';
+      if (searchInput) searchInput.value = '';
+      if (clearBtn) clearBtn.hidden = true;
+      renderCategoryBar();
+      renderMenu();
+    });
+  }
+
   // Search input on POS
   const searchInput = $('#productSearch');
   const clearBtn = $('#searchClearBtn');

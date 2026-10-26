@@ -17,8 +17,22 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
 
   <!-- ===== Top navigation ===== -->
   <header class="topbar">
-    <div class="brand">
-      <img src="dk_cafe_logo.png" alt="DK Cafe" class="brand-logo">
+    <div class="brand" role="banner" title="CafeFlow & DK Cafe">
+      <div class="brand-lockup">
+        <div class="brand-top-row">
+          <div class="brand-emblem-wrap" title="CafeFlow POS">
+            <img src="cafeflow_logo.svg?v=<?= $ver('cafeflow_logo.svg') ?>" alt="CafeFlow" class="brand-emblem-img">
+          </div>
+          <div class="brand-logo-wrap" title="DK Cafe">
+            <img src="dk_cafe_logo_cropped.png?v=<?= $ver('dk_cafe_logo_cropped.png') ?>" alt="DK Cafe" class="brand-logo-dk">
+          </div>
+        </div>
+        <div class="brand-pill-bar">
+          <span class="brand-pill-item">CAFEFLOW</span>
+          <span class="brand-pill-amp" aria-hidden="true">&amp;</span>
+          <span class="brand-pill-item">DK CAFE</span>
+        </div>
+      </div>
     </div>
     <nav class="nav" aria-label="Main">
       <button type="button" class="nav-btn active" data-view="pos">

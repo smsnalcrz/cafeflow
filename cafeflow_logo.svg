@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8623a" />
+      <stop offset="50%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#2a9b52" />
+    </linearGradient>
+    <linearGradient id="cupGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f2ebe0" />
+    </linearGradient>
+    <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#e8623a" />
+      <stop offset="50%" stop-color="#f48847" />
+      <stop offset="100%" stop-color="#2a9b52" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Outer Ring (Emblem style matching reference) -->
+  <circle cx="100" cy="100" r="92" fill="#162318" stroke="url(#ringGrad)" stroke-width="5" filter="url(#glow)"/>
+  <circle cx="100" cy="100" r="84" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+
+  <!-- Coffee Cup Base -->
+  <path d="M58 84 h84 c0 0 2 38 -42 38 s-42 -38 -42 -38 z" fill="url(#cupGrad)"/>
+  
+  <!-- Cup Rim -->
+  <ellipse cx="100" cy="84" rx="42" ry="7" fill="#f2ebe0" stroke="#162318" stroke-width="1.5"/>
+  <ellipse cx="100" cy="84" rx="36" ry="5" fill="#3d2415"/>
+
+  <!-- Cup Handle -->
+  <path d="M140 88 c12 0 20 8 20 18 c0 11 -8 18 -20 18" fill="none" stroke="url(#cupGrad)" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Fluid Flow Wave cutting smoothly across (Representing "Flow") -->
+  <path d="M46 102 C68 116 86 92 108 106 C126 118 142 108 156 100" fill="none" stroke="url(#flowGrad)" stroke-width="5.5" stroke-linecap="round"/>
+  <path d="M54 112 C72 124 90 102 112 116 C128 126 140 118 148 112" fill="none" stroke="#2a9b52" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
+
+  <!-- Steam 1 (Flame-styled steam matching DK Cafe flame) -->
+  <path d="M88 68 C84 56 94 48 90 36 C86 46 80 50 84 62 Z" fill="#e8623a"/>
+  
+  <!-- Steam 2 (Center steam wisp) -->
+  <path d="M102 70 C98 54 110 44 104 30 C99 42 92 48 98 64 Z" fill="#ffffff" opacity="0.9"/>
+
+  <!-- Steam 3 (Right leaf steam) -->
+  <path d="M114 66 C118 56 112 50 120 40 C118 48 124 54 118 64 Z" fill="#2a9b52"/>
+
+  <!-- Bottom Saucer -->
+  <path d="M62 128 h76 c6 0 10 3 10 5 c0 2 -4 5 -10 5 H62 c-6 0 -10 -3 -10 -5 c0 -2 4 -5 10 -5 z" fill="url(#cupGrad)" opacity="0.9"/>
+
+  <!-- Modern Monogram Letters CF (Subtle & Elegant) -->
+  <text x="100" y="162" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="900" fill="#ffffff" letter-spacing="4">CAFEFLOW</text>
+</svg>

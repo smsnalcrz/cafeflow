@@ -194,7 +194,19 @@ reliably through their underlying raw inventory supplies.
   * Updated `recipe_engine.php` and `products_api.php` category rules and profiles.
 
 --------------------------------------------------------------------------------
-10. VERIFICATION & TEST RESULTS
+10. CO-BRANDED CAFEFLOW & DK CAFE LOGO LOCKUP
+--------------------------------------------------------------------------------
+- Dual Brand Lockup in Header (`index.php` & `style.css`):
+  * Designed a circular vector emblem for CafeFlow (`cafeflow_logo.svg`) featuring a
+    coffee cup, dynamic fluid "flow" streams, and aroma flame accents matching the DK Cafe palette.
+  * Paired beside the official DK Cafe logo (`dk_cafe_logo_cropped.png`) in a co-branded layout.
+  * Included a sleek corporate pill bar below: `[ CAFEFLOW & DK CAFE ]` with a central
+    circular separator badge, directly matching the reference corporate lockup design.
+  * Added responsive media queries for smaller tablets and mobile screens.
+  * Clicking the brand lockup automatically scrolls and returns to the POS menu view.
+
+--------------------------------------------------------------------------------
+11. VERIFICATION & TEST RESULTS
 --------------------------------------------------------------------------------
 All 7 required criteria were verified against the live database:
   [PASS] 1. Different cup sizes display and charge correct prices (₱130 vs ₱150).

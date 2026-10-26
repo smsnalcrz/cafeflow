@@ -127,13 +127,98 @@ h2, h3 { margin: 0; }
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  cursor: pointer;
+  text-decoration: none;
 }
-.brand-logo {
-  height: 200px;
+
+.brand-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 3px;
+  user-select: none;
+}
+
+.brand-top-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-emblem-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.brand-emblem-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: block;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.3));
+  transition: transform var(--dur-fast) var(--ease-spring);
+}
+.brand-emblem-wrap:hover .brand-emblem-img {
+  transform: scale(1.06) rotate(-2deg);
+}
+
+.brand-logo-wrap {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.brand-logo-dk {
+  height: 34px;
   width: auto;
-  /* PNG already has transparent background — no blend needed */
-  filter: brightness(1.05);
+  display: block;
+  filter: brightness(1.08) drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+  transition: transform var(--dur-fast) var(--ease);
 }
+.brand-logo-wrap:hover .brand-logo-dk {
+  transform: scale(1.03);
+}
+
+/* Bottom Co-Branded Pill Bar (matching reference image) */
+.brand-pill-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  padding: 2px 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.brand-pill-item {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: rgba(255, 255, 255, 0.92);
+  text-transform: uppercase;
+}
+
+.brand-pill-amp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--caramel);
+  color: #ffffff;
+  font-size: 9.5px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
 .brand::before { content: none; }
 .brand small { display: none; }
 
@@ -1365,7 +1450,10 @@ h2, h3 { margin: 0; }
    ====================================================================== */
 @media (max-width: 900px) {
   .clock { display: none; }
-  .brand-logo { height: 54px; }
+  .brand-emblem-img { width: 36px; height: 36px; }
+  .brand-logo-dk { height: 28px; }
+  .brand-pill-bar { padding: 1.5px 8px; }
+  .brand-pill-item { font-size: 8.5px; letter-spacing: 0.8px; }
   .nav-btn { padding: 0 12px; font-size: 14px; }
   .menu-grid { grid-template-columns: repeat(auto-fill, minmax(135px, 1fr)); }
   .stats { grid-template-columns: repeat(2, 1fr); }
@@ -1377,7 +1465,9 @@ h2, h3 { margin: 0; }
   .cart { min-height: 240px; }
   .item { min-height: 80px; }
   :root { --topbar-h: 56px; }
-  .brand-logo { height: 48px; }
+  .brand-emblem-img { width: 32px; height: 32px; }
+  .brand-logo-dk { height: 24px; }
+  .brand-pill-bar { display: none; }
 }
 
 .table .sub-pill {
