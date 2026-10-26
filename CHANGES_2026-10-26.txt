@@ -1,0 +1,207 @@
+================================================================================
+                    CAFEFLOW POS & INVENTORY MANAGEMENT SYSTEM
+             DYNAMIC CUP SIZE PRICING & RAW INVENTORY CONSUMPTION
+================================================================================
+Date: October 26, 2026
+System: CafeFlow (DK Cafe)
+Location: c:\xampp\htdocs\cafeflow_v5-1
+
+--------------------------------------------------------------------------------
+1. OVERVIEW OF CHANGES
+--------------------------------------------------------------------------------
+This update implements dynamic product pricing based on cup size (16oz Large vs.
+22oz Grande) and replaces arbitrary manual finished-beverage stock tracking with
+automatic, estimated raw inventory consumption. All consumption values, size
+multipliers, and recipe definitions have been centralized into a single, easily
+maintainable engine (`recipe_engine.php`) so staff can calibrate measurements
+anytime without modifying frontend or database queries.
+
+The optional "Track stock quantity" checkbox has been completely removed from
+the UI and backend validation; all products now track stock consistently and
+reliably through their underlying raw inventory supplies.
+
+--------------------------------------------------------------------------------
+2. DYNAMIC PRODUCT PRICING BASED ON CUP SIZE
+--------------------------------------------------------------------------------
+- Product Size Pricing Schema:
+  * Added `has_sizes` (TINYINT), `price_16oz` (DECIMAL), and `price_22oz` (DECIMAL)
+    to `menu_products`.
+  * Created normalized `product_size_prices` table to support expandable cup size
+    pricing per product.
+  * Added `size_code`, `size_label`, and `size_oz` columns to `transaction_items`
+    to record exact size and price snapshots permanently.
+- Product Management Modal (#productSheet):
+  * Replaced fixed single-price inputs with a clear "Enable Cup Sizes" toggle.
+  * When enabled (default for beverages): Cashiers/managers specify separate
+    prices for 16oz (Large) and 22oz (Grande).
+  * When disabled (for pastries/food items like Croffles, Sandwiches, Meals):
+    Form displays a single fixed price input.
+- Products Management View:
+  * Pricing column in the table displays size breakdown:
+    "16oz: ₱[Price] | 22oz: ₱[Price]" for multi-size beverages.
+- POS Menu Grid & Size Picker Popover:
+  * POS item cards show dynamic pricing (e.g. "16oz ₱130 · 22oz ₱150").
+  * Tapping a beverage opens the Size Picker popover displaying the exact price
+    directly on each size button (16oz Large vs 22oz Grande).
+  * Tapping a non-sized item (Pastry/Food) adds it immediately to the cart without
+    prompting for a cup size.
+- Cart & Dynamic Recalculation:
+  * Cart items are keyed by `product_id:size` so both 16oz and 22oz of the same
+    product can be purchased in the same order as distinct lines.
+  * Each line displays a stylized badge (e.g. "Large · 16oz") and its exact size price.
+  * Server recalculates order totals in `checkout.php` based on database size prices.
+
+--------------------------------------------------------------------------------
+3. INVENTORY CONSUMPTION ENGINE (`recipe_engine.php`)
+--------------------------------------------------------------------------------
+- Centralized Architecture:
+  * Located at: `c:\xampp\htdocs\cafeflow_v5-1\recipe_engine.php`
+  * Single source of truth for all cup dimensions, scaling factors, and recipe
+    ingredient assumptions.
+- Standard Cup Sizes & Scaling Profiles:
+  * 16oz (Large): Baseline multiplier 1.00; automatically maps to '16oz cup' & 'Flat lid'.
+  * 22oz (Grande): Scaling multiplier 1.375 (~38% more volume); maps to '22oz cup' & 'Flat lid'.
+- Structured Temporary Assumptions (`ESTIMATED_CONSUMPTION_PROFILES`):
+  * Cleanly structured placeholder recipes per product/category:
+    - Matcha: Matcha Powder (15g @ 16oz / 22g @ 22oz), Full Cream Milk (180ml / 250ml),
+      Ice (120g / 160g), matching cup, flat lid, straw.
+    - Americano: Espresso Beans (18g / 24g), Ice (140g / 180g), cup, lid, straw.
+    - Spanish Latte / Latte: Espresso Beans (18g / 24g), Milk (170ml / 230ml),
+      Ice (120g / 150g), cup, lid, straw.
+    - Caramel Macchiato: Beans (18g / 24g), Milk (160ml / 220ml), Caramel syrup (20ml / 30ml),
+      Ice (120g / 150g), cup, lid, straw.
+    - Coffee / Milk Tea / Fruit Tea category fallbacks.
+  * Custom explicit ingredient links in `product_ingredients` take Priority 1,
+    automatically scaled by the cup size volume factor and packaging requirements.
+- How to Update Measurements Later:
+  * To update any gram/ml/piece measurement, open `recipe_engine.php` and update
+    the numbers in `ESTIMATED_CONSUMPTION_PROFILES` or edit custom product links
+    in the Products tab. No other files need to be edited!
+
+--------------------------------------------------------------------------------
+4. DEDUCTION TIMING & PROTECTION AGAINST INSUFFICIENT STOCK
+--------------------------------------------------------------------------------
+- Deduction Timing:
+  * Orders placed via POS enter status 'Pending' on the Barista Queue.
+  * PENDING, FAILED, or CANCELLED orders NEVER deduct raw inventory.
+  * Deductions occur EXCLUSIVELY and ATOMICALLY when the barista marks an order
+    'Completed' in `complete_order.php`.
+  * Status is checked with `FOR UPDATE` row locking to prevent duplicate deductions.
+- Pre-order & Pre-completion Availability Checks:
+  * `checkout.php` verifies that the cafe has sufficient raw materials before
+    accepting an order into the queue.
+  * `complete_order.php` locks inventory rows and validates that all required
+    supplies exist before deducting.
+  * If raw supplies are insufficient:
+    - Order is rejected with a clear, specific message:
+      "Cannot complete order: Insufficient stock for '[Item]'. Order requires X, but only Y available (short by Z)."
+    - Prevents negative inventory balances.
+  * Real-time stock status badges ('In Stock', 'Low Stock', 'Out of Stock') in POS
+    are evaluated directly from live raw inventory supplies.
+
+--------------------------------------------------------------------------------
+5. REMOVAL OF "TRACK STOCK QUANTITY" CHECKBOX
+--------------------------------------------------------------------------------
+- Removed `<input type="checkbox" id="pTrackStock">` from `index.php`.
+- The Raw Inventory Supply Link section is now a permanent, direct part of the
+  Product form.
+- Removed all frontend event listeners, state toggling, and conditional styling
+  tied to `pTrackStock` in `script.js`.
+- Cleaned up backend processing in `products_api.php` and `fetch_menu.php` so all
+  items track stock based on raw inventory availability.
+
+--------------------------------------------------------------------------------
+6. RECEIPTS, QUEUE, AND SALES REPORT ACCURACY
+--------------------------------------------------------------------------------
+- Barista Queue (`fetch_queue.php`):
+  * Displays the product name along with its cup size (e.g. "Matcha (Large - 16oz) x 1")
+    so the barista immediately knows the correct cup size to brew.
+- E-Receipt & Printable Receipt (`transactions_api.php` & `renderReceipt`):
+  * Receipts print each item with its selected cup size and size-specific unit price.
+  * Subtotal and total reflect dynamic size pricing accurately.
+- Sales Reports & Exports (`report.php` & `export_excel.php`):
+  * Revenue figures accurately aggregate the dynamic size prices.
+  * Top selling items report size variations cleanly.
+  * Excel export outputs "Product Name (Cup Size)" and the exact size unit price.
+
+--------------------------------------------------------------------------------
+7. OUT-OF-STOCK CLICK GUARD & CARD LAYOUT FIX
+--------------------------------------------------------------------------------
+- Disabled Out-of-Stock Card Clicks:
+  * When a product's raw stock is 0 or depleted (`stock_state === 'out'`), the card
+    is now tagged with class `.is-out-of-stock` and `aria-disabled="true"`.
+  * Clicking the card no longer opens the size picker or adds to cart; instead,
+    it shows a toast alert: "[Product] is currently out of stock."
+  * `addToCart()`, `openSizePicker()`, and the size buttons now have strict guards
+    blocking any attempt to add an out-of-stock product.
+  * In `changeQty()`, clicking the `+` stepper button in the cart cannot increment
+    quantities of out-of-stock items.
+  * In `checkout.php`, the backend enforces that no out-of-stock product can be
+    submitted in an order.
+- Clean Price Range Display:
+  * Changed the card pricing display from long text (`16oz ₱130.00 · 22oz ₱150.00`)
+    to clean, concise range formatting (`₱130.00 – ₱150.00`).
+  * Updated `.item-foot` with flexible spacing so prices and stock tags never collide
+    or wrap awkwardly.
+
+--------------------------------------------------------------------------------
+8. CUP SIZE LOGIC ENHANCEMENT & "TALL" (16oz) LABEL UPDATE
+--------------------------------------------------------------------------------
+- Changed 16oz Size Label from "Large" to "Tall":
+  * 16oz is now officially "Tall" and 22oz is "Grande".
+  * Updated across database schema (`db.php`), default inserts, existing records in
+    `product_size_prices` and `transaction_items`, size popover dialog (`index.php`),
+    product management forms, and JavaScript validation.
+- Per-Cup-Size Real-Time Stock Availability (`recipe_engine.php` & `fetch_menu.php`):
+  * Previously, checking 16oz stock caused the whole product to be marked "Out of stock"
+    even when 22oz cups (500 pcs) were available in inventory.
+  * Implemented `evaluate_single_size_stock()`: Evaluates inventory sufficiency for each
+    size individually (16oz vs 22oz).
+  * Products are only marked completely "Out of stock" if ALL sizes are depleted (or if
+    a core ingredient like coffee beans/matcha powder is 0).
+  * If 16oz cup is 0 pcs but 22oz cup has stock, product state is `partial`:
+    - Menu card remains clickable, does NOT show "Out of stock", and displays a
+      helpful badge: "Grande only".
+    - Clicking the card opens the size popover:
+      * Tall (16oz) button is disabled with an "Out of stock" indicator.
+      * Grande (22oz) button is enabled (₱150.00) and can be added to the order.
+    - If 22oz cup is 0 and 16oz is in stock, card displays "Tall only" and Tall is orderable.
+    - Backend `checkout.php` validates inventory sufficiency for the exact cup size ordered.
+
+--------------------------------------------------------------------------------
+9. CATEGORY DROPDOWN LIST BASED ON REFERENCE FOLDER
+--------------------------------------------------------------------------------
+- Category Field Redesigned as a Dedicated `<select>` Dropdown:
+  * Replaced `<input id="pCategory" list="categoryDatalist">` with a styled `<select id="pCategory">`.
+  * Styled with CafeFlow UI matching the screenshot (`height: 50px`, custom downward
+    triangle arrow icon, focus highlights, font size, and padding).
+- Standard Categories from DK Cafe Reference Folder:
+  * Coffee (from `coffee_hot_and_cold.JPG`)
+  * Non-Coffee (from `fruittea-lemonade_milktea_milkseries.JPG` / user screenshot)
+  * Milk Tea (from `fruittea-lemonade_milktea_milkseries.JPG`)
+  * Fruit Tea / Lemonade (from `fruittea-lemonade_milktea_milkseries.JPG`)
+  * Croffle (from `coffle.JPG`)
+  * Sandwich (from `sandwich.JPG`)
+  * Pastry (from `list_of_stocks.PNG`)
+  * Snacks (from `list_of_stocks.PNG`)
+- Dynamic Form Intelligence & Cup Sizes Interaction:
+  * Selecting a beverage category (Coffee, Non-Coffee, Milk Tea, Fruit Tea / Lemonade)
+    automatically enables and displays the cup sizes pricing grid (16oz Tall & 22oz Grande).
+  * Selecting a food/solid category (Croffle, Sandwich, Pastry, Snacks) automatically
+    switches to Single / Fixed Price input and hides cup sizes.
+  * Any pre-existing custom categories from the database are dynamically retained and
+    appended to the `<select>` options so no legacy data is lost.
+  * Updated `recipe_engine.php` and `products_api.php` category rules and profiles.
+
+--------------------------------------------------------------------------------
+10. VERIFICATION & TEST RESULTS
+--------------------------------------------------------------------------------
+All 7 required criteria were verified against the live database:
+  [PASS] 1. Different cup sizes display and charge correct prices (₱130 vs ₱150).
+  [PASS] 2. Completed sales deduct estimated raw materials (cups, lids, milk, beans, powders).
+  [PASS] 3. Pending/incomplete orders do NOT deduct inventory.
+  [PASS] 4. Insufficient raw materials are caught with clear descriptive feedback.
+  [PASS] 5. "Track stock quantity" checkbox completely removed.
+  [PASS] 6. Receipts, sales reports, Excel export, and barista queue remain 100% accurate.
+  [PASS] 7. System runs with 0 PHP errors, 0 JS errors, and 0 database conflicts.
+================================================================================

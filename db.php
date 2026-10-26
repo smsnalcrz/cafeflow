@@ -41,6 +41,15 @@ if (!function_exists('ensure_schema')) {
             if (!in_array('track_stock', $cols, true)) {
                 $pdo->exec("ALTER TABLE menu_products ADD COLUMN track_stock TINYINT(1) NOT NULL DEFAULT 1 AFTER stock_quantity");
             }
+            if (!in_array('has_sizes', $cols, true)) {
+                $pdo->exec("ALTER TABLE menu_products ADD COLUMN has_sizes TINYINT(1) NOT NULL DEFAULT 1 AFTER track_stock");
+            }
+            if (!in_array('price_16oz', $cols, true)) {
+                $pdo->exec("ALTER TABLE menu_products ADD COLUMN price_16oz DECIMAL(8,2) NULL DEFAULT NULL AFTER has_sizes");
+            }
+            if (!in_array('price_22oz', $cols, true)) {
+                $pdo->exec("ALTER TABLE menu_products ADD COLUMN price_22oz DECIMAL(8,2) NULL DEFAULT NULL AFTER price_16oz");
+            }
 
             $itemCols = $pdo->query("SHOW COLUMNS FROM transaction_items")->fetchAll(PDO::FETCH_COLUMN);
             if (!in_array('unit_price', $itemCols, true)) {
@@ -48,6 +57,15 @@ if (!function_exists('ensure_schema')) {
             }
             if (!in_array('product_name', $itemCols, true)) {
                 $pdo->exec("ALTER TABLE transaction_items ADD COLUMN product_name VARCHAR(100) NULL DEFAULT NULL AFTER product_id");
+            }
+            if (!in_array('size_code', $itemCols, true)) {
+                $pdo->exec("ALTER TABLE transaction_items ADD COLUMN size_code VARCHAR(30) NULL DEFAULT NULL AFTER unit_price");
+            }
+            if (!in_array('size_label', $itemCols, true)) {
+                $pdo->exec("ALTER TABLE transaction_items ADD COLUMN size_label VARCHAR(50) NULL DEFAULT NULL AFTER size_code");
+            }
+            if (!in_array('size_oz', $itemCols, true)) {
+                $pdo->exec("ALTER TABLE transaction_items ADD COLUMN size_oz INT UNSIGNED NULL DEFAULT NULL AFTER size_label");
             }
             try {
                 $pdo->exec("ALTER TABLE transaction_items MODIFY COLUMN product_id INT UNSIGNED NULL DEFAULT NULL");
@@ -89,6 +107,64 @@ if (!function_exists('ensure_schema')) {
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ");
             }
+
+            if (!in_array('product_size_prices', $tables, true)) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS product_size_prices (
+                        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        product_id INT UNSIGNED NOT NULL,
+                        size_code VARCHAR(30) NOT NULL,
+                        size_label VARCHAR(50) NOT NULL,
+                        size_oz INT UNSIGNED NOT NULL DEFAULT 16,
+                        price DECIMAL(8,2) NOT NULL,
+                        PRIMARY KEY (id),
+                        UNIQUE KEY uq_prod_size (product_id, size_code),
+                        KEY idx_psp_prod (product_id),
+                        CONSTRAINT fk_psp_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+
+            // Populate essential raw supplies from reference inventory if not present
+            $pdo->exec("
+                INSERT IGNORE INTO inventory (name, current_stock, unit_measure, restock_threshold) VALUES
+                ('16oz cup', 500, 'pcs', 50),
+                ('22oz cup', 500, 'pcs', 50),
+                ('Flat lid', 1000, 'pcs', 100),
+                ('Bendable straw', 1000, 'pcs', 100),
+                ('Boba straw', 500, 'pcs', 50),
+                ('Full Cream Milk', 10000, 'ml', 2000),
+                ('Caramel syrup', 2000, 'ml', 300),
+                ('Vanilla syrup', 2000, 'ml', 300),
+                ('Chocolate sauce', 2000, 'ml', 300)
+            ");
+
+            // Initialize size pricing for any existing beverage that has no size price configured
+            $pdo->exec("
+                UPDATE menu_products
+                   SET price_16oz = COALESCE(price_16oz, CASE WHEN price >= 140 THEN price - 20 ELSE price END),
+                       price_22oz = COALESCE(price_22oz, CASE WHEN price >= 140 THEN price ELSE price + 20 END)
+                 WHERE has_sizes = 1 AND (price_16oz IS NULL OR price_22oz IS NULL)
+            ");
+
+            // Sync size prices into product_size_prices table with 'Tall' (16oz) and 'Grande' (22oz)
+            $pdo->exec("
+                UPDATE product_size_prices SET size_label = 'Tall' WHERE size_code = '16oz';
+                UPDATE transaction_items SET size_label = 'Tall' WHERE size_code = '16oz';
+                UPDATE transaction_items SET product_name = REPLACE(product_name, '(Large', '(Tall') WHERE product_name LIKE '%(Large%';
+
+                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
+                SELECT product_id, '16oz', 'Tall', 16, price_16oz
+                  FROM menu_products
+                 WHERE has_sizes = 1 AND price_16oz IS NOT NULL
+                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
+
+                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
+                SELECT product_id, '22oz', 'Grande', 22, price_22oz
+                  FROM menu_products
+                 WHERE has_sizes = 1 AND price_22oz IS NOT NULL
+                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
+            ");
         } catch (Throwable $e) {
             error_log('[CafeFlow Migration] ' . $e->getMessage());
         }

@@ -129,18 +129,42 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
             <input id="pName" maxlength="100" placeholder="e.g. Spanish Latte" required>
           </label>
           <label>Category *
-            <input id="pCategory" list="categoryDatalist" maxlength="50" placeholder="e.g. Coffee" required>
-            <datalist id="categoryDatalist"></datalist>
+            <select id="pCategory" required>
+              <option value="Coffee">Coffee</option>
+              <option value="Non-Coffee">Non-Coffee</option>
+              <option value="Milk Tea">Milk Tea</option>
+              <option value="Fruit Tea / Lemonade">Fruit Tea / Lemonade</option>
+              <option value="Croffle">Croffle</option>
+              <option value="Sandwich">Sandwich</option>
+              <option value="Pastry">Pastry</option>
+              <option value="Snacks">Snacks</option>
+            </select>
           </label>
         </div>
 
-        <div class="sheet-grid-2">
-          <label>Price (₱) *
-            <input id="pPrice" inputmode="decimal" placeholder="0.00" required>
+        <div class="product-pricing-box">
+          <label class="check-row" style="margin-bottom: 10px;">
+            <input type="checkbox" id="pHasSizes" checked>
+            <span><strong>Enable Cup Sizes</strong> (Beverage sizes: 16oz Tall & 22oz Grande)</span>
           </label>
-          <label>Available Stock
-            <input id="pStock" inputmode="decimal" placeholder="0">
-          </label>
+
+          <!-- Cup Sizes Grid -->
+          <div class="sheet-grid-2" id="pSizesGrid">
+            <label>16oz (Tall) Price (₱) *
+              <input id="pPrice16oz" inputmode="decimal" placeholder="e.g. 130.00">
+            </label>
+            <label>22oz (Grande) Price (₱) *
+              <input id="pPrice22oz" inputmode="decimal" placeholder="e.g. 150.00">
+            </label>
+          </div>
+
+          <!-- Base/Fixed Price for single-sized items or fallback -->
+          <div id="pBasePriceWrap" style="margin-top: 6px;">
+            <label id="pBasePriceLabel">Single / Fixed Price (₱) *
+              <input id="pPrice" inputmode="decimal" placeholder="0.00" required>
+            </label>
+          </div>
+          <input type="hidden" id="pStock" value="0">
         </div>
 
         <div class="image-upload-wrap">
@@ -154,14 +178,10 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
         </div>
 
         <div class="inventory-link-box">
-          <label class="check-row">
-            <input type="checkbox" id="pTrackStock" checked>
-            <span>Track stock quantity for this product</span>
-          </label>
           <div class="link-sub" id="linkSubSection">
             <div class="link-head">
               <div class="link-title-group">
-                <span class="link-title">Link to Raw Inventory Supply (Optional)</span>
+                <span class="link-title">Raw Inventory Supply Link (Recipe)</span>
                 <span class="supply-count-badge" id="supplySelectionCount">0 items selected</span>
               </div>
               <button type="button" class="btn-link-add" id="openQuickAddSupplyBtn" title="Add a new raw supply item to inventory">+ Add Item</button>
@@ -396,6 +416,39 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- ===== Size Picker Popover ===== -->
+  <div class="size-backdrop" id="sizeBackdrop" hidden></div>
+  <div class="size-popover" id="sizePopover" role="dialog" aria-modal="true" aria-label="Choose cup size" hidden>
+    <div class="size-popover-header">
+      <span class="size-popover-title" id="sizePopoverTitle">Choose Size</span>
+      <button type="button" class="size-popover-close" id="sizePopoverClose" aria-label="Cancel">✕</button>
+    </div>
+    <div class="size-options" id="sizeOptions">
+      <button type="button" class="size-btn" data-oz="16" data-label="Tall">
+        <span class="size-cup size-cup--sm">
+          <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 8h26l-4 32H11L7 8z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M7 8h26" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="size-label">Tall</span>
+        <span class="size-oz">16 oz</span>
+        <span class="size-price-tag" id="sizePrice16oz">₱0.00</span>
+      </button>
+      <button type="button" class="size-btn" data-oz="22" data-label="Grande">
+        <span class="size-cup size-cup--lg">
+          <svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M5 6h30l-5 36H10L5 6z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+            <path d="M5 6h30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="size-label">Grande</span>
+        <span class="size-oz">22 oz</span>
+        <span class="size-price-tag" id="sizePrice22oz">₱0.00</span>
+      </button>
+    </div>
+  </div>
 
   <script src="script.js?v=<?= $ver('script.js') ?>" defer></script>
 </body>

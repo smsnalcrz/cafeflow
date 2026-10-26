@@ -2,10 +2,11 @@
 /**
  * products_api.php - Product management API for CafeFlow POS.
  *
- * GET  -> List all products and distinct categories
+ * GET  -> List all products and distinct categories with cup sizes & raw-inventory stock states
  * POST -> Add, update, delete products or quick update stock (supports multipart/form-data with image upload)
  */
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/recipe_engine.php';
 
 $pdo = db();
 
@@ -20,7 +21,8 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     $rows = $pdo->query(
         'SELECT p.product_id, p.name, p.category, p.price, p.image_url,
-                p.stock_quantity, p.track_stock, p.linked_inventory_id, p.deduction_amount,
+                p.stock_quantity, p.track_stock, p.has_sizes, p.price_16oz, p.price_22oz,
+                p.linked_inventory_id, p.deduction_amount,
                 i.name AS linked_inventory_name, i.current_stock, i.restock_threshold, i.unit_measure
            FROM menu_products p
            LEFT JOIN inventory i ON i.item_id = p.linked_inventory_id
@@ -47,11 +49,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         ];
     }
 
+    // Fetch size-specific prices
+    $spRows = $pdo->query('SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices ORDER BY size_oz ASC')->fetchAll();
+    $sizesByProd = [];
+    foreach ($spRows as $sp) {
+        $label = $sp['size_label'];
+        if ($sp['size_code'] === '16oz' && ($label === 'Large' || empty($label))) {
+            $label = 'Tall';
+        }
+        $sizesByProd[(int) $sp['product_id']][] = [
+            'code'  => $sp['size_code'],
+            'label' => $label,
+            'oz'    => (int) $sp['size_oz'],
+            'price' => (float) $sp['price'],
+        ];
+    }
+
     $products = [];
     $categorySet = [];
 
     foreach ($rows as $r) {
-        $state = null;
         $category = trim($r['category'] ?? '') !== '' ? trim($r['category']) : 'General';
         $categorySet[$category] = true;
 
@@ -59,50 +76,24 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         $linkedIngredients = $ingsByProd[$pId] ?? [];
         $linkedIds = array_map(static fn($item) => $item['item_id'], $linkedIngredients);
 
-        if ((int)$r['track_stock'] === 1) {
-            if (!empty($linkedIngredients)) {
-                $hasOut = false;
-                $hasLow = false;
-                foreach ($linkedIngredients as $ing) {
-                    $stock = (float) $ing['current_stock'];
-                    $deduct = (float) $ing['deduction_amount'];
-                    if ($stock <= 0 || ($deduct > 0 && $stock < $deduct)) {
-                        $hasOut = true;
-                        break;
-                    } elseif ($stock <= (float) $ing['restock_threshold']) {
-                        $hasLow = true;
-                    }
-                }
-                if ($hasOut) {
-                    $state = 'out';
-                } elseif ($hasLow) {
-                    $state = 'low';
-                } else {
-                    $state = 'ok';
-                }
-            } elseif ($r['linked_inventory_id'] !== null && $r['current_stock'] !== null) {
-                // Linked to raw inventory ingredient (legacy fallback)
-                $stock = (float) $r['current_stock'];
-                $deduct = (float) $r['deduction_amount'];
-                if ($stock <= 0 || ($deduct > 0 && $stock < $deduct)) {
-                    $state = 'out';
-                } elseif ($stock <= (float) $r['restock_threshold']) {
-                    $state = 'low';
-                } else {
-                    $state = 'ok';
-                }
-            } else {
-                // Direct product stock count
-                $directStock = (float) ($r['stock_quantity'] ?? 0);
-                if ($directStock <= 0) {
-                    $state = 'out';
-                } elseif ($directStock <= 5) {
-                    $state = 'low';
-                } else {
-                    $state = 'ok';
-                }
-            }
+        $hasSizes = (bool) ((int) ($r['has_sizes'] ?? 1));
+        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        if (!$isBeverage) {
+            $hasSizes = false;
         }
+
+        $sizes = $sizesByProd[$pId] ?? [];
+        if (empty($sizes) && $hasSizes) {
+            $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
+            $p22 = $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($p16 + 20.0);
+            $sizes = [
+                ['code' => '16oz', 'label' => 'Tall', 'oz' => 16, 'price' => $p16],
+                ['code' => '22oz', 'label' => 'Grande', 'oz' => 22, 'price' => $p22],
+            ];
+        }
+
+        // Always evaluate real-time stock state dynamically from raw inventory
+        $state = evaluate_product_stock_state($r, $pdo);
 
         $firstIng = !empty($linkedIngredients) ? $linkedIngredients[0] : null;
 
@@ -113,7 +104,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             'price'                 => (float) $r['price'],
             'image_url'             => $r['image_url'],
             'stock_quantity'        => (float) ($r['stock_quantity'] ?? 0),
-            'track_stock'           => (int) ($r['track_stock'] ?? 1),
+            'track_stock'           => 1, // Consistently tracked via raw inventory
+            'has_sizes'             => $hasSizes,
+            'price_16oz'            => $r['price_16oz'] !== null ? (float) $r['price_16oz'] : ($sizes[0]['price'] ?? (float) $r['price']),
+            'price_22oz'            => $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($sizes[1]['price'] ?? ((float) $r['price'] + 20)),
+            'sizes'                 => $sizes,
             'linked_inventory_id'   => $r['linked_inventory_id'] !== null ? (int) $r['linked_inventory_id'] : ($firstIng ? $firstIng['item_id'] : null),
             'linked_inventory_name' => $r['linked_inventory_name'] ?? ($firstIng ? $firstIng['name'] : null),
             'deduction_amount'      => (float) ($r['deduction_amount'] ?? ($firstIng ? $firstIng['deduction_amount'] : 0)),
@@ -237,7 +232,24 @@ switch ($action) {
         $category = trim((string) ($data['category'] ?? 'Coffee'));
         $price    = as_decimal($data['price'] ?? null, 0.00, 999999.99);
         $stock    = as_decimal($data['stock_quantity'] ?? 0, 0.00, 999999.99);
-        $track    = isset($data['track_stock']) ? (int) (bool) $data['track_stock'] : 1;
+        $track    = 1; // Always tracked via raw inventory
+
+        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : ($isBeverage ? 1 : 0);
+        $price16oz  = as_decimal($data['price_16oz'] ?? null, 0.00, 999999.99);
+        $price22oz  = as_decimal($data['price_22oz'] ?? null, 0.00, 999999.99);
+
+        if ($hasSizes) {
+            if ($price16oz === null && $price !== null) {
+                $price16oz = $price;
+            }
+            if ($price22oz === null && $price16oz !== null) {
+                $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
+            }
+            if ($price === null && $price16oz !== null) {
+                $price = $price16oz;
+            }
+        }
 
         if ($name === '' || strlen($name) > 100) {
             fail(422, 'Product name is required (max 100 characters).');
@@ -245,8 +257,11 @@ switch ($action) {
         if ($category === '' || strlen($category) > 50) {
             $category = 'General';
         }
-        if ($price === null) {
+        if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
+        }
+        if ($hasSizes && ($price16oz === null || $price22oz === null)) {
+            fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
         }
 
         // Handle ingredients and fallback link
@@ -258,21 +273,31 @@ switch ($action) {
         $imageUrl = handle_image_upload($_FILES['image'] ?? null);
 
         $stmt = $pdo->prepare(
-            'INSERT INTO menu_products (name, category, price, image_url, stock_quantity, track_stock, linked_inventory_id, deduction_amount)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO menu_products (name, category, price, image_url, stock_quantity, track_stock, has_sizes, price_16oz, price_22oz, linked_inventory_id, deduction_amount)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $name,
             $category,
-            $price,
+            $price ?? $price16oz,
             $imageUrl,
             $stock ?? '0.00',
             $track,
+            $hasSizes,
+            $price16oz,
+            $price22oz,
             $primaryInvId,
             $primaryDeduct ?? '0.00'
         ]);
 
         $newId = (int) $pdo->lastInsertId();
+
+        // Save cup size records in product_size_prices
+        if ($hasSizes && $price16oz !== null && $price22oz !== null) {
+            $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
+            $insSp->execute([$newId, '16oz', 'Tall', 16, $price16oz]);
+            $insSp->execute([$newId, '22oz', 'Grande', 22, $price22oz]);
+        }
 
         // Save linked ingredients
         if (!empty($incomingIngs)) {
@@ -307,13 +332,33 @@ switch ($action) {
         $category = trim((string) ($data['category'] ?? $existing['category']));
         $price    = as_decimal($data['price'] ?? $existing['price'], 0.00, 999999.99);
         $stock    = as_decimal($data['stock_quantity'] ?? $existing['stock_quantity'], 0.00, 999999.99);
-        $track    = isset($data['track_stock']) ? (int) (bool) $data['track_stock'] : (int) $existing['track_stock'];
+        $track    = 1;
+
+        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : (int) ($existing['has_sizes'] ?? ($isBeverage ? 1 : 0));
+        $price16oz  = as_decimal($data['price_16oz'] ?? $existing['price_16oz'], 0.00, 999999.99);
+        $price22oz  = as_decimal($data['price_22oz'] ?? $existing['price_22oz'], 0.00, 999999.99);
+
+        if ($hasSizes) {
+            if ($price16oz === null && $price !== null) {
+                $price16oz = $price;
+            }
+            if ($price22oz === null && $price16oz !== null) {
+                $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
+            }
+            if ($price === null && $price16oz !== null) {
+                $price = $price16oz;
+            }
+        }
 
         if ($name === '' || strlen($name) > 100) {
             fail(422, 'Product name is required (max 100 characters).');
         }
-        if ($price === null) {
+        if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
+        }
+        if ($hasSizes && ($price16oz === null || $price22oz === null)) {
+            fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
         }
 
         // Handle ingredients update
@@ -341,20 +386,32 @@ switch ($action) {
         $stmt = $pdo->prepare(
             'UPDATE menu_products
                 SET name = ?, category = ?, price = ?, image_url = ?,
-                    stock_quantity = ?, track_stock = ?, linked_inventory_id = ?, deduction_amount = ?
+                    stock_quantity = ?, track_stock = ?, has_sizes = ?, price_16oz = ?, price_22oz = ?,
+                    linked_inventory_id = ?, deduction_amount = ?
               WHERE product_id = ?'
         );
         $stmt->execute([
             $name,
             $category,
-            $price,
+            $price ?? $price16oz,
             $imageUrl,
             $stock ?? '0.00',
             $track,
+            $hasSizes,
+            $price16oz,
+            $price22oz,
             $primaryInvId,
             $primaryDeduct ?? '0.00',
             $productId
         ]);
+
+        // Sync product_size_prices table
+        $pdo->prepare('DELETE FROM product_size_prices WHERE product_id = ?')->execute([$productId]);
+        if ($hasSizes && $price16oz !== null && $price22oz !== null) {
+            $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
+            $insSp->execute([$productId, '16oz', 'Tall', 16, $price16oz]);
+            $insSp->execute([$productId, '22oz', 'Grande', 22, $price22oz]);
+        }
 
         if ($incomingIngs !== null) {
             $pdo->prepare('DELETE FROM product_ingredients WHERE product_id = ?')->execute([$productId]);

@@ -229,21 +229,41 @@
         );
       }
 
-      const tag = p.stock_state === 'out' ? h('span', { class: 'tag out', text: 'Out of stock' })
+      const isOut = p.stock_state === 'out';
+      const tag = isOut ? h('span', { class: 'tag out', text: 'Out of stock' })
+                : p.stock_state === 'partial' ? (p.partial_label ? h('span', { class: 'tag low', text: p.partial_label }) : null)
                 : p.stock_state === 'low' ? h('span', { class: 'tag low', text: 'Low stock' })
                 : null;
 
+      const priceText = p.has_sizes
+        ? (p.price_16oz && p.price_22oz && p.price_16oz !== p.price_22oz
+            ? `${money(p.price_16oz)} – ${money(p.price_22oz)}`
+            : money(p.price_16oz || p.price))
+        : money(p.price);
+
       const itemBtn = h('button', {
         type: 'button',
-        class: 'item',
-        onclick: () => addToCart(p)
+        class: 'item' + (isOut ? ' is-out-of-stock' : ''),
+        'aria-disabled': isOut ? 'true' : 'false',
+        title: isOut ? `${p.name} is currently out of stock` : '',
+        onclick: () => {
+          if (isOut) {
+            toast(`${p.name} is currently out of stock.`, 'warn');
+            return;
+          }
+          if (p.has_sizes) {
+            openSizePicker(p);
+          } else {
+            addToCart(p, null, null, p.price);
+          }
+        }
       },
         badge,
         imgNode,
         h('span', { class: 'item-cat', text: p.category || 'General' }),
         h('span', { class: 'item-name', text: p.name }),
-        h('span', { class: 'item-foot' },
-          h('span', { class: 'item-price', text: money(p.price) }),
+        h('div', { class: 'item-foot' },
+          h('span', { class: 'item-price', text: priceText }),
           tag
         )
       );
@@ -256,35 +276,159 @@
   }
 
   function syncCardBadges() {
-    for (const [id, badge] of cardBadges) {
-      const line = cart.get(id);
-      badge.hidden = !line;
-      if (line) badge.textContent = line.qty;
+    for (const [productId, badge] of cardBadges) {
+      // Sum qty across all sizes for this product (keys are `productId:oz` or `productId:nosize`)
+      let total = 0;
+      for (const [key, line] of cart) {
+        if (line.id === productId) total += line.qty;
+      }
+      badge.hidden = total === 0;
+      if (total > 0) badge.textContent = total;
     }
   }
 
   /* ------------------------------------------------------------------ *
+   *  Size Picker Popover
+   * ------------------------------------------------------------------ */
+  let _sizePickerProduct = null;
+
+  function openSizePicker(p) {
+    if (p.stock_state === 'out') {
+      toast(`${p.name} is currently out of stock.`, 'warn');
+      return;
+    }
+    _sizePickerProduct = p;
+    $('#sizePopoverTitle').textContent = p.name;
+    const p16 = p.price_16oz !== undefined && p.price_16oz !== null ? Number(p.price_16oz) : Number(p.price);
+    const p22 = p.price_22oz !== undefined && p.price_22oz !== null ? Number(p.price_22oz) : (p16 + 20);
+
+    const s16Info = p.sizes ? p.sizes.find(s => s.code === '16oz' || s.oz === 16) : null;
+    const s22Info = p.sizes ? p.sizes.find(s => s.code === '22oz' || s.oz === 22) : null;
+
+    const btn16 = $('.size-btn[data-oz="16"]');
+    const btn22 = $('.size-btn[data-oz="22"]');
+    const s16 = $('#sizePrice16oz');
+    const s22 = $('#sizePrice22oz');
+
+    const is16Out = s16Info ? (s16.stock_state === 'out' || s16.available === false) : false;
+    const is22Out = s22Info ? (s22.stock_state === 'out' || s22.available === false) : false;
+
+    if (btn16) {
+      btn16.disabled = is16Out;
+      btn16.classList.toggle('is-out-of-stock', is16Out);
+      btn16.setAttribute('aria-disabled', is16Out ? 'true' : 'false');
+      btn16.title = is16Out ? `${p.name} (Tall · 16oz) is out of stock` : '';
+    }
+    if (s16) {
+      s16.textContent = is16Out ? 'Out of stock' : money(p16);
+      s16.classList.toggle('is-out', is16Out);
+    }
+
+    if (btn22) {
+      btn22.disabled = is22Out;
+      btn22.classList.toggle('is-out-of-stock', is22Out);
+      btn22.setAttribute('aria-disabled', is22Out ? 'true' : 'false');
+      btn22.title = is22Out ? `${p.name} (Grande · 22oz) is out of stock` : '';
+    }
+    if (s22) {
+      s22.textContent = is22Out ? 'Out of stock' : money(p22);
+      s22.classList.toggle('is-out', is22Out);
+    }
+
+    $('#sizeBackdrop').hidden = false;
+    $('#sizePopover').hidden = false;
+  }
+
+  function closeSizePicker() {
+    $('#sizeBackdrop').hidden = true;
+    $('#sizePopover').hidden = true;
+    _sizePickerProduct = null;
+  }
+
+  // Wire size buttons
+  $$('.size-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!_sizePickerProduct) return;
+      if (btn.disabled || btn.classList.contains('is-out-of-stock')) {
+        toast(`${_sizePickerProduct.name} (${btn.dataset.label} · ${btn.dataset.oz}oz) is currently out of stock.`, 'warn');
+        return;
+      }
+      const oz    = parseInt(btn.dataset.oz, 10);
+      const label = btn.dataset.label;
+      const p     = _sizePickerProduct;
+      const price = oz === 16
+        ? (p.price_16oz !== undefined && p.price_16oz !== null ? Number(p.price_16oz) : Number(p.price))
+        : (p.price_22oz !== undefined && p.price_22oz !== null ? Number(p.price_22oz) : (Number(p.price) + 20));
+
+      addToCart(p, oz, label, price);
+      closeSizePicker();
+    });
+  });
+  $('#sizePopoverClose').addEventListener('click', closeSizePicker);
+  $('#sizeBackdrop').addEventListener('click', closeSizePicker);
+
+  /* ------------------------------------------------------------------ *
    *  Cart & Checkout (with Cash Tender dialog)
    * ------------------------------------------------------------------ */
-  const cart = new Map();     // product_id -> { id, name, price, qty }
+  const cart = new Map();     // `${product_id}:${oz|nosize}` -> { id, key, name, price, qty, oz, sizeLabel, sizeCode }
   let submitting = false;
 
   const lineCents = l => Math.round(l.price * 100) * l.qty;
 
-  function addToCart(p) {
-    const line = cart.get(p.product_id);
-    if (line) line.qty = Math.min(line.qty + 1, MAX_QTY);
-    else cart.set(p.product_id, { id: p.product_id, name: p.name, price: p.price, qty: 1 });
+  function addToCart(p, oz = null, sizeLabel = null, customPrice = null) {
+    if (oz && Array.isArray(p.sizes)) {
+      const sObj = p.sizes.find(s => s.oz === oz || s.code === (oz + 'oz'));
+      if (sObj && (sObj.stock_state === 'out' || sObj.available === false)) {
+        toast(`${p.name} (${sObj.label || sizeLabel || ''} · ${oz}oz) is currently out of stock.`, 'warn');
+        return;
+      }
+    } else if (p.stock_state === 'out') {
+      toast(`${p.name} is currently out of stock.`, 'warn');
+      return;
+    }
+    const sCode = oz ? oz + 'oz' : null;
+    const key = oz ? `${p.product_id}:${oz}` : `${p.product_id}:nosize`;
+    const price = customPrice !== null ? Number(customPrice) : Number(p.price);
+    const line = cart.get(key);
+    if (line) {
+      line.qty = Math.min(line.qty + 1, MAX_QTY);
+    } else {
+      cart.set(key, {
+        id: p.product_id,
+        key,
+        name: p.name,
+        price,
+        qty: 1,
+        oz: oz || null,
+        sizeLabel: sizeLabel || null,
+        sizeCode: sCode
+      });
+    }
     renderCart();
     const list = $('#cartLines');
     list.scrollTop = list.scrollHeight;
   }
 
-  function changeQty(id, delta) {
-    const line = cart.get(id);
+  function changeQty(key, delta) {
+    const line = cart.get(key);
     if (!line) return;
+    if (delta > 0) {
+      const prod = menu.find(m => m.product_id === line.id);
+      if (prod) {
+        if (line.oz && Array.isArray(prod.sizes)) {
+          const sObj = prod.sizes.find(s => s.oz === line.oz || s.code === (line.oz + 'oz'));
+          if (sObj && (sObj.stock_state === 'out' || sObj.available === false)) {
+            toast(`${line.name} (${sObj.label || line.sizeLabel || ''} · ${line.oz}oz) is currently out of stock.`, 'warn');
+            return;
+          }
+        } else if (prod.stock_state === 'out') {
+          toast(`${line.name} is currently out of stock.`, 'warn');
+          return;
+        }
+      }
+    }
     line.qty = Math.min(line.qty + delta, MAX_QTY);
-    if (line.qty <= 0) cart.delete(id);
+    if (line.qty <= 0) cart.delete(key);
     renderCart();
   }
 
@@ -297,12 +441,15 @@
       list.append(h('p', { class: 'empty', text: '👆 Tap a menu item to start an order.' }));
     }
     for (const l of lines) {
+      const sizePill = l.sizeLabel
+        ? h('span', { class: 'line-size-pill', text: l.sizeLabel + ' · ' + l.oz + 'oz' })
+        : null;
       list.append(h('div', { class: 'line' },
-        h('span', { class: 'line-name', text: l.name }),
+        h('span', { class: 'line-name' }, document.createTextNode(l.name), sizePill),
         h('span', { class: 'stepper' },
-          h('button', { type: 'button', 'aria-label': 'One less ' + l.name, text: '−', onclick: () => changeQty(l.id, -1) }),
+          h('button', { type: 'button', 'aria-label': 'One less ' + l.name, text: '−', onclick: () => changeQty(l.key, -1) }),
           h('b', { text: String(l.qty) }),
-          h('button', { type: 'button', 'aria-label': 'One more ' + l.name, text: '+', onclick: () => changeQty(l.id, 1) })),
+          h('button', { type: 'button', 'aria-label': 'One more ' + l.name, text: '+', onclick: () => changeQty(l.key, 1) })),
         h('span', { class: 'line-total', text: money(lineCents(l) / 100) })));
     }
 
@@ -374,7 +521,13 @@
     renderCart();
 
     try {
-      const items = Array.from(cart.values()).map(l => ({ product_id: l.id, quantity: l.qty }));
+      const items = Array.from(cart.values()).map(l => ({
+        product_id: l.id,
+        quantity: l.qty,
+        size_oz: l.oz || null,
+        size_label: l.sizeLabel || null,
+        size_code: l.sizeCode || null
+      }));
       const payload = {
         payment_method: method,
         items,
@@ -534,12 +687,20 @@
       const data = await api('products_api.php');
       manageProducts = data.products || [];
 
-      // Populate category datalist suggestions
-      const dl = $('#categoryDatalist');
-      dl.textContent = '';
-      (data.categories || []).forEach(cat => {
-        dl.append(h('option', { value: cat }));
-      });
+      // Sync any categories from database into the select dropdown
+      const catSelect = $('#pCategory');
+      if (catSelect && data.categories) {
+        const existingValues = new Set(Array.from(catSelect.options).map(o => o.value.toLowerCase()));
+        data.categories.forEach(cat => {
+          if (cat && !existingValues.has(cat.toLowerCase())) {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            catSelect.appendChild(opt);
+            existingValues.add(cat.toLowerCase());
+          }
+        });
+      }
 
       renderManageProducts();
     } catch (e) {
@@ -578,27 +739,32 @@
         : h('div', { class: 'table-thumb-ph', text: '☕' });
 
       const state = p.stock_state || 'ok';
-      const stateLabel = { out: 'Out of Stock', low: 'Low Stock', ok: 'In Stock' }[state];
+      const stateLabel = { out: 'Out of Stock', low: 'Low Stock', ok: 'In Stock', partial: 'Partial Stock' }[state] || 'In Stock';
 
       let stockDisplay = '';
-      if (p.track_stock === 0) {
-        stockDisplay = 'Untracked';
-      } else if (p.ingredients && p.ingredients.length > 1) {
-        stockDisplay = `${p.ingredients.length} supplies linked`;
+      if (p.ingredients && p.ingredients.length > 1) {
+        stockDisplay = `${p.ingredients.length} raw supplies linked`;
       } else if (p.ingredients && p.ingredients.length === 1) {
         const ing = p.ingredients[0];
-        stockDisplay = `${qtyFmt(ing.deduction_amount)} ${ing.unit_measure || 'g'} / cup`;
+        stockDisplay = `${qtyFmt(ing.deduction_amount)} ${ing.unit_measure || 'g'} / serving`;
       } else if (p.linked_inventory_id) {
-        stockDisplay = `${qtyFmt(p.deduction_amount)} ${p.unit_measure || 'g'} / cup`;
+        stockDisplay = `${qtyFmt(p.deduction_amount)} ${p.unit_measure || 'g'} / serving`;
       } else {
-        stockDisplay = `${qtyFmt(p.stock_quantity)} pcs`;
+        stockDisplay = 'Raw Inventory Recipe';
       }
+
+      const priceCell = p.has_sizes
+        ? h('div', { class: 'price-size-group' },
+            h('span', { class: 'size-tag' }, document.createTextNode('16oz: '), h('b', { text: money(p.price_16oz) })),
+            h('span', { class: 'size-tag' }, document.createTextNode('22oz: '), h('b', { text: money(p.price_22oz) }))
+          )
+        : money(p.price);
 
       tbody.append(h('tr', {},
         h('td', {}, imgCell),
         h('td', { class: 'name', text: p.name }),
         h('td', {}, h('span', { class: 'cat-pill', style: 'cursor:default;', text: p.category || 'General' })),
-        h('td', { class: 'num', text: money(p.price) }),
+        h('td', { class: 'num' }, priceCell),
         h('td', { class: 'num', text: stockDisplay }),
         h('td', {}, h('span', { class: 'tag ' + state, text: stateLabel })),
         h('td', { class: 'act' },
@@ -804,12 +970,50 @@
 
     $('#productSheetTitle').textContent = mode === 'add' ? 'Add New Product' : 'Edit ' + prod.name;
     $('#pName').value = prod ? prod.name : '';
-    $('#pCategory').value = prod ? prod.category : 'Coffee';
-    $('#pPrice').value = prod ? prod.price : '';
-    $('#pStock').value = prod ? prod.stock_quantity : '0';
-    $('#pTrackStock').checked = prod ? Boolean(prod.track_stock) : true;
+    
+    // Category dropdown selection
+    const targetCat = prod && prod.category ? prod.category : 'Coffee';
+    const catSelect = $('#pCategory');
+    if (catSelect) {
+      let matched = false;
+      for (const opt of catSelect.options) {
+        if (opt.value.toLowerCase() === targetCat.toLowerCase()) {
+          opt.selected = true;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched && targetCat) {
+        const customOpt = document.createElement('option');
+        customOpt.value = targetCat;
+        customOpt.textContent = targetCat;
+        customOpt.selected = true;
+        catSelect.appendChild(customOpt);
+      }
+    }
+
+    // Cup sizes handling
+    const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
+    const isBeverage = prod
+      ? (prod.has_sizes !== undefined ? Boolean(prod.has_sizes) : !nonBeverages.includes((prod.category || '').toLowerCase()))
+      : !nonBeverages.includes(targetCat.toLowerCase());
+    const hasSizesCheck = $('#pHasSizes');
+    if (hasSizesCheck) hasSizesCheck.checked = isBeverage;
+
+    const p16 = prod && prod.price_16oz ? Number(prod.price_16oz).toFixed(2) : (prod && prod.price ? Number(prod.price).toFixed(2) : '');
+    const p22 = prod && prod.price_22oz ? Number(prod.price_22oz).toFixed(2) : (prod && prod.price ? (Number(prod.price) + 20).toFixed(2) : '');
+    $('#pPrice16oz').value = p16;
+    $('#pPrice22oz').value = p22;
+    $('#pPrice').value = prod ? Number(prod.price).toFixed(2) : '';
+    $('#pStock').value = '0';
+
+    const sizesGrid = $('#pSizesGrid');
+    const baseWrap = $('#pBasePriceWrap');
+    if (sizesGrid) sizesGrid.hidden = !isBeverage;
+    if (baseWrap) baseWrap.hidden = isBeverage;
+
     const linkSub = $('#linkSubSection');
-    if (linkSub) linkSub.hidden = !$('#pTrackStock').checked;
+    if (linkSub) linkSub.hidden = false;
     $('#pImageInput').value = '';
 
     // Image preview
@@ -895,13 +1099,24 @@
 
     const name = $('#pName').value.trim();
     const category = $('#pCategory').value.trim() || 'General';
-    const price = parseFloat($('#pPrice').value);
-    const stock = parseFloat($('#pStock').value) || 0;
-    const trackStock = $('#pTrackStock').checked ? 1 : 0;
+    const hasSizes = $('#pHasSizes') ? $('#pHasSizes').checked : false;
+
+    let price = 0;
+    let price16 = null;
+    let price22 = null;
+
+    if (hasSizes) {
+      price16 = parseFloat($('#pPrice16oz').value);
+      price22 = parseFloat($('#pPrice22oz').value);
+      if (isNaN(price16) || price16 < 0) return showErr('16oz (Tall) price is required (₱0.00 or more).');
+      if (isNaN(price22) || price22 < 0) return showErr('22oz (Grande) price is required (₱0.00 or more).');
+      price = price16;
+    } else {
+      price = parseFloat($('#pPrice').value);
+      if (isNaN(price) || price < 0) return showErr('Please enter a valid price (₱0.00 or more).');
+    }
 
     if (!name) return showErr('Product name is required.');
-    if (isNaN(price) || price < 0) return showErr('Please enter a valid price (₱0.00 or more).');
-    if (isNaN(stock) || stock < 0) return showErr('Available stock must be a number of 0 or more.');
 
     const ingredientsPayload = [];
     for (const [itemId, deductAmt] of selectedSupplies.entries()) {
@@ -923,9 +1138,16 @@
     }
     formData.append('name', name);
     formData.append('category', category);
-    formData.append('price', price.toFixed(2));
-    formData.append('stock_quantity', stock.toFixed(2));
-    formData.append('track_stock', trackStock);
+    formData.append('has_sizes', hasSizes ? '1' : '0');
+    if (hasSizes) {
+      formData.append('price_16oz', price16.toFixed(2));
+      formData.append('price_22oz', price22.toFixed(2));
+      formData.append('price', price16.toFixed(2));
+    } else {
+      formData.append('price', price.toFixed(2));
+    }
+    formData.append('stock_quantity', '0.00');
+    formData.append('track_stock', '1');
     formData.append('ingredients_json', JSON.stringify(ingredientsPayload));
 
     if (ingredientsPayload.length > 0) {
@@ -1671,11 +1893,29 @@
     $('#imagePreviewBox').hidden = true;
   });
 
-  const trackStockCheckbox = $('#pTrackStock');
-  if (trackStockCheckbox) {
-    trackStockCheckbox.addEventListener('change', e => {
-      const linkSub = $('#linkSubSection');
-      if (linkSub) linkSub.hidden = !e.target.checked;
+  const hasSizesCheckbox = $('#pHasSizes');
+  if (hasSizesCheckbox) {
+    hasSizesCheckbox.addEventListener('change', e => {
+      const isChecked = e.target.checked;
+      const sGrid = $('#pSizesGrid');
+      const bWrap = $('#pBasePriceWrap');
+      if (sGrid) sGrid.hidden = !isChecked;
+      if (bWrap) bWrap.hidden = isChecked;
+    });
+  }
+
+  const categorySelect = $('#pCategory');
+  if (categorySelect) {
+    categorySelect.addEventListener('change', e => {
+      const selected = (e.target.value || '').toLowerCase();
+      const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
+      const isBev = !nonBeverages.includes(selected);
+      const hasSizesCheck = $('#pHasSizes');
+      if (hasSizesCheck) hasSizesCheck.checked = isBev;
+      const sGrid = $('#pSizesGrid');
+      const bWrap = $('#pBasePriceWrap');
+      if (sGrid) sGrid.hidden = !isBev;
+      if (bWrap) bWrap.hidden = isBev;
     });
   }
 

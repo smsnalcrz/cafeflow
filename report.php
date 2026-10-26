@@ -177,13 +177,13 @@ $s = $stmt->fetch() ?: ['orders' => 0, 'total' => 0, 'cash' => 0, 'gcash' => 0, 
 // Top-selling items (top 10)
 // -----------------------------------------------------------------------------
 $stmt = $pdo->prepare(
-    "SELECT p.name, SUM(ti.quantity) AS qty
+    "SELECT COALESCE(ti.product_name, p.name) AS name, SUM(ti.quantity) AS qty
        FROM transaction_items ti
        JOIN transactions t   ON t.transaction_id = ti.transaction_id
-       JOIN menu_products p  ON p.product_id = ti.product_id
+       LEFT JOIN menu_products p ON p.product_id = ti.product_id
       WHERE t.`timestamp` >= :start AND t.`timestamp` < :end
-      GROUP BY p.product_id, p.name
-      ORDER BY qty DESC, p.name ASC
+      GROUP BY COALESCE(ti.product_name, p.name)
+      ORDER BY qty DESC, name ASC
       LIMIT 10"
 );
 $stmt->execute([':start' => $startStr, ':end' => $endStr]);
