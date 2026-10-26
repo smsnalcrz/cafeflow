@@ -9,7 +9,7 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#2c1a0e">
+  <meta name="theme-color" content="#162318">
   <title>CafeFlow · DK Cafe</title>
   <link rel="stylesheet" href="style.css?v=<?= $ver('style.css') ?>">
 </head>
@@ -17,7 +17,9 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
 
   <!-- ===== Top navigation ===== -->
   <header class="topbar">
-    <div class="brand">CafeFlow <small>DK Cafe</small></div>
+    <div class="brand">
+      <img src="dk_cafe_logo.png" alt="DK Cafe" class="brand-logo">
+    </div>
     <nav class="nav" aria-label="Main">
       <button type="button" class="nav-btn active" data-view="pos">
         🧾 POS <span class="badge" id="queueBadge" hidden>0</span>
