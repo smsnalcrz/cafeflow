@@ -70,7 +70,21 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
 
       <!-- Products Grid -->
       <div class="menu-grid" id="menuGrid"></div>
+    </section>
 
+    <!-- Right panel: Barista Queue (Upper) & Current Order (Lower) -->
+    <section class="panel barista" aria-label="Barista queue and current order">
+      <!-- Upper: Barista Queue -->
+      <div class="barista-queue-wrap">
+        <div class="panel-head">
+          <h2>Barista Queue</h2>
+          <span class="pill" id="queueCount">0</span>
+          <span class="conn" id="connState">Connecting…</span>
+        </div>
+        <div class="queue" id="queueList"></div>
+      </div>
+
+      <!-- Lower: Current Order -->
       <div class="cart" aria-label="Current order">
         <div class="cart-head">
           <h2>Current Order</h2>
@@ -89,16 +103,6 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
           </div>
         </div>
       </div>
-    </section>
-
-    <!-- Right 40%: Barista queue -->
-    <section class="panel barista" aria-label="Barista queue">
-      <div class="panel-head">
-        <h2>Barista Queue</h2>
-        <span class="pill" id="queueCount">0</span>
-        <span class="conn" id="connState">Connecting…</span>
-      </div>
-      <div class="queue" id="queueList"></div>
     </section>
   </main>
 
@@ -160,17 +164,26 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
         <div class="product-pricing-box">
           <label class="check-row" style="margin-bottom: 10px;">
             <input type="checkbox" id="pHasSizes" checked>
-            <span><strong>Enable Cup Sizes</strong> (Beverage sizes: 16oz Tall & 22oz Grande)</span>
+            <span id="pHasSizesLabel"><strong>Enable Cup Sizes</strong> (Beverage sizes)</span>
           </label>
 
           <!-- Cup Sizes Grid -->
           <div class="sheet-grid-2" id="pSizesGrid">
-            <label>16oz (Tall) Price (₱) *
-              <input id="pPrice16oz" inputmode="decimal" placeholder="e.g. 130.00">
-            </label>
-            <label>22oz (Grande) Price (₱) *
-              <input id="pPrice22oz" inputmode="decimal" placeholder="e.g. 150.00">
-            </label>
+            <div id="pField12ozWrap" hidden>
+              <label id="pPrice12ozLabel">12oz (Hot) Price (₱) *
+                <input id="pPrice12oz" inputmode="decimal" placeholder="e.g. 100.00">
+              </label>
+            </div>
+            <div id="pField16ozWrap">
+              <label id="pPrice16ozLabel"><span id="pSize16Label">16oz (Tall)</span> Price (₱) *
+                <input id="pPrice16oz" inputmode="decimal" placeholder="e.g. 130.00">
+              </label>
+            </div>
+            <div id="pField22ozWrap">
+              <label id="pPrice22ozLabel">22oz (Grande) Price (₱) *
+                <input id="pPrice22oz" inputmode="decimal" placeholder="e.g. 150.00">
+              </label>
+            </div>
           </div>
 
           <!-- Base/Fixed Price for single-sized items or fallback -->

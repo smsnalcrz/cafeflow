@@ -21,7 +21,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     $rows = $pdo->query(
         'SELECT p.product_id, p.name, p.category, p.price, p.image_url,
-                p.stock_quantity, p.track_stock, p.has_sizes, p.price_16oz, p.price_22oz,
+                p.stock_quantity, p.track_stock, p.has_sizes, p.price_12oz, p.price_16oz, p.price_22oz,
                 p.linked_inventory_id, p.deduction_amount,
                 i.name AS linked_inventory_name, i.current_stock, i.restock_threshold, i.unit_measure
            FROM menu_products p
@@ -82,14 +82,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             $hasSizes = false;
         }
 
+        $isCoffee = (strtolower($category) === 'coffee');
         $sizes = $sizesByProd[$pId] ?? [];
+        if ($isCoffee && !empty($sizes)) {
+            // Remove 22oz from Coffee products
+            $sizes = array_values(array_filter($sizes, fn($s) => ($s['code'] ?? '') !== '22oz' && ($s['oz'] ?? 0) !== 22));
+        }
+
         if (empty($sizes) && $hasSizes) {
-            $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
-            $p22 = $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($p16 + 20.0);
-            $sizes = [
-                ['code' => '16oz', 'label' => 'Tall', 'oz' => 16, 'price' => $p16],
-                ['code' => '22oz', 'label' => 'Grande', 'oz' => 22, 'price' => $p22],
-            ];
+            if ($isCoffee) {
+                $p12 = $r['price_12oz'] !== null ? (float) $r['price_12oz'] : (float) $r['price'];
+                $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
+                $sizes = [
+                    ['code' => '12oz', 'label' => '12oz Hot', 'oz' => 12, 'price' => $p12],
+                    ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'price' => $p16],
+                ];
+            } else {
+                $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
+                $p22 = $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($p16 + 20.0);
+                $sizes = [
+                    ['code' => '16oz', 'label' => 'Tall', 'oz' => 16, 'price' => $p16],
+                    ['code' => '22oz', 'label' => 'Grande', 'oz' => 22, 'price' => $p22],
+                ];
+            }
         }
 
         // Always evaluate real-time stock state dynamically from raw inventory
@@ -106,8 +121,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             'stock_quantity'        => (float) ($r['stock_quantity'] ?? 0),
             'track_stock'           => 1, // Consistently tracked via raw inventory
             'has_sizes'             => $hasSizes,
+            'price_12oz'            => $r['price_12oz'] !== null ? (float) $r['price_12oz'] : null,
             'price_16oz'            => $r['price_16oz'] !== null ? (float) $r['price_16oz'] : ($sizes[0]['price'] ?? (float) $r['price']),
-            'price_22oz'            => $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($sizes[1]['price'] ?? ((float) $r['price'] + 20)),
+            'price_22oz'            => $isCoffee ? null : ($r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($sizes[1]['price'] ?? null)),
             'sizes'                 => $sizes,
             'linked_inventory_id'   => $r['linked_inventory_id'] !== null ? (int) $r['linked_inventory_id'] : ($firstIng ? $firstIng['item_id'] : null),
             'linked_inventory_name' => $r['linked_inventory_name'] ?? ($firstIng ? $firstIng['name'] : null),
@@ -236,18 +252,22 @@ switch ($action) {
 
         $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
         $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : ($isBeverage ? 1 : 0);
+        $isCoffee   = (strtolower($category) === 'coffee');
+        $price12oz  = as_decimal($data['price_12oz'] ?? null, 0.00, 999999.99);
         $price16oz  = as_decimal($data['price_16oz'] ?? null, 0.00, 999999.99);
         $price22oz  = as_decimal($data['price_22oz'] ?? null, 0.00, 999999.99);
 
         if ($hasSizes) {
-            if ($price16oz === null && $price !== null) {
-                $price16oz = $price;
-            }
-            if ($price22oz === null && $price16oz !== null) {
-                $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
-            }
-            if ($price === null && $price16oz !== null) {
-                $price = $price16oz;
+            if ($isCoffee) {
+                $price22oz = null;
+                if ($price12oz === null && $price !== null) $price12oz = $price;
+                if ($price16oz === null && $price12oz !== null) $price16oz = $price12oz;
+                if ($price === null && $price12oz !== null) $price = $price12oz;
+            } else {
+                $price12oz = null;
+                if ($price16oz === null && $price !== null) $price16oz = $price;
+                if ($price22oz === null && $price16oz !== null) $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
+                if ($price === null && $price16oz !== null) $price = $price16oz;
             }
         }
 
@@ -260,8 +280,11 @@ switch ($action) {
         if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
         }
-        if ($hasSizes && ($price16oz === null || $price22oz === null)) {
-            fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
+        if ($hasSizes && $isCoffee && ($price12oz === null || $price16oz === null)) {
+            fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
+        }
+        if ($hasSizes && !$isCoffee && ($price16oz === null || $price22oz === null)) {
+            fail(422, 'Both 16oz (Tall) and 22oz (Grande) prices must be valid amounts of 0.00 or more.');
         }
 
         // Handle ingredients and fallback link
@@ -273,17 +296,18 @@ switch ($action) {
         $imageUrl = handle_image_upload($_FILES['image'] ?? null);
 
         $stmt = $pdo->prepare(
-            'INSERT INTO menu_products (name, category, price, image_url, stock_quantity, track_stock, has_sizes, price_16oz, price_22oz, linked_inventory_id, deduction_amount)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO menu_products (name, category, price, image_url, stock_quantity, track_stock, has_sizes, price_12oz, price_16oz, price_22oz, linked_inventory_id, deduction_amount)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $name,
             $category,
-            $price ?? $price16oz,
+            $price ?? ($isCoffee ? $price12oz : $price16oz),
             $imageUrl,
             $stock ?? '0.00',
             $track,
             $hasSizes,
+            $price12oz,
             $price16oz,
             $price22oz,
             $primaryInvId,
@@ -293,10 +317,15 @@ switch ($action) {
         $newId = (int) $pdo->lastInsertId();
 
         // Save cup size records in product_size_prices
-        if ($hasSizes && $price16oz !== null && $price22oz !== null) {
+        if ($hasSizes) {
             $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
-            $insSp->execute([$newId, '16oz', 'Tall', 16, $price16oz]);
-            $insSp->execute([$newId, '22oz', 'Grande', 22, $price22oz]);
+            if ($isCoffee && $price12oz !== null && $price16oz !== null) {
+                $insSp->execute([$newId, '12oz', '12oz Hot', 12, $price12oz]);
+                $insSp->execute([$newId, '16oz', '16oz Cold', 16, $price16oz]);
+            } elseif (!$isCoffee && $price16oz !== null && $price22oz !== null) {
+                $insSp->execute([$newId, '16oz', 'Tall', 16, $price16oz]);
+                $insSp->execute([$newId, '22oz', 'Grande', 22, $price22oz]);
+            }
         }
 
         // Save linked ingredients
@@ -336,18 +365,22 @@ switch ($action) {
 
         $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
         $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : (int) ($existing['has_sizes'] ?? ($isBeverage ? 1 : 0));
+        $isCoffee   = (strtolower($category) === 'coffee');
+        $price12oz  = as_decimal($data['price_12oz'] ?? $existing['price_12oz'], 0.00, 999999.99);
         $price16oz  = as_decimal($data['price_16oz'] ?? $existing['price_16oz'], 0.00, 999999.99);
         $price22oz  = as_decimal($data['price_22oz'] ?? $existing['price_22oz'], 0.00, 999999.99);
 
         if ($hasSizes) {
-            if ($price16oz === null && $price !== null) {
-                $price16oz = $price;
-            }
-            if ($price22oz === null && $price16oz !== null) {
-                $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
-            }
-            if ($price === null && $price16oz !== null) {
-                $price = $price16oz;
+            if ($isCoffee) {
+                $price22oz = null;
+                if ($price12oz === null && $price !== null) $price12oz = $price;
+                if ($price16oz === null && $price12oz !== null) $price16oz = $price12oz;
+                if ($price === null && $price12oz !== null) $price = $price12oz;
+            } else {
+                $price12oz = null;
+                if ($price16oz === null && $price !== null) $price16oz = $price;
+                if ($price22oz === null && $price16oz !== null) $price22oz = number_format((float) $price16oz + 20.0, 2, '.', '');
+                if ($price === null && $price16oz !== null) $price = $price16oz;
             }
         }
 
@@ -357,8 +390,11 @@ switch ($action) {
         if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
         }
-        if ($hasSizes && ($price16oz === null || $price22oz === null)) {
-            fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
+        if ($hasSizes && $isCoffee && ($price12oz === null || $price16oz === null)) {
+            fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
+        }
+        if ($hasSizes && !$isCoffee && ($price16oz === null || $price22oz === null)) {
+            fail(422, 'Both 16oz (Tall) and 22oz (Grande) prices must be valid amounts of 0.00 or more.');
         }
 
         // Handle ingredients update
@@ -386,18 +422,19 @@ switch ($action) {
         $stmt = $pdo->prepare(
             'UPDATE menu_products
                 SET name = ?, category = ?, price = ?, image_url = ?,
-                    stock_quantity = ?, track_stock = ?, has_sizes = ?, price_16oz = ?, price_22oz = ?,
+                    stock_quantity = ?, track_stock = ?, has_sizes = ?, price_12oz = ?, price_16oz = ?, price_22oz = ?,
                     linked_inventory_id = ?, deduction_amount = ?
               WHERE product_id = ?'
         );
         $stmt->execute([
             $name,
             $category,
-            $price ?? $price16oz,
+            $price ?? ($isCoffee ? $price12oz : $price16oz),
             $imageUrl,
             $stock ?? '0.00',
             $track,
             $hasSizes,
+            $price12oz,
             $price16oz,
             $price22oz,
             $primaryInvId,
@@ -407,10 +444,15 @@ switch ($action) {
 
         // Sync product_size_prices table
         $pdo->prepare('DELETE FROM product_size_prices WHERE product_id = ?')->execute([$productId]);
-        if ($hasSizes && $price16oz !== null && $price22oz !== null) {
+        if ($hasSizes) {
             $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
-            $insSp->execute([$productId, '16oz', 'Tall', 16, $price16oz]);
-            $insSp->execute([$productId, '22oz', 'Grande', 22, $price22oz]);
+            if ($isCoffee && $price12oz !== null && $price16oz !== null) {
+                $insSp->execute([$productId, '12oz', '12oz Hot', 12, $price12oz]);
+                $insSp->execute([$productId, '16oz', '16oz Cold', 16, $price16oz]);
+            } elseif (!$isCoffee && $price16oz !== null && $price22oz !== null) {
+                $insSp->execute([$productId, '16oz', 'Tall', 16, $price16oz]);
+                $insSp->execute([$productId, '22oz', 'Grande', 22, $price22oz]);
+            }
         }
 
         if ($incomingIngs !== null) {

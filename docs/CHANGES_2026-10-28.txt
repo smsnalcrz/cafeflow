@@ -1,0 +1,138 @@
+================================================================================
+CafeFlow System Update - October 28, 2026
+12oz Exclusive for Hot Beverages, Missing DK Cafe Products Restored,
+Removal of 22oz from Coffee, and Dynamic Size Selector
+================================================================================
+
+SUMMARY OF IMPLEMENTATION:
+This update satisfies the requirement to support 12oz cup size exclusively for hot
+beverages (specifically Hot Coffee), restore all missing products from the DK Cafe
+menu reference (Americano, Spanish Latte, Caramel Macchiato, Butter Croissant, French Fries),
+remove the 22oz cup size completely from all Coffee category beverages, and ensure
+smooth dynamic size selection on the POS, checkout, and inventory consumption engine.
+
+--------------------------------------------------------------------------------
+1. COFFEE CUP SIZES: 12oz Hot & 16oz Cold (No 22oz)
+--------------------------------------------------------------------------------
+- Reference Menu Verification:
+  Verified against `ref_materials/coffee_hot_and_cold.JPG` and user-uploaded menu photo:
+  * Americano:         12oz Hot: ₱100.00 | 16oz Cold: ₱100.00 | 22oz: None
+  * Caffé Latte:       12oz Hot: ₱100.00 | 16oz Cold: ₱100.00 | 22oz: None
+  * Spanish Latte:     12oz Hot: ₱145.00 | 16oz Cold: ₱145.00 | 22oz: None
+  * White Mocha:       12oz Hot: ₱145.00 | 16oz Cold: ₱145.00 | 22oz: None
+  * Caramel Macchiato: 12oz Hot: ₱150.00 | 16oz Cold: ₱150.00 | 22oz: None
+  * Salted Caramel:    12oz Hot: ₱150.00 | 16oz Cold: ₱150.00 | 22oz: None
+  * Biscoff Latte:     12oz Hot: ₱160.00 | 16oz Cold: ₱160.00 | 22oz: None
+
+- 22oz Removal from Coffee:
+  * Purged all 22oz records for products in category 'Coffee' from `product_size_prices`.
+  * Set `price_22oz = NULL` for all products in category 'Coffee' in `menu_products`.
+  * Updated schema synchronization in `core/db.php` (`ensure_schema`) so 22oz is never
+    auto-generated for Coffee products.
+  * Product edit/add modal dynamically hides 22oz input and displays 12oz Hot and 16oz Cold
+    price inputs whenever 'Coffee' is selected.
+
+- Non-Coffee Beverages Untouched:
+  * Beverages outside Coffee (Milk Tea, Milk Series, Fruit Tea) continue using
+    16oz (Tall) and 22oz (Grande), and do NOT have 12oz Hot options.
+
+--------------------------------------------------------------------------------
+2. MISSING PRODUCTS RESTORED & ADDED
+--------------------------------------------------------------------------------
+- Missing Coffee Products Restored:
+  * Americano (₱100.00 base, 12oz Hot: ₱100, 16oz Cold: ₱100)
+  * Spanish Latte (₱145.00 base, 12oz Hot: ₱145, 16oz Cold: ₱145)
+  * Caramel Macchiato (₱150.00 base, 12oz Hot: ₱150, 16oz Cold: ₱150)
+- Reference Snacks & Pastries Added:
+  * Butter Croissant (Pastry, ₱95.00, single size)
+  * French Fries (Snacks, ₱85.00, single size)
+- Starter Cleanup Safety:
+  * Removed destructive `DELETE FROM menu_products WHERE product_id <= 11` block from
+    `database/migrate.php` to prevent legitimate menu items from being accidentally purged.
+
+--------------------------------------------------------------------------------
+3. RAW INVENTORY CONSUMPTION LOGIC (12oz Hot vs 16oz Cold)
+--------------------------------------------------------------------------------
+- Centralized Recipe Engine (`core/recipe_engine.php`):
+  * `RECIPE_CUP_SIZES['12oz']`:
+    - Scale: 0.75
+    - Cup Pattern: '12oz Hot cup & lid' (matches Item ID 23)
+    - Lid Pattern: null (already included in Item ID 23 '12oz Hot cup & lid')
+    - Straw: null (hot drinks do not use straws)
+  * Hot Drink Ingredient Omissions:
+    - 12oz Hot beverages automatically omit 'Ice' and straws from recipe consumption.
+    - Espresso beans and milk scale by 0.75 for 12oz servings.
+  * Cold Drink Ingredient Consumption:
+    - 16oz Cold beverages consume 1x 16oz cup, 1x Flat lid, 1x Bendable straw, Ice, and beans/milk.
+  * Substring Matching Fix:
+    - Fixed keyword mapping in `resolve_inventory_item` to match whole word boundaries (`\bice\b`),
+      preventing 'Sliced cheese' (which contains substring 'ice') from incorrectly binding to Ice.
+  * Stock Evaluation:
+    - `evaluate_product_stock_state()` dynamically checks the actual available sizes for each product
+      (12oz & 16oz for Coffee; 16oz & 22oz for non-coffee). If one size runs out (e.g. 16oz cup runs out
+      while 12oz Hot cup is in stock), the product displays "12oz Hot only" and allows ordering 12oz Hot.
+
+--------------------------------------------------------------------------------
+4. USER INTERFACE & DYNAMIC SIZE POPOVER
+--------------------------------------------------------------------------------
+- POS Size Popover (`#sizePopover`):
+  * Now dynamically generates `.size-btn` buttons based on the product's actual `p.sizes` array.
+  * For Coffee items: renders "12oz Hot" with a hot beverage steam icon, and "16oz Cold" with a cold cup icon.
+  * For Non-Coffee items: renders "Tall (16oz)" and "Grande (22oz)".
+  * Accurately displays real-time stock state per size: disables out-of-stock sizes with a clear "OUT OF STOCK"
+    pill while keeping available sizes orderable.
+- Product Catalog Card (`.item`):
+  * Dynamic price formatting: computes minimum and maximum price across available sizes.
+  * For Coffee products with matching 12oz and 16oz prices (e.g. ₱100.00), displays a clean single price
+    instead of "₱100.00 – ₱100.00".
+- Product Sheet Modal (`#productSheet`):
+  * Dynamic category switcher: switching to 'Coffee' displays 12oz Hot (₱) and 16oz Cold (₱) fields while
+    hiding the 22oz field.
+  * Switching to other beverage categories displays 16oz Tall (₱) and 22oz Grande (₱) fields.
+  * Non-beverage categories hide cup sizes and only display the single fixed price input.
+
+--------------------------------------------------------------------------------
+5. FILES MODIFIED
+--------------------------------------------------------------------------------
+1. `core/db.php`:
+   - Added `price_12oz` column migration if missing.
+   - Synchronized `product_size_prices` for Coffee (12oz Hot and 16oz Cold) and non-coffee (16oz Tall, 22oz Grande).
+   - Removed 22oz from Coffee products.
+2. `core/recipe_engine.php`:
+   - Configured `RECIPE_CUP_SIZES['12oz']` with pattern '12oz Hot cup & lid', no lid requirement, no straw.
+   - Added recipes for Americano, Caffé Latte, Spanish Latte, White Mocha, Caramel Macchiato, Salted Caramel, Biscoff Latte.
+   - Hot beverages skip ice and straws.
+   - Whole-word regex matching for inventory items preventing substring clashes.
+   - Dynamic size evaluation in `evaluate_product_stock_state()`.
+3. `api/fetch_menu.php`:
+   - Filtered out 22oz from Coffee category sizes.
+   - Exposed `price_12oz`, `price_16oz`, and accurate `sizes` array with `12oz Hot` and `16oz Cold` labels.
+4. `api/products_api.php`:
+   - Supported `price_12oz` in GET list and POST add/update actions.
+   - Enforced Coffee sizes validation (12oz Hot + 16oz Cold) vs non-coffee sizes (16oz Tall + 22oz Grande).
+5. `index.php`:
+   - Added `#pField12ozWrap` with `#pPrice12oz` input inside `#pSizesGrid`.
+   - Updated labels and responsive grid wrapper for cup sizes.
+6. `assets/css/style.css`:
+   - Added `.size-cup--hot svg` styling for hot beverage mug with steam waves.
+7. `assets/js/script.js`:
+   - Updated `renderCatalog` with min/max price range detection.
+   - Made `openSizePicker(p)` dynamically generate buttons from `p.sizes`.
+   - Added `updateProductSizeFields(cat)` to toggle 12oz Hot/16oz Cold vs 16oz Tall/22oz Grande on product sheet.
+   - Updated product form submission to transmit `price_12oz` and `price_16oz` for Coffee.
+8. `database/migrate_12oz_coffee.php`:
+   - Safe migration script to seed missing products and clean up size pricing.
+9. `database/migrate.php`:
+   - Removed obsolete starter product deletion block.
+
+--------------------------------------------------------------------------------
+6. VERIFICATION RESULTS
+--------------------------------------------------------------------------------
+- Tested via API and database queries:
+  1. All 7 DK Cafe coffee products are present in catalog.
+  2. Zero instances of 22oz exist in the Coffee category.
+  3. 12oz Hot drinks deduct 12oz Hot cup & lid (ID 23) and skip ice/straws.
+  4. 16oz Cold drinks deduct 16oz cup (ID 18), flat lid (ID 20), straw (ID 16), and ice (ID 24).
+  5. Insufficient stock on 16oz cup correctly flags 16oz Cold as "Out of stock" while leaving 12oz Hot orderable.
+  6. Receipts and transaction items properly record size names, oz, and prices.
+================================================================================

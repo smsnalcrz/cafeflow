@@ -35,15 +35,15 @@ const RECIPE_CUP_SIZES = [
         'lid_pattern' => 'Flat lid',
         'straw'       => 'Bendable straw',
     ],
-    // Readily expandable for 12oz Hot or other sizes
+    // 12oz exclusive for Hot beverages (hot coffee)
     '12oz' => [
         'code'        => '12oz',
-        'label'       => 'Regular',
+        'label'       => '12oz Hot',
         'oz'          => 12,
         'scale'       => 0.75,
-        'cup_pattern' => '12oz cup',
-        'lid_pattern' => 'Flat lid',
-        'straw'       => null,
+        'cup_pattern' => '12oz Hot cup & lid',
+        'lid_pattern' => null,             // Included in 12oz Hot cup & lid
+        'straw'       => null,             // Hot beverages do not take straws
     ],
 ];
 
@@ -53,7 +53,7 @@ const RECIPE_CUP_SIZES = [
  * Structured placeholder assumptions for raw ingredients.
  * Quantities listed are for 16oz (Large). For 22oz (Grande), amounts
  * scale automatically by RECIPE_CUP_SIZES['22oz']['scale'] unless
- * explicitly overridden.
+ * explicitly overridden. For 12oz Hot, amounts scale by 0.75 and Ice/straws are omitted.
  *
  * To adjust any ingredient value in the future, edit this array directly!
  */
@@ -78,10 +78,42 @@ const ESTIMATED_CONSUMPTION_PROFILES = [
         'requires_lid'   => true,
         'requires_straw' => true,
     ],
+    'caffe latte' => [
+        'items' => [
+            ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 180.0, 'qty_22oz' => 250.0, 'unit' => 'ml'],
+            ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
+        ],
+        'requires_cup'   => true,
+        'requires_lid'   => true,
+        'requires_straw' => true,
+    ],
+    'caffé latte' => [
+        'items' => [
+            ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 180.0, 'qty_22oz' => 250.0, 'unit' => 'ml'],
+            ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
+        ],
+        'requires_cup'   => true,
+        'requires_lid'   => true,
+        'requires_straw' => true,
+    ],
     'spanish latte' => [
         'items' => [
             ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
-            ['name' => 'Full Cream Milk',     'qty_16oz' => 170.0, 'qty_22oz' => 230.0, 'unit' => 'ml'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 160.0, 'qty_22oz' => 220.0, 'unit' => 'ml'],
+            ['name' => 'Condensed milk',      'qty_16oz' => 20.0,  'qty_22oz' => 30.0,  'unit' => 'ml'],
+            ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
+        ],
+        'requires_cup'   => true,
+        'requires_lid'   => true,
+        'requires_straw' => true,
+    ],
+    'white mocha' => [
+        'items' => [
+            ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 160.0, 'qty_22oz' => 220.0, 'unit' => 'ml'],
+            ['name' => 'White choco sauce',   'qty_16oz' => 25.0,  'qty_22oz' => 35.0,  'unit' => 'ml'],
             ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
         ],
         'requires_cup'   => true,
@@ -93,6 +125,28 @@ const ESTIMATED_CONSUMPTION_PROFILES = [
             ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
             ['name' => 'Full Cream Milk',     'qty_16oz' => 160.0, 'qty_22oz' => 220.0, 'unit' => 'ml'],
             ['name' => 'Caramel syrup',       'qty_16oz' => 20.0,  'qty_22oz' => 30.0,  'unit' => 'ml'],
+            ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
+        ],
+        'requires_cup'   => true,
+        'requires_lid'   => true,
+        'requires_straw' => true,
+    ],
+    'salted caramel' => [
+        'items' => [
+            ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 160.0, 'qty_22oz' => 220.0, 'unit' => 'ml'],
+            ['name' => 'Salted caramel syrup','qty_16oz' => 20.0,  'qty_22oz' => 30.0,  'unit' => 'ml'],
+            ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
+        ],
+        'requires_cup'   => true,
+        'requires_lid'   => true,
+        'requires_straw' => true,
+    ],
+    'biscoff latte' => [
+        'items' => [
+            ['name' => 'Espresso Beans',      'qty_16oz' => 18.0,  'qty_22oz' => 24.0,  'unit' => 'g'],
+            ['name' => 'Full Cream Milk',     'qty_16oz' => 160.0, 'qty_22oz' => 220.0, 'unit' => 'ml'],
+            ['name' => 'Biscoff spread',      'qty_16oz' => 20.0,  'qty_22oz' => 30.0,  'unit' => 'g'],
             ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
         ],
         'requires_cup'   => true,
@@ -198,7 +252,11 @@ function get_inventory_name_map(PDO $pdo): array
         $cache[$clean] = $r;
 
         // Also add aliases for flexible matching
-        if (str_contains($clean, 'beans'))           $cache['beans'] = $r;
+        if (str_contains($clean, 'beans')) {
+            $cache['beans'] = $r;
+            $cache['espresso beans'] = $r;
+            $cache['coffee beans'] = $r;
+        }
         if (str_contains($clean, 'matcha'))          $cache['matcha'] = $r;
         if (str_contains($clean, 'chocolate powder'))$cache['choco powder'] = $r;
         if (str_contains($clean, 'full cream milk')) {
@@ -206,11 +264,22 @@ function get_inventory_name_map(PDO $pdo): array
             $cache['full cream milk'] = $r;
         }
         if (str_contains($clean, 'croissant'))       $cache['croissant'] = $r;
+        if (str_contains($clean, '12oz')) {
+            $cache['12oz'] = $r;
+            $cache['12oz cup'] = $r;
+            $cache['12oz hot cup & lid'] = $r;
+        }
         if (str_contains($clean, '16oz cup'))        $cache['16oz cup'] = $r;
         if (str_contains($clean, '22oz cup'))        $cache['22oz cup'] = $r;
         if (str_contains($clean, 'flat lid'))        $cache['flat lid'] = $r;
         if (str_contains($clean, 'straw'))           $cache['straw'] = $r;
-        if (str_contains($clean, 'ice'))             $cache['ice'] = $r;
+        if ($clean === 'ice' || preg_match('/\bice\b/i', $clean)) {
+            $cache['ice'] = $r;
+        }
+        if (str_contains($clean, 'condensed milk'))  $cache['condensed milk'] = $r;
+        if (str_contains($clean, 'salted caramel'))  $cache['salted caramel syrup'] = $r;
+        if (str_contains($clean, 'biscoff spread'))  $cache['biscoff spread'] = $r;
+        if (str_contains($clean, 'white choco sauce')) $cache['white choco sauce'] = $r;
     }
     return $cache;
 }
@@ -223,8 +292,16 @@ function resolve_inventory_item(string $name, array $invMap): ?array
     $key = strtolower(trim($name));
     if (isset($invMap[$key])) return $invMap[$key];
 
+    // Priority 1: Whole-word boundary match
     foreach ($invMap as $k => $item) {
-        if (str_contains($k, $key) || str_contains($key, $k)) {
+        if (preg_match('/\b' . preg_quote($key, '/') . '\b/i', $k)) {
+            return $item;
+        }
+    }
+
+    // Priority 2: Substring match
+    foreach ($invMap as $k => $item) {
+        if (str_contains($k, $key)) {
             return $item;
         }
     }
@@ -280,6 +357,12 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
             $itemId = (int) $ing['item_id'];
             $baseDeduct = (float) $ing['deduction_amount'];
             $ingNameLower = strtolower($ing['name']);
+
+            // Skip ice for hot drinks (12oz)
+            $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
+            if ($is12ozHot && str_contains($ingNameLower, 'ice')) {
+                continue;
+            }
 
             // Cups and packaging shouldn't scale by ingredient multiplier
             $isPackaging = str_contains($ingNameLower, 'cup') || str_contains($ingNameLower, 'lid') || str_contains($ingNameLower, 'straw');
@@ -375,7 +458,13 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
 
     if ($matchedProfile) {
         $is22oz = ($sizeProfile && $sizeProfile['code'] === '22oz');
+        $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
         foreach ($matchedProfile['items'] as $itemSpec) {
+            // Hot drinks (12oz) never take ice
+            if ($is12ozHot && str_contains(strtolower($itemSpec['name']), 'ice')) {
+                continue;
+            }
+
             $resolved = resolve_inventory_item($itemSpec['name'], $invMap);
             if ($resolved) {
                 $rId = (int) $resolved['item_id'];
@@ -418,7 +507,7 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
             }
         }
 
-        if ($isBeverage && $sizeProfile && !empty($matchedProfile['requires_lid'])) {
+        if ($isBeverage && $sizeProfile && !empty($matchedProfile['requires_lid']) && !empty($sizeProfile['lid_pattern'])) {
             $lid = resolve_inventory_item($sizeProfile['lid_pattern'], $invMap);
             if ($lid) {
                 $lId = (int) $lid['item_id'];
@@ -431,6 +520,22 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
                     ];
                 }
                 $consumption[$lId]['amount'] += (1.0 * $quantity);
+            }
+        }
+
+        if ($isBeverage && $sizeProfile && !empty($matchedProfile['requires_straw']) && !empty($sizeProfile['straw'])) {
+            $straw = resolve_inventory_item($sizeProfile['straw'], $invMap);
+            if ($straw) {
+                $sId = (int) $straw['item_id'];
+                if (!isset($consumption[$sId])) {
+                    $consumption[$sId] = [
+                        'item_id' => $sId,
+                        'name'    => $straw['name'],
+                        'unit'    => $straw['unit_measure'],
+                        'amount'  => 0.0,
+                    ];
+                }
+                $consumption[$sId]['amount'] += (1.0 * $quantity);
             }
         }
 
@@ -571,24 +676,34 @@ function evaluate_product_stock_state(array $product, PDO $pdo): string
     $hasSizes = !empty($product['has_sizes']) && $isBeverage;
 
     if ($hasSizes) {
-        $stock16 = evaluate_single_size_stock($product, '16oz', $pdo);
-        $stock22 = evaluate_single_size_stock($product, '22oz', $pdo);
+        $isCoffee = (strtolower($category) === 'coffee');
+        $sizesToCheck = $isCoffee ? ['12oz', '16oz'] : ['16oz', '22oz'];
 
-        // If ALL sizes are out of stock, product cannot be fulfilled
-        if ($stock16 === 'out' && $stock22 === 'out') {
+        $allOut = true;
+        $anyOut = false;
+        $anyLow = false;
+
+        foreach ($sizesToCheck as $sc) {
+            $st = evaluate_single_size_stock($product, $sc, $pdo);
+            if ($st !== 'out') {
+                $allOut = false;
+            } else {
+                $anyOut = true;
+            }
+            if ($st === 'low') {
+                $anyLow = true;
+            }
+        }
+
+        if ($allOut) {
             return 'out';
         }
-
-        // If one size is out but another is available, it is partial (available to order!)
-        if ($stock16 === 'out' || $stock22 === 'out') {
+        if ($anyOut) {
             return 'partial';
         }
-
-        // If both sizes are available, check if either is low
-        if ($stock16 === 'low' || $stock22 === 'low') {
+        if ($anyLow) {
             return 'low';
         }
-
         return 'ok';
     }
 

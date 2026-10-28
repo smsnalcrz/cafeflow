@@ -236,11 +236,19 @@
                 : p.stock_state === 'low' ? h('span', { class: 'tag low', text: 'Low stock' })
                 : null;
 
-      const priceText = p.has_sizes
-        ? (p.price_16oz && p.price_22oz && p.price_16oz !== p.price_22oz
-            ? `${money(p.price_16oz)} – ${money(p.price_22oz)}`
-            : money(p.price_16oz || p.price))
-        : money(p.price);
+      let priceText;
+      if (p.has_sizes && Array.isArray(p.sizes) && p.sizes.length > 0) {
+        const prices = p.sizes.map(s => Number(s.price)).filter(n => !isNaN(n));
+        const minP = Math.min(...prices);
+        const maxP = Math.max(...prices);
+        priceText = minP !== maxP ? `${money(minP)} – ${money(maxP)}` : money(minP);
+      } else if (p.has_sizes) {
+        priceText = (p.price_16oz && p.price_22oz && p.price_16oz !== p.price_22oz)
+          ? `${money(p.price_16oz)} – ${money(p.price_22oz)}`
+          : money(p.price_16oz || p.price);
+      } else {
+        priceText = money(p.price);
+      }
 
       const itemBtn = h('button', {
         type: 'button',
@@ -300,41 +308,74 @@
     }
     _sizePickerProduct = p;
     $('#sizePopoverTitle').textContent = p.name;
-    const p16 = p.price_16oz !== undefined && p.price_16oz !== null ? Number(p.price_16oz) : Number(p.price);
-    const p22 = p.price_22oz !== undefined && p.price_22oz !== null ? Number(p.price_22oz) : (p16 + 20);
+    const sizeOpts = $('#sizeOptions');
+    sizeOpts.innerHTML = '';
 
-    const s16Info = p.sizes ? p.sizes.find(s => s.code === '16oz' || s.oz === 16) : null;
-    const s22Info = p.sizes ? p.sizes.find(s => s.code === '22oz' || s.oz === 22) : null;
+    // If p.sizes is present, render each available size dynamically
+    const isCoffee = (p.category || '').toLowerCase() === 'coffee';
+    const fallbackSizes = isCoffee
+      ? [
+          { code: '12oz', label: '12oz Hot', oz: 12, price: Number(p.price_12oz || p.price), available: true, stock_state: 'ok' },
+          { code: '16oz', label: '16oz Cold', oz: 16, price: Number(p.price_16oz || p.price), available: true, stock_state: 'ok' }
+        ]
+      : [
+          { code: '16oz', label: 'Tall', oz: 16, price: Number(p.price_16oz || p.price), available: true, stock_state: 'ok' },
+          { code: '22oz', label: 'Grande', oz: 22, price: Number(p.price_22oz || (Number(p.price) + 20)), available: true, stock_state: 'ok' }
+        ];
 
-    const btn16 = $('.size-btn[data-oz="16"]');
-    const btn22 = $('.size-btn[data-oz="22"]');
-    const s16 = $('#sizePrice16oz');
-    const s22 = $('#sizePrice22oz');
+    const sizes = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : fallbackSizes;
 
-    const is16Out = s16Info ? (s16.stock_state === 'out' || s16.available === false) : false;
-    const is22Out = s22Info ? (s22.stock_state === 'out' || s22.available === false) : false;
+    sizes.forEach(s => {
+      const isOut = s.stock_state === 'out' || s.available === false;
+      const isHot = s.oz === 12 || s.code === '12oz';
+      const isLg  = s.oz === 22 || s.code === '22oz';
 
-    if (btn16) {
-      btn16.disabled = is16Out;
-      btn16.classList.toggle('is-out-of-stock', is16Out);
-      btn16.setAttribute('aria-disabled', is16Out ? 'true' : 'false');
-      btn16.title = is16Out ? `${p.name} (Tall · 16oz) is out of stock` : '';
-    }
-    if (s16) {
-      s16.textContent = is16Out ? 'Out of stock' : money(p16);
-      s16.classList.toggle('is-out', is16Out);
-    }
+      const cupClass = isHot ? 'hot' : (isLg ? 'lg' : 'sm');
+      let cupSvg;
+      if (isHot) {
+        cupSvg = `<svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M14 6c0-2 2-3 2-4m5 4c0-2 2-3 2-4m5 4c0-2 2-3 2-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M9 13h22l-3.5 25a2 2 0 0 1-2 1.8H14.5a2 2 0 0 1-2-1.8L9 13z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M7 13h26" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`;
+      } else if (isLg) {
+        cupSvg = `<svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 6h30l-5 36H10L5 6z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M5 6h30" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`;
+      } else {
+        cupSvg = `<svg viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 8h26l-4 32H11L7 8z" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M7 8h26" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`;
+      }
 
-    if (btn22) {
-      btn22.disabled = is22Out;
-      btn22.classList.toggle('is-out-of-stock', is22Out);
-      btn22.setAttribute('aria-disabled', is22Out ? 'true' : 'false');
-      btn22.title = is22Out ? `${p.name} (Grande · 22oz) is out of stock` : '';
-    }
-    if (s22) {
-      s22.textContent = is22Out ? 'Out of stock' : money(p22);
-      s22.classList.toggle('is-out', is22Out);
-    }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'size-btn' + (isOut ? ' is-out-of-stock' : '');
+      btn.disabled = isOut;
+      btn.setAttribute('aria-disabled', isOut ? 'true' : 'false');
+      btn.title = isOut ? `${p.name} (${s.label} · ${s.oz}oz) is out of stock` : '';
+      btn.innerHTML = `
+        <span class="size-cup size-cup--${cupClass}">
+          ${cupSvg}
+        </span>
+        <span class="size-label">${s.label}</span>
+        <span class="size-oz">${s.oz} oz</span>
+        <span class="size-price-tag ${isOut ? 'is-out' : ''}">${isOut ? 'Out of stock' : money(s.price)}</span>
+      `;
+
+      btn.addEventListener('click', () => {
+        if (isOut) {
+          toast(`${p.name} (${s.label} · ${s.oz}oz) is currently out of stock.`, 'warn');
+          return;
+        }
+        addToCart(p, s.oz, s.label, s.price);
+        closeSizePicker();
+      });
+
+      sizeOpts.appendChild(btn);
+    });
 
     $('#sizeBackdrop').hidden = false;
     $('#sizePopover').hidden = false;
@@ -346,25 +387,6 @@
     _sizePickerProduct = null;
   }
 
-  // Wire size buttons
-  $$('.size-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (!_sizePickerProduct) return;
-      if (btn.disabled || btn.classList.contains('is-out-of-stock')) {
-        toast(`${_sizePickerProduct.name} (${btn.dataset.label} · ${btn.dataset.oz}oz) is currently out of stock.`, 'warn');
-        return;
-      }
-      const oz    = parseInt(btn.dataset.oz, 10);
-      const label = btn.dataset.label;
-      const p     = _sizePickerProduct;
-      const price = oz === 16
-        ? (p.price_16oz !== undefined && p.price_16oz !== null ? Number(p.price_16oz) : Number(p.price))
-        : (p.price_22oz !== undefined && p.price_22oz !== null ? Number(p.price_22oz) : (Number(p.price) + 20));
-
-      addToCart(p, oz, label, price);
-      closeSizePicker();
-    });
-  });
   $('#sizePopoverClose').addEventListener('click', closeSizePicker);
   $('#sizeBackdrop').addEventListener('click', closeSizePicker);
 
@@ -957,6 +979,39 @@
     }
   }
 
+  function updateProductSizeFields(cat) {
+    const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
+    const isBev = !nonBeverages.includes((cat || '').toLowerCase());
+    const isCoffee = (cat || '').toLowerCase() === 'coffee';
+
+    const hasSizesCheck = $('#pHasSizes');
+    const hasSizesLabel = $('#pHasSizesLabel');
+    const sGrid = $('#pSizesGrid');
+    const bWrap = $('#pBasePriceWrap');
+    const f12Wrap = $('#pField12ozWrap');
+    const f16Wrap = $('#pField16ozWrap');
+    const f22Wrap = $('#pField22ozWrap');
+    const s16Label = $('#pSize16Label');
+
+    if (hasSizesCheck) hasSizesCheck.checked = isBev;
+    if (sGrid) sGrid.hidden = !isBev;
+    if (bWrap) bWrap.hidden = isBev;
+
+    if (isCoffee) {
+      if (hasSizesLabel) hasSizesLabel.innerHTML = '<strong>Enable Cup Sizes</strong> (12oz Hot & 16oz Cold)';
+      if (f12Wrap) f12Wrap.hidden = false;
+      if (f16Wrap) f16Wrap.hidden = false;
+      if (s16Label) s16Label.textContent = '16oz (Cold)';
+      if (f22Wrap) f22Wrap.hidden = true; // 22oz not available for Coffee
+    } else if (isBev) {
+      if (hasSizesLabel) hasSizesLabel.innerHTML = '<strong>Enable Cup Sizes</strong> (16oz Tall & 22oz Grande)';
+      if (f12Wrap) f12Wrap.hidden = true; // 12oz exclusive to hot coffee
+      if (f16Wrap) f16Wrap.hidden = false;
+      if (s16Label) s16Label.textContent = '16oz (Tall)';
+      if (f22Wrap) f22Wrap.hidden = false;
+    }
+  }
+
   async function openProductSheet(mode, prod = null) {
     currentProductSheet = { mode, product: prod };
     removeCurrentImage = false;
@@ -1009,24 +1064,17 @@
     }
 
     // Cup sizes handling
-    const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
-    const isBeverage = prod
-      ? (prod.has_sizes !== undefined ? Boolean(prod.has_sizes) : !nonBeverages.includes((prod.category || '').toLowerCase()))
-      : !nonBeverages.includes(targetCat.toLowerCase());
-    const hasSizesCheck = $('#pHasSizes');
-    if (hasSizesCheck) hasSizesCheck.checked = isBeverage;
+    updateProductSizeFields(targetCat);
+    const isCoffee = targetCat.toLowerCase() === 'coffee';
 
+    const p12 = prod && prod.price_12oz ? Number(prod.price_12oz).toFixed(2) : (prod && prod.price ? Number(prod.price).toFixed(2) : '');
     const p16 = prod && prod.price_16oz ? Number(prod.price_16oz).toFixed(2) : (prod && prod.price ? Number(prod.price).toFixed(2) : '');
     const p22 = prod && prod.price_22oz ? Number(prod.price_22oz).toFixed(2) : (prod && prod.price ? (Number(prod.price) + 20).toFixed(2) : '');
-    $('#pPrice16oz').value = p16;
-    $('#pPrice22oz').value = p22;
-    $('#pPrice').value = prod ? Number(prod.price).toFixed(2) : '';
-    $('#pStock').value = '0';
-
-    const sizesGrid = $('#pSizesGrid');
-    const baseWrap = $('#pBasePriceWrap');
-    if (sizesGrid) sizesGrid.hidden = !isBeverage;
-    if (baseWrap) baseWrap.hidden = isBeverage;
+    if ($('#pPrice12oz')) $('#pPrice12oz').value = p12;
+    if ($('#pPrice16oz')) $('#pPrice16oz').value = p16;
+    if ($('#pPrice22oz')) $('#pPrice22oz').value = isCoffee ? '' : p22;
+    if ($('#pPrice')) $('#pPrice').value = prod ? Number(prod.price).toFixed(2) : '';
+    if ($('#pStock')) $('#pStock').value = '0';
 
     const linkSub = $('#linkSubSection');
     if (linkSub) linkSub.hidden = false;
@@ -1115,18 +1163,28 @@
 
     const name = $('#pName').value.trim();
     const category = $('#pCategory').value.trim() || 'General';
+    const isCoffee = category.toLowerCase() === 'coffee';
     const hasSizes = $('#pHasSizes') ? $('#pHasSizes').checked : false;
 
     let price = 0;
+    let price12 = null;
     let price16 = null;
     let price22 = null;
 
     if (hasSizes) {
-      price16 = parseFloat($('#pPrice16oz').value);
-      price22 = parseFloat($('#pPrice22oz').value);
-      if (isNaN(price16) || price16 < 0) return showErr('16oz (Tall) price is required (₱0.00 or more).');
-      if (isNaN(price22) || price22 < 0) return showErr('22oz (Grande) price is required (₱0.00 or more).');
-      price = price16;
+      if (isCoffee) {
+        price12 = parseFloat($('#pPrice12oz').value);
+        price16 = parseFloat($('#pPrice16oz').value);
+        if (isNaN(price12) || price12 < 0) return showErr('12oz (Hot) price is required (₱0.00 or more).');
+        if (isNaN(price16) || price16 < 0) return showErr('16oz (Cold) price is required (₱0.00 or more).');
+        price = price12;
+      } else {
+        price16 = parseFloat($('#pPrice16oz').value);
+        price22 = parseFloat($('#pPrice22oz').value);
+        if (isNaN(price16) || price16 < 0) return showErr('16oz (Tall) price is required (₱0.00 or more).');
+        if (isNaN(price22) || price22 < 0) return showErr('22oz (Grande) price is required (₱0.00 or more).');
+        price = price16;
+      }
     } else {
       price = parseFloat($('#pPrice').value);
       if (isNaN(price) || price < 0) return showErr('Please enter a valid price (₱0.00 or more).');
@@ -1156,9 +1214,15 @@
     formData.append('category', category);
     formData.append('has_sizes', hasSizes ? '1' : '0');
     if (hasSizes) {
-      formData.append('price_16oz', price16.toFixed(2));
-      formData.append('price_22oz', price22.toFixed(2));
-      formData.append('price', price16.toFixed(2));
+      if (isCoffee) {
+        formData.append('price_12oz', price12.toFixed(2));
+        formData.append('price_16oz', price16.toFixed(2));
+        formData.append('price', price12.toFixed(2));
+      } else {
+        formData.append('price_16oz', price16.toFixed(2));
+        formData.append('price_22oz', price22.toFixed(2));
+        formData.append('price', price16.toFixed(2));
+      }
     } else {
       formData.append('price', price.toFixed(2));
     }
@@ -2000,15 +2064,7 @@
   const categorySelect = $('#pCategory');
   if (categorySelect) {
     categorySelect.addEventListener('change', e => {
-      const selected = (e.target.value || '').toLowerCase();
-      const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
-      const isBev = !nonBeverages.includes(selected);
-      const hasSizesCheck = $('#pHasSizes');
-      if (hasSizesCheck) hasSizesCheck.checked = isBev;
-      const sGrid = $('#pSizesGrid');
-      const bWrap = $('#pBasePriceWrap');
-      if (sGrid) sGrid.hidden = !isBev;
-      if (bWrap) bWrap.hidden = isBev;
+      updateProductSizeFields(e.target.value || '');
     });
   }
 

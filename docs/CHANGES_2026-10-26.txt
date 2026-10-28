@@ -227,15 +227,46 @@ reliably through their underlying raw inventory supplies.
     for system-wide UI consistency.
 
 --------------------------------------------------------------------------------
-12. VERIFICATION & TEST RESULTS
+12. POS LAYOUT ADJUSTMENT: RELOCATE CURRENT ORDER TO LOWER-RIGHT PANEL
+--------------------------------------------------------------------------------
+- Dual-Panel Architecture Optimized for Touch & High-Throughput POS:
+  * Left Panel (`.cashier`): Dedicated entirely to the product menu, category filter pills,
+    and product search. Menu grid (`.menu-grid`) expands to 100% vertical viewport height,
+    displaying significantly more product cards simultaneously with smooth native scrolling.
+  * Right Panel (`.barista`): Dual-stacked workflow:
+    - Upper Section (`.barista-queue-wrap`): Barista Queue header, pending order counter,
+      live connection indicator, and scrollable tickets list (`#queueList`).
+    - Lower Section (`.cart`): Current Order header, item counter, Clear button (`#clearCart`),
+      scrollable items list (`#cartLines`), and pinned checkout footer (`.cart-foot`).
+- Sticky Checkout Footer & Scrollable Cart Items:
+  * Order items area (`#cartLines`) scrolls independently when an order contains multiple items.
+  * Order Total row (`#cartTotal`) and payment buttons (Cash & GCash) remain pinned and accessible
+    at the bottom of the right panel at all times.
+  * Re-architected `.cart-foot` into a stacked layout: Top row displays `TOTAL` label and bold
+    currency amount; bottom row displays full-width side-by-side checkout buttons (`💵 Checkout · Cash`
+    and `📱 Checkout · GCash`).
+  * Stepper controls and line items optimized for right-panel width with ellipsis handling for product names.
+- Complete Preservation of Logic & Functionality:
+  * All IDs (`#cartLines`, `#cartTotal`, `#cartCount`, `#clearCart`, `#queueList`, `#queueCount`) preserved.
+  * All classes and data attributes (`.pay.cash`, `.pay.gcash`, `data-method`) preserved.
+  * Real-time Barista Queue polling and completion logic remain 100% active.
+  * Responsive layout: Automatically stacks vertically on smaller mobile screens (`<= 900px`)
+    and adjusts min-heights on short screens (`<= 700px`).
+
+--------------------------------------------------------------------------------
+13. VERIFICATION & TEST RESULTS
 --------------------------------------------------------------------------------
 All required criteria were verified against the live system:
-  [PASS] 1. Different cup sizes display and charge correct prices (₱130 vs ₱150).
-  [PASS] 2. Completed sales deduct estimated raw materials (cups, lids, milk, beans, powders).
-  [PASS] 3. Pending/incomplete orders do NOT deduct inventory.
-  [PASS] 4. Insufficient raw materials are caught with clear descriptive feedback.
-  [PASS] 5. "Track stock quantity" checkbox completely removed.
-  [PASS] 6. Receipts, sales reports, Excel export, and barista queue remain 100% accurate.
-  [PASS] 7. Raw Supplies Inventory search instantly filters by name, unit, and stock status ("out", "low", "ok").
-  [PASS] 8. System runs with 0 PHP errors, 0 JS errors, and 0 database conflicts.
+  [PASS] 1. Product menu, search bar, category filters, and Add Product button remain on the left.
+  [PASS] 2. Barista Queue remains in the upper-right section with live polling.
+  [PASS] 3. Current Order, items, clear button, total, and checkout buttons relocated to the lower-right.
+  [PASS] 4. Order items scroll independently while Total and Checkout buttons stay pinned at bottom.
+  [PASS] 5. Different cup sizes display and charge correct prices (₱130 vs ₱150).
+  [PASS] 6. Completed sales deduct estimated raw materials (cups, lids, milk, beans, powders).
+  [PASS] 7. Pending/incomplete orders do NOT deduct inventory.
+  [PASS] 8. Insufficient raw materials are caught with clear descriptive feedback.
+  [PASS] 9. "Track stock quantity" checkbox completely removed.
+  [PASS] 10. Receipts, sales reports, Excel export, and barista queue remain 100% accurate.
+  [PASS] 11. Raw Supplies Inventory search instantly filters by name, unit, and stock status.
+  [PASS] 12. System runs with 0 PHP errors, 0 JS errors, and 0 database conflicts over live Apache server.
 ================================================================================

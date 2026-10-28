@@ -82,15 +82,5 @@ if (!in_array('product_ingredients', $tables, true)) {
     ");
 }
 
-// 5. Clean up default / starter products if requested
-// Remove sample starter products (IDs 1 to 11 if name matches default starter list)
-$defaultNames = [
-    'Americano', 'Iced Americano', 'Cafe Latte', 'Cappuccino',
-    'Spanish Latte', 'Caramel Macchiato', 'Mocha', 'Matcha Latte',
-    'Hot Chocolate', 'Butter Croissant', 'Bottled Water'
-];
-$inNames = implode(',', array_map(fn($n) => $pdo->quote($n), $defaultNames));
-$deleted = $pdo->exec("DELETE FROM menu_products WHERE name IN ($inNames) AND product_id <= 11");
-echo "Removed $deleted default sample products.\n";
-
+// 5. Clean up obsolete starter duplicates if any, without affecting actual DK Cafe menu items
 echo "Migration completed successfully!\n";

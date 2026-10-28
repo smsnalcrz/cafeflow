@@ -9,15 +9,19 @@ Built with vanilla PHP 8, modern JavaScript (ES6+), and MySQL/MariaDB, it runs e
 
 ## 🌟 Key Features
 
-### 1. Dynamic Cup Size Pricing (Tall 16oz & Grande 22oz)
-- **Per-Size Pricing**: Beverages support dual cup sizes—**16oz (Tall)** and **22oz (Grande)**—with independent prices defined per product.
+### 1. Dynamic Cup Size Pricing (12oz Hot, 16oz Cold / Tall & 22oz Grande)
+- **Coffee Cup Sizes**: In accordance with DK Cafe's official menu, all **Coffee** category beverages exclusively offer **12oz Hot** and **16oz Cold** (22oz is completely removed from Coffee).
+- **Non-Coffee Beverage Sizes**: Other beverage categories (Milk Tea, Milk Series, Fruit Tea / Lemonade) offer **16oz (Tall)** and **22oz (Grande)**.
 - **Interactive Size Popover**: Tapping any beverage opens an intuitive cup-size selector with visual cup icons, exact prices, and real-time stock indicators.
 - **Card Price Range Display**: Menu cards cleanly display the pricing span (e.g., `₱130.00 – ₱150.00`), maintaining a tidy, uncluttered grid layout.
 - **Full System Consistency**: Chosen cup sizes flow seamlessly into checkout totals, e-receipts, printed thermal receipts, the barista queue, and sales reports.
 
 ### 2. Centralized Recipe Engine & Raw Inventory Consumption
 - **Pure Raw Inventory Tracking**: Eliminates disconnected "finished beverage" stock counts. Stock availability is derived 100% from actual raw ingredients (beans, milk, powders, syrups, ice, cups, lids, and straws).
-- **Proportional Scaling**: Larger cup sizes (22oz Grande) automatically consume proportionally more raw ingredients (~1.375×) than standard servings (16oz Tall).
+- **Hot vs. Cold Serving Logic**:
+  * **12oz Hot Beverages**: Deduct `12oz Hot cup & lid` (Item ID 23) and scaled espresso/milk ingredients, automatically omitting Ice and straws.
+  * **16oz & 22oz Cold Beverages**: Deduct `16oz cup` or `22oz cup`, `Flat lid`, `Bendable straw`, `Ice`, and scaled ingredients.
+- **Proportional Scaling**: Larger cup sizes (22oz Grande) automatically consume proportionally more raw ingredients (~1.375×) than baseline servings (16oz Tall), while 12oz servings scale by 0.75×.
 - **Automated Packaging Deductions**: Every cup sold automatically deducts its corresponding cup size (`16oz cup` or `22oz cup`), `Flat lid`, and straw upon completion.
 - **Centralized Engine (`recipe_engine.php`)**: All ingredient ratios, volume multipliers, and standard recipes are organized in one centralized file for easy future calibration.
 - **Atomic Completion Deductions**: Deductions occur exclusively when the barista marks an order as **Completed**, utilizing database row-level locking (`FOR UPDATE`) to ensure zero double-deductions and prevent negative balances.
