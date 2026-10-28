@@ -186,6 +186,14 @@ if (!function_exists('ensure_schema')) {
                   FROM menu_products
                  WHERE has_sizes = 1 AND category != 'Coffee' AND price_22oz IS NOT NULL
                 ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
+
+                -- Link Butter Croissant and French Fries to inventory if not already linked
+                UPDATE menu_products SET linked_inventory_id = 21, deduction_amount = 1.00 WHERE name = 'Butter Croissant' AND linked_inventory_id IS NULL;
+                UPDATE menu_products SET linked_inventory_id = 22, deduction_amount = 150.00 WHERE name = 'French Fries' AND linked_inventory_id IS NULL;
+                INSERT IGNORE INTO product_ingredients (product_id, item_id, deduction_amount)
+                SELECT product_id, 21, 1.00 FROM menu_products WHERE name = 'Butter Croissant';
+                INSERT IGNORE INTO product_ingredients (product_id, item_id, deduction_amount)
+                SELECT product_id, 22, 150.00 FROM menu_products WHERE name = 'French Fries';
             ");
         } catch (Throwable $e) {
             error_log('[CafeFlow Migration] ' . $e->getMessage());

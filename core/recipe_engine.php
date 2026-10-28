@@ -353,21 +353,43 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
     }
 
     if (!empty($customIngs)) {
+        $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
+
         foreach ($customIngs as $ing) {
             $itemId = (int) $ing['item_id'];
             $baseDeduct = (float) $ing['deduction_amount'];
             $ingNameLower = strtolower($ing['name']);
 
-            // Skip ice for hot drinks (12oz)
-            $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
-            if ($is12ozHot && str_contains($ingNameLower, 'ice')) {
-                continue;
+            // Hot vs Cold packaging and ice rules
+            if ($is12ozHot) {
+                // Hot drinks never take ice, straws, or cold flat lids
+                if (str_contains($ingNameLower, 'ice') || str_contains($ingNameLower, 'straw') || str_contains($ingNameLower, 'flat lid')) {
+                    continue;
+                }
+                // Skip 16oz or 22oz cups for hot drinks
+                if (str_contains($ingNameLower, '16oz') || str_contains($ingNameLower, '22oz')) {
+                    continue;
+                }
+            } else {
+                // Cold drinks never take 12oz hot cup
+                if (str_contains($ingNameLower, '12oz')) {
+                    continue;
+                }
+                // For cups, only keep the cup matching the ordered size
+                if (str_contains($ingNameLower, 'cup')) {
+                    if ($sizeProfile && $sizeProfile['code'] === '16oz' && str_contains($ingNameLower, '22oz')) {
+                        continue;
+                    }
+                    if ($sizeProfile && $sizeProfile['code'] === '22oz' && str_contains($ingNameLower, '16oz')) {
+                        continue;
+                    }
+                }
             }
 
             // Cups and packaging shouldn't scale by ingredient multiplier
             $isPackaging = str_contains($ingNameLower, 'cup') || str_contains($ingNameLower, 'lid') || str_contains($ingNameLower, 'straw');
 
-            // If a specific 16oz or 22oz cup was saved in custom ingredients, map it to the ordered size
+            // If a generic cup was saved in custom ingredients, map it to the ordered size
             if (str_contains($ingNameLower, 'cup') && $sizeProfile) {
                 $targetCup = resolve_inventory_item($sizeProfile['cup_pattern'], $invMap);
                 if ($targetCup) {
@@ -432,6 +454,30 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
                         ];
                     }
                     $consumption[$lId]['amount'] += (1.0 * $quantity);
+                }
+            }
+            // For cold beverages, ensure straw is included if defined and missing
+            if (!$is12ozHot && !empty($sizeProfile['straw'])) {
+                $hasStraw = false;
+                foreach ($consumption as $c) {
+                    if (str_contains(strtolower($c['name']), 'straw')) {
+                        $hasStraw = true;
+                    }
+                }
+                if (!$hasStraw) {
+                    $strawItem = resolve_inventory_item($sizeProfile['straw'], $invMap);
+                    if ($strawItem) {
+                        $sId = (int) $strawItem['item_id'];
+                        if (!isset($consumption[$sId])) {
+                            $consumption[$sId] = [
+                                'item_id' => $sId,
+                                'name'    => $strawItem['name'],
+                                'unit'    => $strawItem['unit_measure'],
+                                'amount'  => 0.0,
+                            ];
+                        }
+                        $consumption[$sId]['amount'] += (1.0 * $quantity);
+                    }
                 }
             }
         }
