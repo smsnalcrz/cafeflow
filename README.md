@@ -1,4 +1,4 @@
-# CafeFlow v5.1 – Point of Sale & Inventory Management System
+# CafeFlow – Point of Sale & Inventory Management System
 ### Custom Built for DK Cafe ☕
 
 **CafeFlow** is an offline-first, single-screen Point of Sale (POS), Barista Queue, Raw Inventory Management, and Sales Reporting system designed specifically for **DK Cafe**.
