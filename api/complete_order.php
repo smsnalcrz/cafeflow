@@ -9,8 +9,8 @@
  *   3. Enforces that deductions occur exactly once per completed transaction.
  *   4. Prevents negative inventory balances and provides clear feedback if stock is insufficient.
  */
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/recipe_engine.php';
+require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/recipe_engine.php';
 
 require_method('POST');
 $body = read_json();

@@ -6,7 +6,7 @@
  * GET ?start=YYYY-MM-DD&end=YYYY-MM-DD
  * GET ?all=1
  */
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../core/db.php';
 
 require_method('GET');
 

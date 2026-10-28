@@ -55,9 +55,10 @@ Built with vanilla PHP 8, modern JavaScript (ES6+), and MySQL/MariaDB, it runs e
 - **Zero Obsolete Checkboxes**: The outdated "Track stock quantity" toggle has been completely eliminated in favor of automated raw inventory tracking.
 
 ### 7. Raw Supplies Inventory Management
+- **Instant Search & Status Filtering**: Real-time search bar (`🔍 Search supplies or status...`) filtering across item names (e.g., `Matcha`, `16oz cup`), units of measure (`pcs`, `g`, `ml`), and stock status keywords (`out`, `low`, `ok`). Includes instant clear button (`✕`) and empty-state guidance.
 - **Live Stock Table**: Monitor stock quantities, units of measure (`g`, `ml`, `pcs`), and real-time status pills (`OK`, `Low`, `Out`).
 - **Restock & Adjustments**: Log delivery restocks, perform stock take adjustments, and set custom low-stock alert thresholds.
-- **Quick-Add Supply Drawer**: Quickly introduce new raw ingredients and packaging directly from within the product creation workflow.
+- **Quick-Add Supply Actions**: Introduce new raw ingredients and packaging with a dedicated `+ Add Supply` button in the inventory modal or via the in-product recipe drawer.
 
 ### 8. Sales Analytics & Excel Reporting
 - **Overview Metrics**: Total gross revenue, completed orders count, average order value, and cash vs. GCash breakdown.
@@ -75,29 +76,55 @@ Built with vanilla PHP 8, modern JavaScript (ES6+), and MySQL/MariaDB, it runs e
 
 ---
 
-## 📁 System Architecture & File Directory
+## 📁 System Architecture & Directory Structure
 
-| File | Type | Description |
-|---|---|---|
-| `index.php` | Frontend / Core | Single-screen interface containing the POS Menu Grid, Barista Queue, Modals (Products, Inventory, Reports, History), and Size Popovers. |
-| `script.js` | Frontend Logic | Client-side reactive state manager: cart logic, cup size handling, cash tender math, out-of-stock guards, polling, and modal interactions. |
-| `style.css` | Stylesheet | Complete design system, DK Cafe color tokens, responsive layout, animations, size picker styles, and thermal receipt print rules. |
-| `recipe_engine.php` | Backend Engine | Centralized recipe engine: defines cup size profiles (`RECIPE_CUP_SIZES`), ingredient profiles (`ESTIMATED_CONSUMPTION_PROFILES`), proportional deductions, and per-size stock evaluation. |
-| `db.php` | Backend Database | PDO database connection, error logger, request validation helpers, and automatic schema migration (`ensure_schema()`). |
-| `fetch_menu.php` | Backend API | Returns live menu items, category filters, size prices, and per-size inventory stock states (`ok`, `low`, `partial`, `out`). |
-| `checkout.php` | Backend API | Validates cart items, verifies raw inventory sufficiency, calculates totals, and creates `Pending` transactions with size metadata. |
-| `fetch_queue.php` | Backend API | Serves pending orders for the Barista queue, formatting line items with descriptive cup sizes (`Tall - 16oz` / `Grande - 22oz`). |
-| `complete_order.php` | Backend API | Marks orders `Completed` and atomically deducts all consumed raw materials, cups, and lids from `inventory`. |
-| `products_api.php` | Backend API | CRUD operations for menu products, category dropdown management, image uploads, and ingredient mappings. |
-| `inventory_api.php` | Backend API | Raw supplies management: stock counts, restock logs, threshold adjustments, and quick supply creation. |
-| `transactions_api.php` | Backend API | Retrieves past transactions, receipt data, and order item breakdowns for reprinting and auditing. |
-| `report.php` | Backend API | Generates financial summaries, payment method splits, hourly sales curves, and top-seller rankings for chosen date ranges. |
-| `export_excel.php` | Backend API | Streams downloadable Excel/CSV reports containing itemized transaction records and cup size breakdowns. |
-| `schema.sql` | SQL Baseline | Core database schema with baseline tables and starter seed inventory for DK Cafe. |
-| `CHANGES_2026-10-26.txt` | Documentation | Chronological technical changelog documenting cup size pricing, recipe engine implementation, and UI bugfixes. |
-| `cafeflow_logo.svg` | Asset | Crisp vector circular emblem for CafeFlow with coffee cup, fluid flow wave, and aroma steam. |
-| `dk_cafe_logo.png` | Asset | Original transparent PNG of the official DK Cafe logo. |
-| `dk_cafe_logo_cropped.png` | Asset | Tightly-cropped transparent PNG of the DK Cafe logo optimized for the co-branded header lockup. |
+```text
+cafeflow_v5-1/
+├── api/                           # Backend REST API Endpoints
+│   ├── checkout.php               # Validates cart, verifies raw inventory, creates orders
+│   ├── complete_order.php         # Completes orders & atomically deducts raw ingredients
+│   ├── export_excel.php           # Streams downloadable Excel (.xlsx/.csv) reports
+│   ├── fetch_menu.php             # Serves menu cards with size pricing & stock status
+│   ├── fetch_queue.php            # Serves pending barista queue items & alerts
+│   ├── inventory_api.php          # Raw supplies CRUD, stock counts, restock actions
+│   ├── products_api.php           # Product management, recipe linking & image upload
+│   ├── report.php                 # Analytics, date filtering & sales report data
+│   └── transactions_api.php       # Past order lookups and receipt audit records
+├── assets/                        # Client-Side Frontend Assets
+│   ├── css/
+│   │   └── style.css              # CafeFlow styling, brand theme, layout & print CSS
+│   ├── js/
+│   │   └── script.js              # State manager, cart, cup picker & modal controllers
+│   └── images/                    # System & Brand Graphics
+│       ├── cafeflow_logo.svg      # Vector circular emblem for CafeFlow
+│       ├── dk_cafe_logo.png       # Original official DK Cafe logo
+│       ├── dk_cafe_logo_cropped.png # Tightly-cropped DK Cafe lockup logo
+│       └── IMG_0180-removebg-preview.png # Logo graphic source
+├── core/                          # Central Backend Logic & Database
+│   ├── db.php                     # PDO connection, request helpers & schema verification
+│   └── recipe_engine.php          # Centralized recipe profiles, cup sizes & deduction logic
+├── database/                      # SQL Schemas & Database Migrations
+│   ├── migrate.php                # Database migration utility
+│   └── schema.sql                 # Baseline database schema & seed data
+├── docs/                          # Project Documentation & Changelogs
+│   ├── ADDED_FEATURES.txt         # Initial features changelog
+│   ├── ADDED_FEATURES_RAW_INVENTORY_LINK.txt # Raw inventory mapping documentation
+│   └── CHANGES_2026-10-26.txt     # Technical changes log
+├── product images/                # Menu Product Images Organized by Category
+│   ├── Coffee/                    # Coffee beverage product images
+│   ├── Non-Coffee/                # Non-coffee beverage product images
+│   ├── Milk Tea/                  # Milk tea beverage product images
+│   ├── Fruit Tea - Lemonade/      # Fruit tea and lemonade product images
+│   ├── Croffle/                   # Croffle pastry product images
+│   ├── Sandwich/                  # Sandwich product images
+│   ├── Pastry/                    # Bakery & pastry product images
+│   └── Snacks/                    # Cafe snacks product images
+├── ref_materials/                 # Official DK Cafe Menu & Inventory Reference Sheets
+├── uploads/                       # User-Uploaded Media
+│   └── products/                  # Dynamically uploaded product thumbnails
+├── index.php                      # Application Entry Point & Single-Screen Interface
+└── README.md                      # Comprehensive System Guide & Documentation
+```
 
 ---
 

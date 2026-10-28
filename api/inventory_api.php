@@ -7,7 +7,7 @@
  *   POST {action:"update",  item_id, name, unit, stock, threshold}   (stock count / rename)
  *   POST {action:"restock", item_id, amount}                         (adds to current stock)
  */
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../core/db.php';
 
 const MAX_AMOUNT = 9999999;
 

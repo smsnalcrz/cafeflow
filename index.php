@@ -11,7 +11,7 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#162318">
   <title>CafeFlow · DK Cafe</title>
-  <link rel="stylesheet" href="style.css?v=<?= $ver('style.css') ?>">
+  <link rel="stylesheet" href="assets/css/style.css?v=<?= $ver('assets/css/style.css') ?>">
 </head>
 <body>
 
@@ -21,10 +21,10 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
       <div class="brand-lockup">
         <div class="brand-top-row">
           <div class="brand-emblem-wrap" title="CafeFlow POS">
-            <img src="cafeflow_logo.svg?v=<?= $ver('cafeflow_logo.svg') ?>" alt="CafeFlow" class="brand-emblem-img">
+            <img src="assets/images/cafeflow_logo.svg?v=<?= $ver('assets/images/cafeflow_logo.svg') ?>" alt="CafeFlow" class="brand-emblem-img">
           </div>
           <div class="brand-logo-wrap" title="DK Cafe">
-            <img src="dk_cafe_logo_cropped.png?v=<?= $ver('dk_cafe_logo_cropped.png') ?>" alt="DK Cafe" class="brand-logo-dk">
+            <img src="assets/images/dk_cafe_logo_cropped.png?v=<?= $ver('assets/images/dk_cafe_logo_cropped.png') ?>" alt="DK Cafe" class="brand-logo-dk">
           </div>
         </div>
         <div class="brand-pill-bar">
@@ -109,6 +109,7 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
         <h2>🏷️ Manage Products</h2>
         <div class="modal-search-wrap">
           <input type="search" id="manageProductSearch" class="search-input" placeholder="🔍 Filter products list...">
+          <button type="button" class="search-clear" id="manageProductSearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn primary" id="addNewProductBtn">+ Add Product</button>
@@ -265,7 +266,12 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
     <div class="modal-card">
       <div class="modal-head">
         <h2>📦 Raw Supplies Inventory</h2>
+        <div class="modal-search-wrap">
+          <input type="search" id="inventorySearch" class="search-input" placeholder="🔍 Search supplies or status..." autocomplete="off">
+          <button type="button" class="search-clear" id="inventorySearchClearBtn" hidden title="Clear search">✕</button>
+        </div>
         <div class="modal-actions">
+          <button type="button" class="btn primary" id="addNewSupplyBtn">+ Add Supply</button>
           <button type="button" class="btn ghost" data-close>✕ Close</button>
         </div>
       </div>
@@ -464,6 +470,6 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
     </div>
   </div>
 
-  <script src="script.js?v=<?= $ver('script.js') ?>" defer></script>
+  <script src="assets/js/script.js?v=<?= $ver('assets/js/script.js') ?>" defer></script>
 </body>
 </html>

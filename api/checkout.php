@@ -13,8 +13,8 @@
  * Creates a Pending transaction plus its receipt lines with cup-size-specific pricing.
  * Checks raw inventory sufficiency before order entry.
  */
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/recipe_engine.php';
+require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/recipe_engine.php';
 
 require_method('POST');
 $body = read_json();

@@ -3,7 +3,7 @@
  * migrate.php - Database migration for CafeFlow feature enhancements.
  * Safe to run multiple times (idempotent).
  */
-require __DIR__ . '/db.php';
+require __DIR__ . '/../core/db.php';
 
 $pdo = db();
 

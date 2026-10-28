@@ -31,6 +31,7 @@
 
   /** fetch() wrapper: supports JSON and FormData, throws friendly Error on failure. */
   async function api(url, body) {
+    const finalUrl = (url.startsWith('api/') || url.startsWith('http')) ? url : 'api/' + url;
     let init;
     if (body === undefined) {
       init = { cache: 'no-store' };
@@ -47,7 +48,7 @@
 
     let res;
     try {
-      res = await fetch(url, init);
+      res = await fetch(finalUrl, init);
     } catch (_) {
       throw new Error('Cannot reach the server. Is XAMPP running?');
     }
@@ -670,8 +671,19 @@
       if (drawer) drawer.hidden = true;
     }
 
-    if (view === 'products') loadManageProducts();
-    if (view === 'inventory') loadInventory();
+    if (view === 'products') {
+      const pSearch = $('#manageProductSearch');
+      const pClear = $('#manageProductSearchClearBtn');
+      if (pClear && pSearch) pClear.hidden = !pSearch.value.trim();
+      loadManageProducts();
+    }
+    if (view === 'inventory') {
+      const invSearch = $('#inventorySearch');
+      const invClear = $('#inventorySearchClearBtn');
+      if (invSearch) invSearch.value = inventorySearchQuery;
+      if (invClear) invClear.hidden = !inventorySearchQuery.trim();
+      loadInventory();
+    }
     if (view === 'report') loadReport();
   }
 
@@ -712,7 +724,11 @@
     const tbody = $('#prodTableBody');
     tbody.textContent = '';
 
-    const filterText = ($('#manageProductSearch').value || '').trim().toLowerCase();
+    const filterInput = $('#manageProductSearch');
+    const filterClear = $('#manageProductSearchClearBtn');
+    const filterText = (filterInput ? filterInput.value : '').trim().toLowerCase();
+    if (filterClear) filterClear.hidden = !filterText;
+
     const list = manageProducts.filter(p =>
       !filterText ||
       p.name.toLowerCase().includes(filterText) ||
@@ -1202,6 +1218,7 @@
    *  Raw Supplies Inventory modal
    * ------------------------------------------------------------------ */
   let inventory = [];
+  let inventorySearchQuery = '';
 
   async function loadInventory() {
     try {
@@ -1215,11 +1232,56 @@
   function renderInventory() {
     const body = $('#invBody');
     body.textContent = '';
+
+    const searchInput = $('#inventorySearch');
+    const clearBtn = $('#inventorySearchClearBtn');
+    if (searchInput && searchInput.value !== inventorySearchQuery) {
+      searchInput.value = inventorySearchQuery;
+    }
+    if (clearBtn) {
+      clearBtn.hidden = !inventorySearchQuery.trim();
+    }
+
     if (!inventory.length) {
-      body.append(h('tr', {}, h('td', { colspan: '5', class: 'empty', text: 'No raw supplies yet. Add products with raw supplies in the Products section to see them here.' })));
+      body.append(h('tr', {}, h('td', { colspan: '5', class: 'empty', text: 'No raw supplies yet. Click "+ Add Supply" to add your first raw material.' })));
       return;
     }
-    for (const it of inventory) {
+
+    const q = inventorySearchQuery.trim().toLowerCase();
+    const filtered = !q ? inventory : inventory.filter(it => {
+      const name = (it.name || '').toLowerCase();
+      const unit = (it.unit_measure || '').toLowerCase();
+      const state = it.current_stock <= 0 ? 'out' : it.low ? 'low' : 'ok';
+      const statusLabel = { out: 'out of stock out', low: 'low stock low alert', ok: 'ok in stock good available' }[state] || '';
+
+      return name.includes(q) || unit.includes(q) || statusLabel.includes(q);
+    });
+
+    if (!filtered.length) {
+      body.append(h('tr', {},
+        h('td', { colspan: '5', class: 'empty' },
+          h('p', { text: `No raw supplies match "${inventorySearchQuery}".` }),
+          h('button', {
+            type: 'button',
+            class: 'btn ghost small',
+            style: 'margin-top: 8px;',
+            text: 'Clear Search',
+            onclick: () => {
+              inventorySearchQuery = '';
+              if (searchInput) {
+                searchInput.value = '';
+                searchInput.focus();
+              }
+              if (clearBtn) clearBtn.hidden = true;
+              renderInventory();
+            }
+          })
+        )
+      ));
+      return;
+    }
+
+    for (const it of filtered) {
       const state = it.current_stock <= 0 ? 'out' : it.low ? 'low' : 'ok';
       const label = { out: 'Out', low: 'Low', ok: 'OK' }[state];
       body.append(h('tr', {},
@@ -1819,11 +1881,11 @@
   function exportTransactions(start, end) {
     let url;
     if (start && end && start !== end) {
-      url = `export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      url = `api/export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
     } else if (start) {
-      url = `export_excel.php?date=${encodeURIComponent(start)}`;
+      url = `api/export_excel.php?date=${encodeURIComponent(start)}`;
     } else {
-      url = 'export_excel.php?all=1';
+      url = 'api/export_excel.php?all=1';
     }
 
     toast('Preparing Excel export (.xlsx)…', 'success', 2000);
@@ -1874,7 +1936,24 @@
   });
 
   // Manage products search
-  $('#manageProductSearch').addEventListener('input', () => renderManageProducts());
+  const manageSearchInp = $('#manageProductSearch');
+  const manageSearchClr = $('#manageProductSearchClearBtn');
+  if (manageSearchInp) {
+    manageSearchInp.addEventListener('input', () => {
+      if (manageSearchClr) manageSearchClr.hidden = !manageSearchInp.value.trim();
+      renderManageProducts();
+    });
+  }
+  if (manageSearchClr) {
+    manageSearchClr.addEventListener('click', () => {
+      if (manageSearchInp) {
+        manageSearchInp.value = '';
+        manageSearchInp.focus();
+      }
+      manageSearchClr.hidden = true;
+      renderManageProducts();
+    });
+  }
 
   // Add product shortcuts
   $('#openAddProductBtn').addEventListener('click', () => {
@@ -2005,6 +2084,31 @@
   });
 
   // Inventory modal
+  const invSearchInput = $('#inventorySearch');
+  const invClearBtn = $('#inventorySearchClearBtn');
+  if (invSearchInput) {
+    invSearchInput.addEventListener('input', e => {
+      inventorySearchQuery = e.target.value;
+      if (invClearBtn) invClearBtn.hidden = !inventorySearchQuery.trim();
+      renderInventory();
+    });
+  }
+  if (invClearBtn) {
+    invClearBtn.addEventListener('click', () => {
+      inventorySearchQuery = '';
+      if (invSearchInput) {
+        invSearchInput.value = '';
+        invSearchInput.focus();
+      }
+      invClearBtn.hidden = true;
+      renderInventory();
+    });
+  }
+  const addNewSupplyBtn = $('#addNewSupplyBtn');
+  if (addNewSupplyBtn) {
+    addNewSupplyBtn.addEventListener('click', () => openSheet('add'));
+  }
+
   $('#sheetCancel').addEventListener('click', closeSheet);
   $('#itemSheet').addEventListener('click', e => { if (e.target === e.currentTarget) closeSheet(); });
   $('#itemForm').addEventListener('submit', submitSheet);

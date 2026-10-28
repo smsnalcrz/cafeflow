@@ -206,14 +206,36 @@ reliably through their underlying raw inventory supplies.
   * Clicking the brand lockup automatically scrolls and returns to the POS menu view.
 
 --------------------------------------------------------------------------------
-11. VERIFICATION & TEST RESULTS
+11. REAL-TIME SEARCH LOGIC IN RAW SUPPLIES INVENTORY
 --------------------------------------------------------------------------------
-All 7 required criteria were verified against the live database:
+- Interactive Search Input in Raw Supplies Modal (`#inventoryModal` in `index.php`):
+  * Added `.modal-search-wrap` containing `#inventorySearch` input and `#inventorySearchClearBtn`.
+  * Matches the POS product search and Manage Products filter bar styling with custom icons,
+    focus glow, and responsive auto-flex layout.
+  * Added `+ Add Supply` button (`#addNewSupplyBtn`) right beside the search bar to allow
+    instant creation of new raw materials directly within the inventory modal.
+- Multi-Field Client-Side Search Engine (`script.js`):
+  * Fast, real-time filtering on input keystrokes without unnecessary server roundtrips.
+  * Searches across supply name (e.g., "16oz cup", "Matcha", "Coffee Beans", "Caramel syrup").
+  * Searches across unit of measure (e.g., "pcs", "g", "ml").
+  * Smart status search: Typing "out", "low", "ok", or queries like "out of stock" and
+    "low stock" instantly filters rows to supplies matching that exact stock state.
+  * Empty-state feedback: If no supplies match the query, displays a clean notice
+    'No raw supplies match "[query]"' with a one-click "Clear Search" button.
+  * Preserves search query across Restock, Edit, and Delete actions without jumping.
+  * Included a clear button (`✕`) for the Products Management modal (`#manageProductSearchClearBtn`)
+    for system-wide UI consistency.
+
+--------------------------------------------------------------------------------
+12. VERIFICATION & TEST RESULTS
+--------------------------------------------------------------------------------
+All required criteria were verified against the live system:
   [PASS] 1. Different cup sizes display and charge correct prices (₱130 vs ₱150).
   [PASS] 2. Completed sales deduct estimated raw materials (cups, lids, milk, beans, powders).
   [PASS] 3. Pending/incomplete orders do NOT deduct inventory.
   [PASS] 4. Insufficient raw materials are caught with clear descriptive feedback.
   [PASS] 5. "Track stock quantity" checkbox completely removed.
   [PASS] 6. Receipts, sales reports, Excel export, and barista queue remain 100% accurate.
-  [PASS] 7. System runs with 0 PHP errors, 0 JS errors, and 0 database conflicts.
+  [PASS] 7. Raw Supplies Inventory search instantly filters by name, unit, and stock status ("out", "low", "ok").
+  [PASS] 8. System runs with 0 PHP errors, 0 JS errors, and 0 database conflicts.
 ================================================================================

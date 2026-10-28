@@ -5,12 +5,12 @@
  * GET  -> List all products and distinct categories with cup sizes & raw-inventory stock states
  * POST -> Add, update, delete products or quick update stock (supports multipart/form-data with image upload)
  */
-require_once __DIR__ . '/db.php';
-require_once __DIR__ . '/recipe_engine.php';
+require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/recipe_engine.php';
 
 $pdo = db();
 
-const UPLOADS_DIR = __DIR__ . '/uploads/products/';
+const UPLOADS_DIR = __DIR__ . '/../uploads/products/';
 const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
@@ -187,7 +187,7 @@ function safe_delete_image(?string $url): void
     if (!$url) return;
     $relative = str_replace(['..', '\\'], ['', '/'], $url);
     if (str_starts_with($relative, 'uploads/products/')) {
-        $fullPath = __DIR__ . '/' . $relative;
+        $fullPath = dirname(__DIR__) . '/' . $relative;
         if (is_file($fullPath)) {
             @unlink($fullPath);
         }

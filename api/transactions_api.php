@@ -6,7 +6,7 @@
  * GET ?transaction_id=123        -> Detailed e-receipt data for a single transaction
  * GET ?all=1                     -> List all transactions
  */
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../core/db.php';
 
 require_method('GET');
 

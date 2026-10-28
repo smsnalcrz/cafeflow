@@ -4,7 +4,7 @@
  * Returns every Pending order with its items, oldest first, plus a count of
  * inventory items at or below their restock threshold for the nav badge.
  */
-require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/../core/db.php';
 
 require_method('GET');
 $pdo = db();

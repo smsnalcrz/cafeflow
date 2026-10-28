@@ -826,6 +826,7 @@ h2, h3 { margin: 0; }
 .modal-head {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 16px 20px;
   border-bottom: 1.5px solid var(--line);
