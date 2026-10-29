@@ -1,8 +1,9 @@
 -- ============================================================
---  CafeFlow  |  POS & Inventory for DK Cafe
---  Import with phpMyAdmin (Import tab) or:  mysql -u root < schema.sql
---  Safe to re-run: tables are only created if missing and the
---  starter data uses INSERT IGNORE, so existing data is kept.
+--  CafeFlow  |  Point of Sale & Inventory for DK Cafe
+--  Database Schema & Reference Seed Data
+--  Import via phpMyAdmin or command line:  mysql -u root < schema.sql
+--  Safe to re-run: tables use CREATE TABLE IF NOT EXISTS and
+--  starter records use INSERT IGNORE to preserve existing data.
 -- ============================================================
 
 CREATE DATABASE IF NOT EXISTS cafeflow
@@ -12,23 +13,20 @@ CREATE DATABASE IF NOT EXISTS cafeflow
 USE cafeflow;
 
 -- ------------------------------------------------------------
---  Raw supplies
+--  1. Raw supplies & packaging inventory
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS inventory (
   item_id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
   name              VARCHAR(100)  NOT NULL,
-  current_stock     DECIMAL(10,2) NOT NULL DEFAULT 0,
+  current_stock     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   unit_measure      VARCHAR(20)   NOT NULL,              -- g, ml, pcs ...
-  restock_threshold DECIMAL(10,2) NOT NULL DEFAULT 0,    -- flag as "Low" at or below this
+  restock_threshold DECIMAL(10,2) NOT NULL DEFAULT 0.00,    -- alert threshold
   PRIMARY KEY (item_id),
   UNIQUE KEY uq_inventory_name (name)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
---  Items sold at the counter
---  linked_inventory_id may be NULL for items you don't track.
--- ------------------------------------------------------------
---  Items sold at the counter (manually managed by user)
+--  2. Menu products (POS catalog)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS menu_products (
   product_id          INT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -38,17 +36,35 @@ CREATE TABLE IF NOT EXISTS menu_products (
   image_url           VARCHAR(255)  NULL DEFAULT NULL,
   stock_quantity      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   track_stock         TINYINT(1)    NOT NULL DEFAULT 1,
-  linked_inventory_id INT UNSIGNED  NULL,
-  deduction_amount    DECIMAL(10,2) NOT NULL DEFAULT 0,  -- taken from stock per unit sold
+  has_sizes           TINYINT(1)    NOT NULL DEFAULT 1,
+  price_12oz          DECIMAL(8,2)  NULL DEFAULT NULL,
+  price_16oz          DECIMAL(8,2)  NULL DEFAULT NULL,
+  price_22oz          DECIMAL(8,2)  NULL DEFAULT NULL,
+  linked_inventory_id INT UNSIGNED  NULL DEFAULT NULL,
+  deduction_amount    DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   PRIMARY KEY (product_id),
   KEY idx_menu_inventory (linked_inventory_id),
-  CONSTRAINT fk_menu_inventory
-    FOREIGN KEY (linked_inventory_id) REFERENCES inventory (item_id)
-    ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB;
+  CONSTRAINT fk_menu_inventory FOREIGN KEY (linked_inventory_id) REFERENCES inventory (item_id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
---  Product ingredients (recipe linkage for raw supplies)
+--  3. Cup size specific pricing (12oz Hot / 16oz Cold / Tall / Grande)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS product_size_prices (
+  id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  product_id INT UNSIGNED NOT NULL,
+  size_code  VARCHAR(30)  NOT NULL,
+  size_label VARCHAR(50)  NOT NULL,
+  size_oz    INT UNSIGNED NOT NULL DEFAULT 16,
+  price      DECIMAL(8,2) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_prod_size (product_id, size_code),
+  KEY idx_psp_prod (product_id),
+  CONSTRAINT fk_psp_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+--  4. Product ingredients (multi-ingredient consumption mapping)
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS product_ingredients (
   id               INT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -61,10 +77,10 @@ CREATE TABLE IF NOT EXISTS product_ingredients (
   KEY idx_pi_item (item_id),
   CONSTRAINT fk_pi_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE,
   CONSTRAINT fk_pi_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
---  One row per order.
+--  5. Order transactions header
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS transactions (
   transaction_id INT UNSIGNED  NOT NULL AUTO_INCREMENT,
@@ -80,10 +96,10 @@ CREATE TABLE IF NOT EXISTS transactions (
   PRIMARY KEY (transaction_id),
   KEY idx_status_time (status, `timestamp`),
   KEY idx_time (`timestamp`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
---  Receipt lines with snapshot price and product name
+--  6. Order receipt line items with snapshot pricing & cup size
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS transaction_items (
   id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -92,24 +108,421 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   product_name   VARCHAR(100) NULL DEFAULT NULL,
   quantity       INT UNSIGNED NOT NULL DEFAULT 1,
   unit_price     DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+  size_code      VARCHAR(30)  NULL DEFAULT NULL,
+  size_label     VARCHAR(50)  NULL DEFAULT NULL,
+  size_oz        INT UNSIGNED NULL DEFAULT NULL,
   PRIMARY KEY (id),
   KEY idx_items_txn (transaction_id),
   KEY idx_items_product (product_id),
-  CONSTRAINT fk_items_txn
-    FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id)
-    ON DELETE CASCADE,
-  CONSTRAINT fk_items_product
-    FOREIGN KEY (product_id) REFERENCES menu_products (product_id)
-    ON DELETE SET NULL
-) ENGINE=InnoDB;
+  CONSTRAINT fk_items_txn FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
+  CONSTRAINT fk_items_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================
---  Starter raw supplies (optional)
+--  7. Starter Raw Supplies & Packaging Inventory
 -- ============================================================
 INSERT IGNORE INTO inventory (item_id, name, current_stock, unit_measure, restock_threshold) VALUES
-  (1, 'Espresso Beans',   2000, 'g',   500),
-  (2, 'Matcha Powder',     300, 'g',   100),
-  (3, 'Chocolate Powder', 1000, 'g',   300),
-  (4, 'Butter Croissant',   20, 'pcs',   5),
-  (5, 'Bottled Water',      48, 'pcs',  12);
+  (1, 'Beans (Robusta, Arabica)', 4950.50, 'g', 1000.00),
+  (2, 'Arla full cream milk', 11840.00, 'ml', 3000.00),
+  (3, 'Emborg full cream milk', 12000.00, 'ml', 3000.00),
+  (4, 'Outside milk', 10000.00, 'ml', 2000.00),
+  (5, 'Whipping cream', 5000.00, 'ml', 1000.00),
+  (6, 'Caramel syrup', 3000.00, 'ml', 500.00),
+  (7, 'Hazelnut syrup', 3000.00, 'ml', 500.00),
+  (8, 'Vanilla syrup', 3000.00, 'ml', 500.00),
+  (9, 'Macadamia syrup', 3000.00, 'ml', 500.00),
+  (10, 'Chocolate sauce', 4000.00, 'ml', 800.00),
+  (11, 'Caramel sauce', 4000.00, 'ml', 800.00),
+  (12, 'Matcha powder', 2000.00, 'g', 400.00),
+  (13, 'Vanilla powder', 2000.00, 'g', 400.00),
+  (14, 'Choco powder', 3000.00, 'g', 500.00),
+  (15, 'White choco sauce', 4000.00, 'ml', 800.00),
+  (16, 'Bendable straw', 998.00, 'pcs', 100.00),
+  (17, 'Boba straw', 500.00, 'pcs', 50.00),
+  (18, '16oz cup', 497.00, 'pcs', 50.00),
+  (19, '22oz cup', 500.00, 'pcs', 50.00),
+  (20, 'Flat lid', 998.00, 'pcs', 100.00),
+  (21, 'Croissant', 100.00, 'pcs', 20.00),
+  (22, 'French fries', 5000.00, 'g', 1000.00),
+  (23, '12oz Hot cup & lid', 499.00, 'pcs', 50.00),
+  (24, 'Ice', 9780.00, 'g', 2000.00),
+  (25, 'Condensed milk', 4980.00, 'ml', 1000.00),
+  (26, 'Salted caramel syrup', 3000.00, 'ml', 500.00),
+  (27, 'Biscoff spread', 2970.00, 'g', 500.00),
+  (28, 'Crushed Biscoff', 1990.00, 'g', 400.00),
+  (29, 'Lotus Biscoff biscuit', 200.00, 'pcs', 40.00),
+  (30, 'Nutella spread', 4000.00, 'g', 800.00),
+  (31, 'Dark chocolate sauce', 3000.00, 'ml', 500.00),
+  (32, 'Sliced almonds', 1500.00, 'g', 300.00),
+  (33, 'Oreo cookies (crushed)', 3000.00, 'g', 500.00),
+  (34, 'Fresh banana', 50.00, 'pcs', 10.00),
+  (35, 'Fresh strawberries', 2000.00, 'g', 400.00),
+  (36, 'Strawberry syrup/puree', 4000.00, 'ml', 800.00),
+  (37, 'Mango syrup/puree', 4000.00, 'ml', 800.00),
+  (38, 'Blueberry syrup/puree', 3000.00, 'ml', 600.00),
+  (39, 'Black tea base', 10000.00, 'ml', 2000.00),
+  (40, 'Carbonated soda water', 10000.00, 'ml', 2000.00),
+  (41, 'Lemon juice base', 5000.00, 'ml', 1000.00),
+  (42, 'Kumquat juice/syrup', 3000.00, 'ml', 500.00),
+  (43, 'Chia seeds', 1000.00, 'g', 200.00),
+  (44, 'Passion fruit syrup', 3000.00, 'ml', 500.00),
+  (45, 'Cream cheese foam', 3000.00, 'g', 500.00),
+  (46, 'Cake cream', 3000.00, 'g', 500.00),
+  (47, 'Brown sugar syrup', 4000.00, 'ml', 800.00),
+  (48, 'Tapioca pearls (Boba)', 5000.00, 'g', 1000.00),
+  (49, 'Nata de coco', 4000.00, 'g', 800.00),
+  (50, 'Sandwich loaf bread', 100.00, 'pcs', 20.00),
+  (51, 'Brioche sub roll', 50.00, 'pcs', 10.00),
+  (52, 'Spam slices', 3000.00, 'g', 500.00),
+  (53, 'Ham slices', 3000.00, 'g', 500.00),
+  (54, 'Shredded chicken', 3000.00, 'g', 500.00),
+  (55, 'Egg', 120.00, 'pcs', 24.00),
+  (56, 'Sliced cheese', 100.00, 'pcs', 20.00),
+  (57, 'Fresh lettuce', 2000.00, 'g', 400.00),
+  (58, 'Fresh tomato', 2000.00, 'g', 400.00),
+  (59, 'Fresh cucumber', 2000.00, 'g', 400.00),
+  (60, 'Mayonnaise / dressing', 3000.00, 'g', 500.00),
+  (61, 'Full Cream Milk', 9840.00, 'ml', 2000.00),
+  (13508, 'Espresso', 290.00, 'ml', 100.00);
 
+-- ============================================================
+--  8. DK Cafe Menu Products
+-- ============================================================
+INSERT IGNORE INTO menu_products (product_id, name, category, price, image_url, stock_quantity, track_stock, has_sizes, price_12oz, price_16oz, price_22oz, linked_inventory_id, deduction_amount) VALUES
+  (2, 'Caffé Latte', 'Coffee', 100.00, NULL, 0.00, 1, 1, 100.00, 100.00, NULL, 1, 18.00),
+  (4, 'White Mocha', 'Coffee', 145.00, NULL, 0.00, 1, 1, 145.00, 145.00, NULL, 1, 18.00),
+  (6, 'Salted Caramel', 'Coffee', 150.00, NULL, 0.00, 1, 1, 150.00, 150.00, NULL, 1, 18.00),
+  (7, 'Biscoff Latte', 'Coffee', 160.00, NULL, 0.00, 1, 1, 160.00, 160.00, NULL, 1, 18.00),
+  (8, 'Croffle White Choco', 'Croffle Classic', 120.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (9, 'Croffle Dark Choco', 'Croffle Classic', 120.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (10, 'Croffle Nutella', 'Croffle Classic', 120.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (11, 'Croffle Caramel Fudge', 'Croffle Classic', 120.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (12, 'Croffle Biscoff', 'Croffle Classic', 120.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (13, 'Croffle Biscoff Cream', 'Croffle Premium', 160.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (14, 'Croffle Nutella Alcapone', 'Croffle Premium', 150.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (15, 'Croffle Cookies & Cream', 'Croffle Premium', 150.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (16, 'Croffle Banana Nutella', 'Croffle Premium', 160.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (17, 'Croffle Strawberry Choco', 'Croffle Premium', 170.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (18, 'Italian Soda', 'Fruit Tea / Lemonade', 89.00, NULL, 0.00, 1, 1, NULL, 89.00, 89.00, 40, 250.00),
+  (19, 'Kumquat Lemonade', 'Fruit Tea / Lemonade', 125.00, NULL, 0.00, 1, 1, NULL, 125.00, 125.00, 41, 60.00),
+  (20, 'Lemonade w/ Chia Seeds', 'Fruit Tea / Lemonade', 125.00, NULL, 0.00, 1, 1, NULL, 125.00, 125.00, 41, 60.00),
+  (21, 'DK Signature (Passion Fruit)', 'Fruit Tea / Lemonade', 150.00, NULL, 0.00, 1, 1, NULL, 130.00, 150.00, 44, 50.00),
+  (22, 'Cream Cheese & Cake Milk Tea', 'Milk Tea', 130.00, NULL, 0.00, 1, 1, NULL, 130.00, 130.00, 39, 200.00),
+  (23, 'Oreo Cream Cheese Milk Tea', 'Milk Tea', 130.00, NULL, 0.00, 1, 1, NULL, 130.00, 130.00, 39, 200.00),
+  (24, 'Brown Sugar Pearl Milk Tea', 'Milk Tea', 105.00, NULL, 0.00, 1, 1, NULL, 105.00, 130.00, 39, 150.00),
+  (25, 'Cake Milk Tea', 'Milk Tea', 105.00, NULL, 0.00, 1, 1, NULL, 105.00, 130.00, 39, 150.00),
+  (26, 'Oreo Milk Tea', 'Milk Tea', 105.00, NULL, 0.00, 1, 1, NULL, 105.00, 130.00, 39, 150.00),
+  (27, 'Nata Milk Tea', 'Milk Tea', 105.00, NULL, 0.00, 1, 1, NULL, 105.00, 130.00, 39, 150.00),
+  (28, 'Strawberry Milk', 'Milk Series', 109.00, NULL, 0.00, 1, 1, NULL, 109.00, 129.00, 3, 180.00),
+  (29, 'Mango Milk', 'Milk Series', 109.00, NULL, 0.00, 1, 1, NULL, 109.00, 129.00, 3, 180.00),
+  (30, 'Blueberry Milk', 'Milk Series', 109.00, NULL, 0.00, 1, 1, NULL, 109.00, 129.00, 3, 180.00),
+  (31, 'Matcha Latte', 'Milk Series', 120.00, NULL, 0.00, 1, 1, NULL, 120.00, 140.00, 12, 15.00),
+  (32, 'Black Forest', 'Milk Series', 120.00, NULL, 0.00, 1, 1, NULL, 120.00, 140.00, 14, 20.00),
+  (33, 'Nata Strawberry', 'Milk Series', 125.00, NULL, 0.00, 1, 1, NULL, 125.00, 145.00, 3, 180.00),
+  (34, 'Nata Mango', 'Milk Series', 125.00, NULL, 0.00, 1, 1, NULL, 125.00, 145.00, 3, 180.00),
+  (35, 'Pearl Mango', 'Milk Series', 125.00, NULL, 0.00, 1, 1, NULL, 125.00, 145.00, 3, 180.00),
+  (36, 'Strawberry Matcha', 'Milk Series', 130.00, NULL, 0.00, 1, 1, NULL, 130.00, 150.00, 12, 12.00),
+  (37, 'White Choco Matcha', 'Milk Series', 130.00, NULL, 0.00, 1, 1, NULL, 130.00, 150.00, 12, 12.00),
+  (38, 'Sandwich Overload (Spam & Egg)', 'Sandwich', 160.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 52, 80.00),
+  (39, 'Sandwich Overload (Ham & Egg)', 'Sandwich', 140.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 53, 60.00),
+  (40, 'Sandwich Overload (Chicken)', 'Sandwich', 170.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 54, 90.00),
+  (41, 'Americano', 'Coffee', 100.00, NULL, 0.00, 1, 1, 100.00, 100.00, NULL, 13508, 60.00),
+  (42, 'Spanish Latte', 'Coffee', 145.00, NULL, 0.00, 1, 1, 145.00, 145.00, NULL, NULL, 0.00),
+  (43, 'Caramel Macchiato', 'Coffee', 150.00, NULL, 0.00, 1, 1, 150.00, 150.00, NULL, NULL, 0.00),
+  (44, 'Butter Croissant', 'Pastry', 95.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 21, 1.00),
+  (45, 'French Fries', 'Snacks', 85.00, NULL, 0.00, 1, 0, NULL, NULL, NULL, 22, 150.00);
+
+-- ============================================================
+--  9. Product Cup Size Pricing (12oz Hot / 16oz Cold / Tall / Grande)
+-- ============================================================
+INSERT IGNORE INTO product_size_prices (id, product_id, size_code, size_label, size_oz, price) VALUES
+  (15, 18, '22oz', 'Grande', 22, 89.00),
+  (16, 19, '22oz', 'Grande', 22, 125.00),
+  (17, 20, '22oz', 'Grande', 22, 125.00),
+  (18, 21, '22oz', 'Grande', 22, 150.00),
+  (19, 22, '22oz', 'Grande', 22, 130.00),
+  (20, 23, '22oz', 'Grande', 22, 130.00),
+  (21, 24, '16oz', 'Tall', 16, 105.00),
+  (22, 24, '22oz', 'Grande', 22, 130.00),
+  (23, 25, '16oz', 'Tall', 16, 105.00),
+  (24, 25, '22oz', 'Grande', 22, 130.00),
+  (25, 26, '16oz', 'Tall', 16, 105.00),
+  (26, 26, '22oz', 'Grande', 22, 130.00),
+  (27, 27, '16oz', 'Tall', 16, 105.00),
+  (28, 27, '22oz', 'Grande', 22, 130.00),
+  (29, 28, '16oz', 'Tall', 16, 109.00),
+  (30, 29, '16oz', 'Tall', 16, 109.00),
+  (31, 30, '16oz', 'Tall', 16, 109.00),
+  (32, 31, '16oz', 'Tall', 16, 120.00),
+  (33, 32, '16oz', 'Tall', 16, 120.00),
+  (34, 33, '16oz', 'Tall', 16, 125.00),
+  (35, 34, '16oz', 'Tall', 16, 125.00),
+  (36, 35, '16oz', 'Tall', 16, 125.00),
+  (37, 36, '16oz', 'Tall', 16, 130.00),
+  (38, 37, '16oz', 'Tall', 16, 130.00),
+  (39, 18, '16oz', 'Tall', 16, 89.00),
+  (40, 19, '16oz', 'Tall', 16, 125.00),
+  (41, 20, '16oz', 'Tall', 16, 125.00),
+  (42, 21, '16oz', 'Tall', 16, 130.00),
+  (43, 22, '16oz', 'Tall', 16, 130.00),
+  (44, 23, '16oz', 'Tall', 16, 130.00),
+  (53, 28, '22oz', 'Grande', 22, 129.00),
+  (54, 29, '22oz', 'Grande', 22, 129.00),
+  (55, 30, '22oz', 'Grande', 22, 129.00),
+  (56, 31, '22oz', 'Grande', 22, 140.00),
+  (57, 32, '22oz', 'Grande', 22, 140.00),
+  (58, 33, '22oz', 'Grande', 22, 145.00),
+  (59, 34, '22oz', 'Grande', 22, 145.00),
+  (60, 35, '22oz', 'Grande', 22, 145.00),
+  (61, 36, '22oz', 'Grande', 22, 150.00),
+  (62, 37, '22oz', 'Grande', 22, 150.00),
+  (3059, 2, '12oz', '12oz Hot', 12, 100.00),
+  (3060, 2, '16oz', '16oz Cold', 16, 100.00),
+  (3061, 42, '12oz', '12oz Hot', 12, 145.00),
+  (3062, 42, '16oz', '16oz Cold', 16, 145.00),
+  (3063, 4, '12oz', '12oz Hot', 12, 145.00),
+  (3064, 4, '16oz', '16oz Cold', 16, 145.00),
+  (3065, 43, '12oz', '12oz Hot', 12, 150.00),
+  (3066, 43, '16oz', '16oz Cold', 16, 150.00),
+  (3067, 6, '12oz', '12oz Hot', 12, 150.00),
+  (3068, 6, '16oz', '16oz Cold', 16, 150.00),
+  (3069, 7, '12oz', '12oz Hot', 12, 160.00),
+  (3070, 7, '16oz', '16oz Cold', 16, 160.00),
+  (4465, 41, '12oz', '12oz Hot', 12, 100.00),
+  (4466, 41, '16oz', '16oz Cold', 16, 100.00);
+
+-- ============================================================
+--  10. Product Recipe Ingredients (Raw Supply Linkages)
+-- ============================================================
+INSERT IGNORE INTO product_ingredients (id, product_id, item_id, deduction_amount) VALUES
+  (7, 2, 1, 18.00),
+  (8, 2, 2, 180.00),
+  (9, 2, 24, 100.00),
+  (10, 2, 23, 1.00),
+  (11, 2, 18, 1.00),
+  (12, 2, 20, 1.00),
+  (13, 2, 16, 1.00),
+  (22, 4, 1, 18.00),
+  (23, 4, 2, 160.00),
+  (24, 4, 15, 35.00),
+  (25, 4, 24, 100.00),
+  (26, 4, 23, 1.00),
+  (27, 4, 18, 1.00),
+  (28, 4, 20, 1.00),
+  (29, 4, 16, 1.00),
+  (39, 6, 1, 18.00),
+  (40, 6, 2, 160.00),
+  (41, 6, 26, 35.00),
+  (42, 6, 24, 100.00),
+  (43, 6, 23, 1.00),
+  (44, 6, 18, 1.00),
+  (45, 6, 20, 1.00),
+  (46, 6, 16, 1.00),
+  (47, 7, 1, 18.00),
+  (48, 7, 2, 160.00),
+  (49, 7, 27, 30.00),
+  (50, 7, 28, 10.00),
+  (51, 7, 24, 100.00),
+  (52, 7, 23, 1.00),
+  (53, 7, 18, 1.00),
+  (54, 7, 20, 1.00),
+  (55, 7, 16, 1.00),
+  (56, 8, 21, 1.00),
+  (57, 8, 15, 30.00),
+  (58, 9, 21, 1.00),
+  (59, 9, 31, 30.00),
+  (60, 10, 21, 1.00),
+  (61, 10, 30, 30.00),
+  (62, 11, 21, 1.00),
+  (63, 11, 6, 30.00),
+  (64, 12, 21, 1.00),
+  (65, 12, 27, 30.00),
+  (66, 13, 21, 1.00),
+  (67, 13, 5, 40.00),
+  (68, 13, 28, 15.00),
+  (69, 13, 29, 1.00),
+  (70, 14, 21, 1.00),
+  (71, 14, 30, 30.00),
+  (72, 14, 32, 15.00),
+  (73, 15, 21, 1.00),
+  (74, 15, 33, 25.00),
+  (75, 15, 5, 40.00),
+  (76, 16, 21, 1.00),
+  (77, 16, 30, 30.00),
+  (78, 16, 34, 0.50),
+  (79, 17, 21, 1.00),
+  (80, 17, 35, 40.00),
+  (81, 17, 10, 25.00),
+  (82, 18, 40, 250.00),
+  (83, 18, 36, 40.00),
+  (84, 18, 24, 150.00),
+  (85, 18, 19, 1.00),
+  (86, 18, 20, 1.00),
+  (87, 18, 16, 1.00),
+  (88, 19, 41, 60.00),
+  (89, 19, 42, 40.00),
+  (90, 19, 24, 150.00),
+  (91, 19, 19, 1.00),
+  (92, 19, 20, 1.00),
+  (93, 19, 16, 1.00),
+  (94, 20, 41, 60.00),
+  (95, 20, 43, 10.00),
+  (96, 20, 24, 150.00),
+  (97, 20, 19, 1.00),
+  (98, 20, 20, 1.00),
+  (99, 20, 16, 1.00),
+  (100, 21, 39, 150.00),
+  (101, 21, 44, 50.00),
+  (102, 21, 43, 5.00),
+  (103, 21, 24, 150.00),
+  (104, 21, 19, 1.00),
+  (105, 21, 20, 1.00),
+  (106, 21, 16, 1.00),
+  (107, 22, 39, 200.00),
+  (108, 22, 4, 100.00),
+  (109, 22, 45, 30.00),
+  (110, 22, 46, 30.00),
+  (111, 22, 48, 50.00),
+  (112, 22, 24, 150.00),
+  (113, 22, 19, 1.00),
+  (114, 22, 20, 1.00),
+  (115, 22, 17, 1.00),
+  (116, 23, 39, 200.00),
+  (117, 23, 4, 100.00),
+  (118, 23, 45, 30.00),
+  (119, 23, 33, 25.00),
+  (120, 23, 48, 50.00),
+  (121, 23, 24, 150.00),
+  (122, 23, 19, 1.00),
+  (123, 23, 20, 1.00),
+  (124, 23, 17, 1.00),
+  (125, 24, 39, 150.00),
+  (126, 24, 4, 80.00),
+  (127, 24, 47, 35.00),
+  (128, 24, 48, 45.00),
+  (129, 24, 24, 120.00),
+  (130, 24, 18, 1.00),
+  (131, 24, 19, 1.00),
+  (132, 24, 20, 1.00),
+  (133, 24, 17, 1.00),
+  (134, 25, 39, 150.00),
+  (135, 25, 4, 80.00),
+  (136, 25, 46, 35.00),
+  (137, 25, 48, 45.00),
+  (138, 25, 24, 120.00),
+  (139, 25, 18, 1.00),
+  (140, 25, 19, 1.00),
+  (141, 25, 20, 1.00),
+  (142, 25, 17, 1.00),
+  (143, 26, 39, 150.00),
+  (144, 26, 4, 80.00),
+  (145, 26, 33, 25.00),
+  (146, 26, 48, 45.00),
+  (147, 26, 24, 120.00),
+  (148, 26, 18, 1.00),
+  (149, 26, 19, 1.00),
+  (150, 26, 20, 1.00),
+  (151, 26, 17, 1.00),
+  (152, 27, 39, 150.00),
+  (153, 27, 4, 80.00),
+  (154, 27, 49, 45.00),
+  (155, 27, 24, 120.00),
+  (156, 27, 18, 1.00),
+  (157, 27, 19, 1.00),
+  (158, 27, 20, 1.00),
+  (159, 27, 17, 1.00),
+  (160, 28, 3, 180.00),
+  (161, 28, 36, 40.00),
+  (162, 28, 24, 120.00),
+  (163, 28, 18, 1.00),
+  (164, 28, 20, 1.00),
+  (165, 28, 16, 1.00),
+  (166, 29, 3, 180.00),
+  (167, 29, 37, 40.00),
+  (168, 29, 24, 120.00),
+  (169, 29, 18, 1.00),
+  (170, 29, 20, 1.00),
+  (171, 29, 16, 1.00),
+  (172, 30, 3, 180.00),
+  (173, 30, 38, 40.00),
+  (174, 30, 24, 120.00),
+  (175, 30, 18, 1.00),
+  (176, 30, 20, 1.00),
+  (177, 30, 16, 1.00),
+  (178, 31, 3, 180.00),
+  (179, 31, 12, 15.00),
+  (180, 31, 8, 15.00),
+  (181, 31, 24, 120.00),
+  (182, 31, 18, 1.00),
+  (183, 31, 20, 1.00),
+  (184, 31, 16, 1.00),
+  (185, 32, 3, 160.00),
+  (186, 32, 14, 20.00),
+  (187, 32, 10, 15.00),
+  (188, 32, 36, 25.00),
+  (189, 32, 24, 120.00),
+  (190, 32, 18, 1.00),
+  (191, 32, 20, 1.00),
+  (192, 32, 16, 1.00),
+  (193, 33, 3, 180.00),
+  (194, 33, 36, 40.00),
+  (195, 33, 49, 40.00),
+  (196, 33, 24, 120.00),
+  (197, 33, 18, 1.00),
+  (198, 33, 20, 1.00),
+  (199, 33, 17, 1.00),
+  (200, 34, 3, 180.00),
+  (201, 34, 37, 40.00),
+  (202, 34, 49, 40.00),
+  (203, 34, 24, 120.00),
+  (204, 34, 18, 1.00),
+  (205, 34, 20, 1.00),
+  (206, 34, 17, 1.00),
+  (207, 35, 3, 180.00),
+  (208, 35, 37, 40.00),
+  (209, 35, 48, 40.00),
+  (210, 35, 24, 120.00),
+  (211, 35, 18, 1.00),
+  (212, 35, 20, 1.00),
+  (213, 35, 17, 1.00),
+  (214, 36, 3, 180.00),
+  (215, 36, 12, 12.00),
+  (216, 36, 36, 35.00),
+  (217, 36, 24, 120.00),
+  (218, 36, 18, 1.00),
+  (219, 36, 20, 1.00),
+  (220, 36, 16, 1.00),
+  (221, 37, 3, 180.00),
+  (222, 37, 12, 12.00),
+  (223, 37, 15, 30.00),
+  (224, 37, 24, 120.00),
+  (225, 37, 18, 1.00),
+  (226, 37, 20, 1.00),
+  (227, 37, 16, 1.00),
+  (228, 38, 50, 3.00),
+  (229, 38, 52, 80.00),
+  (230, 38, 55, 1.00),
+  (231, 38, 57, 30.00),
+  (232, 38, 58, 30.00),
+  (233, 38, 59, 25.00),
+  (234, 38, 60, 25.00),
+  (235, 39, 51, 1.00),
+  (236, 39, 53, 60.00),
+  (237, 39, 55, 1.00),
+  (238, 39, 56, 1.00),
+  (239, 39, 57, 30.00),
+  (240, 39, 58, 25.00),
+  (241, 39, 59, 25.00),
+  (242, 39, 60, 25.00),
+  (243, 40, 50, 2.00),
+  (244, 40, 54, 90.00),
+  (245, 40, 55, 1.00),
+  (246, 40, 56, 1.00),
+  (247, 40, 57, 30.00),
+  (248, 40, 58, 30.00),
+  (249, 40, 60, 30.00),
+  (250, 41, 13508, 60.00),
+  (251, 41, 23, 1.00),
+  (252, 41, 18, 1.00),
+  (253, 44, 21, 1.00),
+  (254, 45, 22, 150.00);
