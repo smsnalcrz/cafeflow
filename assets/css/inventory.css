@@ -1,0 +1,149 @@
+/* ======================================================================
+   RAW SUPPLIES INVENTORY TABLE & ITEM SHEET
+   ====================================================================== */
+/* ======================================================================
+   INVENTORY TABLE
+   ====================================================================== */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+.table th {
+  padding: 10px 10px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 2px solid var(--line);
+}
+.table td {
+  padding: 11px 10px;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+}
+.table tr:hover td { background: var(--cream); }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.table .name { font-weight: 700; font-size: 16px; color: var(--ink); }
+.table .act { text-align: right; white-space: nowrap; }
+.table .act .btn + .btn { margin-left: 8px; }
+.table .act .btn.btn-delete:hover {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+/* ======================================================================
+   INVENTORY SHEET (side form)
+   ====================================================================== */
+.sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(28,17,8,.5);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.sheet-card {
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100vh - var(--topbar-h) - 40px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  animation: card-in var(--dur) var(--ease-spring);
+}
+.sheet-card::-webkit-scrollbar { width: 4px; }
+.sheet-card::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+/* Enhanced Products Tab Popup Size */
+#productSheet .sheet-card {
+  width: min(840px, calc(100% - 32px));
+  max-height: min(90vh, calc(100vh - var(--topbar-h) - 24px));
+  padding: 26px 28px;
+}
+.sheet-card h3 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--espresso);
+  letter-spacing: -.3px;
+}
+.sheet-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.sheet-card input,
+.sheet-card select {
+  height: 50px;
+  padding: 0 16px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+  font-family: inherit;
+  transition: border-color var(--dur-fast), background var(--dur-fast), box-shadow var(--dur-fast);
+}
+.sheet-card input:focus,
+.sheet-card select:focus {
+  outline: none;
+  border-color: var(--caramel);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(192,124,46,.18);
+}
+.sheet-card select {
+  padding-right: 38px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%23162318'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: calc(100% - 14px) center;
+  background-size: 18px;
+  cursor: pointer;
+}
+.sheet-card select option {
+  background: #fff;
+  color: var(--ink);
+  font-size: 15px;
+  padding: 8px 12px;
+}
+/* Checkboxes should not inherit the 50px input height */
+.sheet-card input[type="checkbox"] {
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: inherit;
+}
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.form-error {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--red-light);
+  color: var(--red);
+  font-weight: 600;
+  font-size: 14px;
+}

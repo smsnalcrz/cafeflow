@@ -1,0 +1,161 @@
+/* ======================================================================
+   BARISTA QUEUE & ORDER TICKETS
+   ====================================================================== */
+/* ======================================================================
+   BARISTA QUEUE
+   ====================================================================== */
+.pill {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  background: var(--espresso);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+.conn {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--green);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.conn::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+.conn.down { color: var(--red); }
+.conn.down::before { animation: none; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: .6; transform: scale(.8); }
+}
+
+.queue {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px 16px;
+}
+.queue::-webkit-scrollbar { width: 4px; }
+.queue::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+
+.ticket {
+  flex: 0 0 auto;
+  padding: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  animation: fadein var(--dur-slow) var(--ease-out);
+}
+@keyframes fadein {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* coloured status bar at top of ticket */
+.ticket::before {
+  content: "";
+  display: block;
+  height: 4px;
+  background: var(--green);
+  border-radius: var(--radius) var(--radius) 0 0;
+  transition: background var(--dur) var(--ease);
+}
+.ticket.age-warn::before { background: var(--amber); }
+.ticket.age-late::before { background: var(--red); }
+
+.ticket-inner { padding: 12px 14px 14px; }
+
+.ticket header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ticket-no {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--espresso);
+  font-variant-numeric: tabular-nums;
+}
+.ticket-age {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.ticket.age-warn .ticket-age { color: var(--amber); font-weight: 700; }
+.ticket.age-late .ticket-age { color: var(--red);   font-weight: 700; }
+
+.pill-pay {
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.pill-pay.cash  { background: var(--espresso); }
+.pill-pay.gcash { background: var(--blue); }
+
+.ticket ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 1.65;
+}
+.ticket li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ticket li b {
+  display: inline-block;
+  min-width: 30px;
+  color: var(--caramel);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.complete {
+  width: 100%;
+  height: 46px;
+  border-radius: var(--radius-sm);
+  background: var(--green);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 3px 10px rgba(30,126,74,.3);
+}
+.complete::before { content: "✓"; font-size: 14px; }
+.complete:not(:disabled):hover { filter: brightness(1.1); }
+.complete:not(:disabled):active { transform: scale(.97); }

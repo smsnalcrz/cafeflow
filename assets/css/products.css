@@ -1,0 +1,473 @@
+/* ======================================================================
+   PRODUCT MANAGEMENT FORM, RECIPE LINKER & SUPPLY PICKER
+   ====================================================================== */
+/* ======================================================================
+   PRODUCT MANAGEMENT FORM
+   ====================================================================== */
+.sheet-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.image-upload-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.image-upload-wrap label {
+  cursor: pointer;
+}
+.sheet-card input[type="file"] {
+  width: 100%;
+  height: 48px;
+  line-height: 34px;
+  padding: 6px 10px;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cream);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  box-sizing: border-box;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border-color var(--dur-fast), background var(--dur-fast), box-shadow var(--dur-fast);
+}
+.sheet-card input[type="file"]:hover {
+  background: var(--caramel-pale);
+  border-color: var(--caramel);
+}
+.sheet-card input[type="file"]:focus {
+  outline: none;
+  border-color: var(--caramel);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(192,124,46,.18);
+}
+.sheet-card input[type="file"]::file-selector-button {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--caramel);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  text-transform: none;
+  cursor: pointer;
+  margin-right: 12px;
+  vertical-align: middle;
+  box-shadow: 0 2px 6px rgba(192,124,46,.3);
+  transition: filter var(--dur-fast), transform var(--dur-fast);
+}
+.sheet-card input[type="file"]::file-selector-button:hover {
+  filter: brightness(1.1);
+}
+.sheet-card input[type="file"]::file-selector-button:active {
+  transform: scale(.96);
+}
+.sheet-card input[type="file"]::-webkit-file-upload-button {
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--caramel);
+  color: #fff;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  text-transform: none;
+  cursor: pointer;
+  margin-right: 12px;
+  vertical-align: middle;
+  box-shadow: 0 2px 6px rgba(192,124,46,.3);
+  transition: filter var(--dur-fast), transform var(--dur-fast);
+}
+.sheet-card input[type="file"]::-webkit-file-upload-button:hover {
+  filter: brightness(1.1);
+}
+.sheet-card input[type="file"]::-webkit-file-upload-button:active {
+  transform: scale(.96);
+}
+.image-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+}
+.image-preview-box img {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+#removeImageBtn:hover {
+  background: var(--red-light);
+  border-color: var(--red);
+  color: var(--red);
+}
+.check-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  text-transform: none !important;
+  color: var(--ink) !important;
+  cursor: pointer;
+}
+.check-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--caramel);
+  cursor: pointer;
+}
+.inventory-link-box {
+  padding: 12px 14px;
+  background: var(--cream);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.inventory-link-box select {
+  height: 44px;
+  padding: 0 12px;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  font-size: 15px;
+  color: var(--ink);
+  width: 100%;
+}
+.link-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.link-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.link-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.link-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.supply-count-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  background: var(--parchment);
+  color: var(--espresso);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  letter-spacing: .2px;
+  transition: background var(--dur-fast), color var(--dur-fast), border-color var(--dur-fast);
+}
+.supply-count-badge.has-selected {
+  background: var(--caramel);
+  color: #fff;
+  border-color: var(--caramel);
+}
+
+.btn-link-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--caramel);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(192,124,46,.25);
+  transition: filter var(--dur-fast), transform var(--dur-fast), background var(--dur-fast);
+}
+.btn-link-add:hover {
+  filter: brightness(1.12);
+}
+.btn-link-add:active {
+  transform: scale(.95);
+}
+.select-label-wrap {
+  width: 100%;
+}
+
+/* Raw Inventory Supply Search Bar */
+.supply-search-wrap {
+  width: 100%;
+}
+.supply-search-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.supply-search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 14px;
+  color: var(--muted);
+  pointer-events: none;
+  user-select: none;
+}
+.supply-search-field {
+  width: 100%;
+  height: 42px !important;
+  padding-left: 36px !important;
+  padding-right: 36px !important;
+  font-size: 14px !important;
+  border: 1.5px solid var(--line) !important;
+  border-radius: var(--radius-sm) !important;
+  background: #ffffff !important;
+  color: var(--ink);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.supply-search-field:focus {
+  border-color: var(--caramel) !important;
+  box-shadow: 0 0 0 3px rgba(192,124,46,.15) !important;
+  outline: none;
+}
+
+/* Scrollable Container for Raw Inventory Supplies */
+.supply-list-container {
+  max-height: 250px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+}
+.supply-list-container::-webkit-scrollbar {
+  width: 5px;
+}
+.supply-list-container::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 5px;
+}
+.supply-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Selectable Supply List Item Row */
+.supply-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.supply-item:hover {
+  background: var(--cream);
+  border-color: var(--caramel-soft);
+}
+.supply-item.selected {
+  background: #fff8f0;
+  border-color: var(--caramel);
+  box-shadow: 0 1px 5px rgba(192,124,46,.14);
+}
+.supply-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.supply-checkbox-custom {
+  width: 19px;
+  height: 19px;
+  flex-shrink: 0;
+  accent-color: var(--caramel);
+  cursor: pointer;
+}
+.supply-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.supply-name {
+  font-weight: 700;
+  font-size: 14.5px;
+  color: var(--espresso);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.supply-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.supply-stock-num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.supply-item-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.supply-deduct-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  padding: 3px 8px;
+  border: 1.5px solid var(--caramel-soft);
+  border-radius: var(--radius-sm);
+}
+.supply-deduct-lbl {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.supply-deduct-inp {
+  width: 68px;
+  height: 28px !important;
+  padding: 0 6px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  text-align: right;
+  border: 1px solid var(--line) !important;
+  border-radius: 4px !important;
+  background: var(--cream) !important;
+  color: var(--ink);
+}
+.supply-deduct-inp:focus {
+  border-color: var(--caramel) !important;
+  background: #fff !important;
+  outline: none;
+}
+.supply-unit-lbl {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--espresso);
+}
+.supply-empty-msg {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.supply-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 4px;
+  margin-bottom: 0;
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .supply-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .supply-item-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* Quick Add Raw Supply Inline Card */
+.quick-add-supply-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #ffffff;
+  border: 1.5px solid var(--caramel-soft);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 14px rgba(44,26,14,.08);
+  animation: card-in var(--dur-fast) var(--ease-spring);
+}
+.quick-add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--espresso);
+  font-size: 13px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.quick-add-close {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--parchment);
+  border: none;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.quick-add-close:hover {
+  background: var(--red-light);
+  color: var(--red);
+}
+.quick-add-supply-card input {
+  height: 40px !important;
+  font-size: 15px !important;
+  padding: 0 12px !important;
+}
+.quick-add-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}

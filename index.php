@@ -1,6 +1,22 @@
 <?php
 // Cache-bust the CSS/JS by file modification time so the tablet never runs stale code.
 $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
+
+$cssModules = [
+  'assets/css/variables.css',
+  'assets/css/base.css',
+  'assets/css/layout.css',
+  'assets/css/topbar.css',
+  'assets/css/pos.css',
+  'assets/css/cart.css',
+  'assets/css/queue.css',
+  'assets/css/modals.css',
+  'assets/css/inventory.css',
+  'assets/css/products.css',
+  'assets/css/reports.css',
+  'assets/css/responsive.css',
+  'assets/css/print.css',
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -11,7 +27,9 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#162318">
   <title>CafeFlow · DK Cafe</title>
-  <link rel="stylesheet" href="assets/css/style.css?v=<?= $ver('assets/css/style.css') ?>">
+  <?php foreach ($cssModules as $css): ?>
+  <link rel="stylesheet" href="<?= $css ?>?v=<?= $ver($css) ?>">
+  <?php endforeach; ?>
 </head>
 <body>
 
@@ -105,6 +123,24 @@ $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
       </div>
     </section>
   </main>
+
+  <!-- ===== Mobile Sticky Order Dock (visible on mobile / small screens when cart has items) ===== -->
+  <div class="mobile-order-bar" id="mobileOrderBar" hidden aria-label="Order summary dock">
+    <button type="button" class="mob-order-info" id="mobOrderViewBtn" aria-label="View order items">
+      <div class="mob-order-meta">
+        <span class="mob-order-badge" id="mobOrderBadge">0</span>
+        <span class="mob-order-label">Current Order</span>
+      </div>
+      <div class="mob-order-total-group">
+        <strong class="mob-order-total" id="mobOrderTotal">₱0.00</strong>
+        <span class="mob-order-chevron" aria-hidden="true">▲</span>
+      </div>
+    </button>
+    <div class="mob-order-actions">
+      <button type="button" class="mob-pay-btn mob-pay-cash" id="mobPayCashBtn">💵 Cash</button>
+      <button type="button" class="mob-pay-btn mob-pay-gcash" id="mobPayGcashBtn">📱 GCash</button>
+    </div>
+  </div>
 
   <!-- ===== Products Management modal ===== -->
   <div class="modal" id="productModal" hidden>

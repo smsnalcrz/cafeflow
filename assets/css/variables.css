@@ -1,0 +1,60 @@
+/* ======================================================================
+   DESIGN TOKENS & SYSTEM VARIABLES
+   ====================================================================== */
+/* ======================================================================
+   DESIGN TOKENS
+   ====================================================================== */
+:root {
+  /* Brand palette — derived from DK Cafe logo
+     Orange flame : #E8623A  |  Green leaf : #52C96E  |  Dark forest : #162318 */
+  --espresso:       #162318;   /* deep forest green  (replaces dark brown) */
+  --espresso-light: #1f3325;   /* slightly lighter forest */
+  --caramel:        #e8623a;   /* logo orange flame  (replaces caramel) */
+  --caramel-mid:    #f07348;   /* lighter orange     */
+  --caramel-soft:   #fde8e0;   /* pale orange tint   */
+  --caramel-pale:   #fff5f1;   /* very pale orange   */
+  --cream:          #f5faf6;   /* very light green-tinted white */
+  --parchment:      #edf5ef;   /* light sage parchment */
+  --parchment-mid:  #d9ece0;   /* mid sage */
+
+  /* Semantic surfaces */
+  --bg:             var(--parchment);
+  --surface:        #fafefc;
+  --surface-raised: #ffffff;
+  --ink:            #0e1e12;   /* very dark green-black */
+  --ink-mid:        #1f3b28;
+  --muted:          #5a7a63;   /* muted sage */
+  --line:           #cde5d4;
+
+  /* State colours */
+  --green:          #2a9b52;   /* logo leaf green, boosted */
+  --green-light:    #e4f7ec;
+  --blue:           #1a5ecb;
+  --blue-light:     #e8f0fc;
+  --red:            #b83226;
+  --red-light:      #fcecea;
+  --amber:          #e8623a;   /* reuse logo orange for amber/warn */
+  --amber-light:    #fde8e0;
+
+  /* Layout */
+  --topbar-h:   80px;
+  --radius-sm:  10px;
+  --radius:     14px;
+  --radius-lg:  20px;
+  --radius-xl:  24px;
+
+  /* Elevation */
+  --shadow-xs:  0 1px 3px rgba(22,35,24,.08);
+  --shadow-sm:  0 2px 8px rgba(22,35,24,.10);
+  --shadow:     0 4px 16px rgba(22,35,24,.12);
+  --shadow-lg:  0 8px 32px rgba(22,35,24,.16);
+  --shadow-xl:  0 16px 48px rgba(22,35,24,.22);
+
+  /* Transitions */
+  --dur-fast:   120ms;
+  --dur:        200ms;
+  --dur-slow:   320ms;
+  --ease:       cubic-bezier(.25,.46,.45,.94);
+  --ease-out:   cubic-bezier(0, 0, .2, 1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+}

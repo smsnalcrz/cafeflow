@@ -1,0 +1,16 @@
+/* ======================================================================
+   PRINT STYLES FOR RECEIPTS & REPORTS
+   ====================================================================== */
+/* ======================================================================
+   PRINT
+   ====================================================================== */
+@media print {
+  body { overflow: visible !important; height: auto !important; background: #fff !important; }
+  .topbar, .split, .sheet, .toast, #inventoryModal, #productModal, .modal-actions, .report-toolbar, .cal-drawer, .seg { display: none !important; }
+  #reportModal, #receiptModal { position: static !important; display: block !important; padding: 0 !important; background: transparent !important; }
+  #reportModal .modal-card, #receiptModal .modal-card { max-width: 100% !important; height: auto !important; box-shadow: none !important; border: none !important; }
+  #reportModal .modal-body, #receiptModal .modal-body { overflow: visible !important; padding: 0 !important; }
+  .stats { grid-template-columns: repeat(3, 1fr) !important; }
+  .stat { border: 1px solid #ccc !important; box-shadow: none !important; }
+  .stat.big { background: #2c1a0e !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -127,6 +127,20 @@
     }
   }
 
+  function getCategoryIcon(cat) {
+    if (!cat) return '☕';
+    const c = cat.toLowerCase();
+    if (c.includes('croffle') || c.includes('waffle')) return '🧇';
+    if (c.includes('sandwich') || c.includes('toast') || c.includes('burger')) return '🥪';
+    if (c.includes('pastry') || c.includes('bakery') || c.includes('croissant')) return '🥐';
+    if (c.includes('snack') || c.includes('fries') || c.includes('finger')) return '🍟';
+    if (c.includes('boba') || c.includes('milk tea')) return '🧋';
+    if (c.includes('fruit tea') || c.includes('lemonade') || c.includes('juice') || c.includes('tea')) return '🍋';
+    if (c.includes('non-coffee') || c.includes('milk') || c.includes('matcha') || c.includes('chocolate')) return '🥛';
+    if (c.includes('meal') || c.includes('rice') || c.includes('dish')) return '🍛';
+    return '☕';
+  }
+
   function renderCategoryBar() {
     const bar = $('#categoryBar');
     if (!bar) return;
@@ -134,6 +148,8 @@
 
     const allPill = h('button', {
       type: 'button',
+      role: 'tab',
+      'aria-selected': activeCategory === 'all' ? 'true' : 'false',
       class: 'cat-pill' + (activeCategory === 'all' ? ' active' : ''),
       text: 'All Items',
       onclick: () => {
@@ -145,9 +161,12 @@
     bar.append(allPill);
 
     for (const cat of menuCategories) {
+      const isSelected = activeCategory.toLowerCase() === cat.toLowerCase();
       const pill = h('button', {
         type: 'button',
-        class: 'cat-pill' + (activeCategory === cat ? ' active' : ''),
+        role: 'tab',
+        'aria-selected': isSelected ? 'true' : 'false',
+        class: 'cat-pill' + (isSelected ? ' active' : ''),
         text: cat,
         onclick: () => {
           activeCategory = cat;
@@ -220,13 +239,13 @@
             onerror: function () {
               this.parentElement.className = 'item-img-wrap item-placeholder';
               this.parentElement.textContent = '';
-              this.parentElement.append(h('span', { class: 'placeholder-icon', text: '☕' }));
+              this.parentElement.append(h('span', { class: 'placeholder-icon', text: getCategoryIcon(p.category) }));
             }
           })
         );
       } else {
         imgNode = h('div', { class: 'item-img-wrap item-placeholder' },
-          h('span', { class: 'placeholder-icon', text: p.category === 'Pastry' ? '🥐' : p.category === 'Meals' ? '🍛' : '☕' })
+          h('span', { class: 'placeholder-icon', text: getCategoryIcon(p.category) })
         );
       }
 
@@ -455,6 +474,27 @@
     renderCart();
   }
 
+  let currentView = 'pos';
+
+  function syncMobOrderBar() {
+    const mobBar = $('#mobileOrderBar');
+    if (!mobBar) return;
+    const lines = Array.from(cart.values());
+    const count = lines.reduce((sum, l) => sum + l.qty, 0);
+    const cents = lines.reduce((sum, l) => sum + lineCents(l), 0);
+    if (count > 0 && currentView === 'pos') {
+      mobBar.hidden = false;
+      document.body.classList.add('has-mob-dock');
+      const badge = $('#mobOrderBadge');
+      if (badge) badge.textContent = String(count);
+      const mobTotal = $('#mobOrderTotal');
+      if (mobTotal) mobTotal.textContent = money(cents / 100);
+    } else {
+      mobBar.hidden = true;
+      document.body.classList.remove('has-mob-dock');
+    }
+  }
+
   function renderCart() {
     const lines = Array.from(cart.values());
     const list = $('#cartLines');
@@ -464,9 +504,20 @@
       list.append(h('p', { class: 'empty', text: '👆 Tap a menu item to start an order.' }));
     }
     for (const l of lines) {
-      const sizePill = l.sizeLabel
-        ? h('span', { class: 'line-size-pill', text: l.sizeLabel + ' · ' + l.oz + 'oz' })
+      let pillText = '';
+      if (l.sizeLabel) {
+        if (l.oz && !l.sizeLabel.toLowerCase().includes(String(l.oz))) {
+          pillText = `${l.sizeLabel} · ${l.oz}oz`;
+        } else {
+          pillText = l.sizeLabel;
+        }
+      } else if (l.oz) {
+        pillText = `${l.oz}oz`;
+      }
+      const sizePill = pillText
+        ? h('span', { class: 'line-size-pill', text: pillText })
         : null;
+
       list.append(h('div', { class: 'line' },
         h('span', { class: 'line-name' }, document.createTextNode(l.name), sizePill),
         h('span', { class: 'stepper' },
@@ -485,6 +536,7 @@
     $('#clearCart').disabled = locked;
     $$('.pay').forEach(b => { b.disabled = locked; });
     syncCardBadges();
+    syncMobOrderBar();
   }
 
   function openPayModal() {
@@ -509,11 +561,13 @@
     presets.forEach(p => {
       quickBox.append(h('button', {
         type: 'button',
-        class: 'quick-amt-btn',
+        class: 'quick-amt-btn' + (Math.abs(p - total) < 0.01 ? ' active' : ''),
         text: p === total ? 'Exact (' + money(p) + ')' : money(p),
-        onclick: () => {
+        onclick: (e) => {
           input.value = p.toFixed(2);
           updatePayChange(p, total);
+          $$('.quick-amt-btn', quickBox).forEach(b => b.classList.remove('active'));
+          e.currentTarget.classList.add('active');
         }
       }));
     });
@@ -521,6 +575,10 @@
     input.oninput = () => {
       const val = parseFloat(input.value) || 0;
       updatePayChange(val, total);
+      $$('.quick-amt-btn', quickBox).forEach(b => {
+        const btnVal = parseFloat(b.textContent.replace(/[^0-9.]/g, '')) || 0;
+        b.classList.toggle('active', Math.abs(btnVal - val) < 0.01);
+      });
     };
 
     $('#payModal').hidden = false;
@@ -678,12 +736,14 @@
    *  Navigation: POS / Products / Inventory / Sales Report
    * ------------------------------------------------------------------ */
   function showView(view) {
+    currentView = view;
     $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
     $('#productModal').hidden = view !== 'products';
     $('#inventoryModal').hidden = view !== 'inventory';
     $('#reportModal').hidden = view !== 'report';
     $('#receiptModal').hidden = true;
     closePayModal();
+    syncMobOrderBar();
 
     if (view !== 'products') closeProductSheet();
     if (view !== 'inventory') closeSheet();
@@ -2138,6 +2198,26 @@
     const tendered = parseFloat($('#payTenderedInput').value) || 0;
     checkout('Cash', tendered);
   });
+
+  // Mobile sticky order dock actions
+  const mobViewBtn = $('#mobOrderViewBtn');
+  if (mobViewBtn) {
+    mobViewBtn.addEventListener('click', () => {
+      const cartEl = $('.cart');
+      if (cartEl) cartEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
+  const mobCashBtn = $('#mobPayCashBtn');
+  if (mobCashBtn) {
+    mobCashBtn.addEventListener('click', openPayModal);
+  }
+  const mobGcashBtn = $('#mobPayGcashBtn');
+  if (mobGcashBtn) {
+    mobGcashBtn.addEventListener('click', () => {
+      const total = Array.from(cart.values()).reduce((sum, l) => sum + lineCents(l), 0) / 100;
+      checkout('GCash', total);
+    });
+  }
 
   // Inventory modal
   const invSearchInput = $('#inventorySearch');

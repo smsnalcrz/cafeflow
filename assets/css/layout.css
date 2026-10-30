@@ -1,0 +1,77 @@
+/* ======================================================================
+   MAIN SPLIT LAYOUT & PANELS
+   ====================================================================== */
+/* ======================================================================
+   SPLIT LAYOUT
+   ====================================================================== */
+.split { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+.panel { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.cashier {
+  flex: 1 1 62%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.barista {
+  flex: 0 0 38%;
+  min-width: 380px;
+  max-width: 480px;
+  background: var(--parchment);
+  border-left: 1.5px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.panel-head h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -.2px;
+  color: var(--espresso);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 24px 8px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 14px;
+}
+.empty::before {
+  font-size: 28px;
+  opacity: .35;
+}
+
+/* ======================================================================
+   BARISTA QUEUE WRAPPER (UPPER RIGHT)
+   ====================================================================== */
+.barista-queue-wrap {
+  flex: 1 1 42%;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--parchment);
+}
+.barista-queue-wrap .panel-head {
+  flex-shrink: 0;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--parchment);
+}
