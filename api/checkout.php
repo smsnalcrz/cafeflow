@@ -90,9 +90,11 @@ foreach ($productRows as $pr) {
 $spStmt = $pdo->prepare("SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices WHERE product_id IN ($marks)");
 $spStmt->execute($productIds);
 $sizePrices = $spStmt->fetchAll();
-$sizePriceMap = []; // [product_id][size_code] => price
+$sizePriceMap = []; // [product_id][size_code] => price and [product_id][size_code|size_label] => price
 foreach ($sizePrices as $sp) {
-    $sizePriceMap[(int) $sp['product_id']][$sp['size_code']] = (float) $sp['price'];
+    $pId = (int) $sp['product_id'];
+    $sizePriceMap[$pId][$sp['size_code']] = (float) $sp['price'];
+    $sizePriceMap[$pId][$sp['size_code'] . '|' . ($sp['size_label'] ?? '')] = (float) $sp['price'];
 }
 
 // Calculate total cents and verify inventory availability
@@ -110,7 +112,10 @@ foreach ($wanted as $item) {
 
     // Determine unit price dynamically based on cup size
     $unitPrice = (float) $prod['price'];
-    if ($sCode && isset($sizePriceMap[$pId][$sCode])) {
+    $spKeyWithLabel = ($sCode ?? '') . '|' . ($sLabel ?? '');
+    if ($sCode && isset($sizePriceMap[$pId][$spKeyWithLabel])) {
+        $unitPrice = $sizePriceMap[$pId][$spKeyWithLabel];
+    } elseif ($sCode && isset($sizePriceMap[$pId][$sCode])) {
         $unitPrice = $sizePriceMap[$pId][$sCode];
     } elseif ($sCode === '16oz' && $prod['price_16oz'] !== null) {
         $unitPrice = (float) $prod['price_16oz'];
@@ -145,7 +150,7 @@ foreach ($wanted as $item) {
     ];
 
     // Compute required raw materials for this item
-    $itemCons = calculate_product_consumption($prod, $sCode, $qty, $pdo);
+    $itemCons = calculate_product_consumption($prod, $sCode, $qty, $pdo, $sLabel);
     foreach ($itemCons as $c) {
         $cId = $c['item_id'];
         if (!isset($aggregatedConsumption[$cId])) {

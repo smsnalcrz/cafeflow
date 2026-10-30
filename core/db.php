@@ -143,51 +143,8 @@ if (!function_exists('ensure_schema')) {
                 (10, 'Chocolate sauce', 2000, 'ml', 300)
             ");
 
-            // 1. For Coffee: 12oz Hot and 16oz Cold ONLY. Remove 22oz from Coffee products.
+            // Link Butter Croissant and French Fries to inventory if not already linked
             $pdo->exec("
-                UPDATE menu_products
-                   SET price_12oz = COALESCE(price_12oz, price),
-                       price_16oz = COALESCE(price_16oz, price),
-                       price_22oz = NULL
-                 WHERE category = 'Coffee';
-
-                DELETE psp FROM product_size_prices psp
-                JOIN menu_products mp ON psp.product_id = mp.product_id
-                WHERE mp.category = 'Coffee' AND (psp.size_code = '22oz' OR psp.size_oz = 22);
-
-                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
-                SELECT product_id, '12oz', '12oz Hot', 12, price_12oz
-                  FROM menu_products
-                 WHERE category = 'Coffee' AND price_12oz IS NOT NULL
-                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
-
-                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
-                SELECT product_id, '16oz', '16oz Cold', 16, price_16oz
-                  FROM menu_products
-                 WHERE category = 'Coffee' AND price_16oz IS NOT NULL
-                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
-            ");
-
-            // 2. For Non-Coffee beverages: 16oz (Tall) and 22oz (Grande)
-            $pdo->exec("
-                UPDATE menu_products
-                   SET price_16oz = COALESCE(price_16oz, CASE WHEN price >= 140 THEN price - 20 ELSE price END),
-                       price_22oz = COALESCE(price_22oz, CASE WHEN price >= 140 THEN price ELSE price + 20 END)
-                 WHERE has_sizes = 1 AND category != 'Coffee' AND (price_16oz IS NULL OR price_22oz IS NULL);
-
-                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
-                SELECT product_id, '16oz', 'Tall', 16, price_16oz
-                  FROM menu_products
-                 WHERE has_sizes = 1 AND category != 'Coffee' AND price_16oz IS NOT NULL
-                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
-
-                INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price)
-                SELECT product_id, '22oz', 'Grande', 22, price_22oz
-                  FROM menu_products
-                 WHERE has_sizes = 1 AND category != 'Coffee' AND price_22oz IS NOT NULL
-                ON DUPLICATE KEY UPDATE price = VALUES(price), size_label = VALUES(size_label);
-
-                -- Link Butter Croissant and French Fries to inventory if not already linked
                 UPDATE menu_products SET linked_inventory_id = 21, deduction_amount = 1.00 WHERE name = 'Butter Croissant' AND linked_inventory_id IS NULL;
                 UPDATE menu_products SET linked_inventory_id = 22, deduction_amount = 150.00 WHERE name = 'French Fries' AND linked_inventory_id IS NULL;
                 INSERT IGNORE INTO product_ingredients (product_id, item_id, deduction_amount)

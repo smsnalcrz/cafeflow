@@ -186,10 +186,11 @@ $cssModules = [
           <label>Category *
             <select id="pCategory" required>
               <option value="Coffee">Coffee</option>
-              <option value="Non-Coffee">Non-Coffee</option>
+              <option value="Milk Series">Milk Series</option>
               <option value="Milk Tea">Milk Tea</option>
               <option value="Fruit Tea / Lemonade">Fruit Tea / Lemonade</option>
-              <option value="Croffle">Croffle</option>
+              <option value="Croffle Classic">Croffle Classic</option>
+              <option value="Croffle Premium">Croffle Premium</option>
               <option value="Sandwich">Sandwich</option>
               <option value="Pastry">Pastry</option>
               <option value="Snacks">Snacks</option>
@@ -198,32 +199,47 @@ $cssModules = [
         </div>
 
         <div class="product-pricing-box">
-          <label class="check-row" style="margin-bottom: 10px;">
-            <input type="checkbox" id="pHasSizes" checked>
-            <span id="pHasSizesLabel"><strong>Enable Cup Sizes</strong> (Beverage sizes)</span>
-          </label>
+          <div class="pricing-header-row">
+            <label class="check-row" style="margin-bottom: 0;">
+              <input type="checkbox" id="pHasSizes" checked>
+              <span id="pHasSizesLabel"><strong>Enable Cup Sizes</strong> (Flexible sizes & Hot/Cold options)</span>
+            </label>
+          </div>
 
-          <!-- Cup Sizes Grid -->
-          <div class="sheet-grid-2" id="pSizesGrid">
-            <div id="pField12ozWrap" hidden>
-              <label id="pPrice12ozLabel">12oz (Hot) Price (₱) *
-                <input id="pPrice12oz" inputmode="decimal" placeholder="e.g. 100.00">
-              </label>
+          <!-- Dynamic Cup Sizes Builder Container -->
+          <div id="pSizesContainer" class="size-builder-box">
+            <div class="size-builder-toolbar">
+              <span class="presets-label">Quick Presets:</span>
+              <div class="presets-group">
+                <button type="button" class="btn-preset-pill" data-preset="coffee">☕ 12oz Hot + 16oz Cold</button>
+                <button type="button" class="btn-preset-pill" data-preset="cold">❄️ 16oz + 22oz Cold</button>
+                <button type="button" class="btn-preset-pill" data-preset="all">🥤 12oz Hot + 16oz + 22oz Cold</button>
+              </div>
             </div>
-            <div id="pField16ozWrap">
-              <label id="pPrice16ozLabel"><span id="pSize16Label">16oz (Tall)</span> Price (₱) *
-                <input id="pPrice16oz" inputmode="decimal" placeholder="e.g. 130.00">
-              </label>
+
+            <!-- Header Labels for Desktop -->
+            <div class="size-options-header">
+              <span>Cup Size</span>
+              <span>Temp</span>
+              <span>Display Label</span>
+              <span>Price (₱)</span>
+              <span></span>
             </div>
-            <div id="pField22ozWrap">
-              <label id="pPrice22ozLabel">22oz (Grande) Price (₱) *
-                <input id="pPrice22oz" inputmode="decimal" placeholder="e.g. 150.00">
-              </label>
+
+            <!-- Dynamic size rows container -->
+            <div id="sizeOptionsList" class="size-options-list"></div>
+
+            <div class="size-builder-actions">
+              <button type="button" class="btn ghost small" id="addSizeOptionBtn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Cup Size
+              </button>
+              <span class="size-builder-hint">Configure custom cup sizes and Hot ♨️ / Cold ❄️</span>
             </div>
           </div>
 
           <!-- Base/Fixed Price for single-sized items or fallback -->
-          <div id="pBasePriceWrap" style="margin-top: 6px;">
+          <div id="pBasePriceWrap" style="margin-top: 10px;" hidden>
             <label id="pBasePriceLabel">Single / Fixed Price (₱) *
               <input id="pPrice" inputmode="decimal" placeholder="0.00" required>
             </label>

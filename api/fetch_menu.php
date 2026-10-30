@@ -19,13 +19,17 @@ $rows = $pdo->query(
 )->fetchAll();
 
 // Fetch size-specific prices from product_size_prices
-$spRows = $pdo->query('SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices ORDER BY size_oz ASC')->fetchAll();
+$spRows = $pdo->query('SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices ORDER BY size_oz ASC, id ASC')->fetchAll();
 $sizesByProd = [];
 foreach ($spRows as $sp) {
+    $label = $sp['size_label'];
+    $isHot = str_contains(strtolower($label ?? ''), 'hot') || str_contains(strtolower($sp['size_code'] ?? ''), 'hot') || (int)$sp['size_oz'] === 12;
+    $temp = $isHot ? 'Hot' : 'Cold';
     $sizesByProd[(int) $sp['product_id']][] = [
         'code'  => $sp['size_code'],
-        'label' => $sp['size_label'],
+        'label' => $label,
         'oz'    => (int) $sp['size_oz'],
+        'temp'  => $temp,
         'price' => (float) $sp['price'],
     ];
 }
@@ -46,25 +50,21 @@ foreach ($rows as $r) {
 
     $isCoffee = (strtolower($category) === 'coffee');
     $sizes = $sizesByProd[$pId] ?? [];
-    if ($isCoffee && !empty($sizes)) {
-        // Exclude 22oz from Coffee products
-        $sizes = array_values(array_filter($sizes, fn($s) => ($s['code'] ?? '') !== '22oz' && ($s['oz'] ?? 0) !== 22));
-    }
 
     if (empty($sizes) && $hasSizes) {
         if ($isCoffee) {
             $p12 = $r['price_12oz'] !== null ? (float) $r['price_12oz'] : (float) $r['price'];
             $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
             $sizes = [
-                ['code' => '12oz', 'label' => '12oz Hot', 'oz' => 12, 'price' => $p12],
-                ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'price' => $p16],
+                ['code' => '12oz', 'label' => '12oz Hot', 'oz' => 12, 'temp' => 'Hot', 'price' => $p12],
+                ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'temp' => 'Cold', 'price' => $p16],
             ];
         } else {
             $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
             $p22 = $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($p16 + 20.0);
             $sizes = [
-                ['code' => '16oz', 'label' => 'Tall', 'oz' => 16, 'price' => $p16],
-                ['code' => '22oz', 'label' => 'Grande', 'oz' => 22, 'price' => $p22],
+                ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'temp' => 'Cold', 'price' => $p16],
+                ['code' => '22oz', 'label' => '22oz Cold', 'oz' => 22, 'temp' => 'Cold', 'price' => $p22],
             ];
         }
     }
@@ -78,21 +78,11 @@ foreach ($rows as $r) {
 
         foreach ($sizes as &$s) {
             $sCode = $s['code'] ?? ($s['oz'] . 'oz');
-            if ($isCoffee) {
-                if ($sCode === '12oz' || ($s['oz'] ?? 0) === 12) {
-                    $s['label'] = '12oz Hot';
-                } elseif ($sCode === '16oz' || ($s['oz'] ?? 0) === 16) {
-                    $s['label'] = '16oz Cold';
-                }
-            } else {
-                if ($sCode === '16oz' && ($s['label'] === 'Large' || empty($s['label']))) {
-                    $s['label'] = 'Tall';
-                } elseif ($sCode === '22oz' && empty($s['label'])) {
-                    $s['label'] = 'Grande';
-                }
+            if (empty($s['label'])) {
+                $s['label'] = $sCode . (!empty($s['temp']) ? ' ' . $s['temp'] : '');
             }
 
-            $sStock = evaluate_single_size_stock($r, $sCode, $pdo);
+            $sStock = evaluate_single_size_stock($r, $sCode, $pdo, null, $s['label'] ?? null);
             $s['stock_state'] = $sStock;
             $s['available'] = ($sStock !== 'out');
             if ($sStock === 'out') {

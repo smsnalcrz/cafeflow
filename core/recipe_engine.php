@@ -312,12 +312,13 @@ function resolve_inventory_item(string $name, array $invMap): ?array
  * Calculates raw inventory consumption for a specific product and cup size.
  *
  * @param array       $product   Row from menu_products (product_id, name, category, etc.)
- * @param string|null $sizeCode  '16oz', '22oz', etc., or null for non-beverages
+ * @param string|null $sizeCode  '12oz', '16oz', '22oz', etc., or null for non-beverages
  * @param int         $quantity  Number of servings
  * @param PDO         $pdo
+ * @param string|null $sizeLabel Optional label indicating size/temperature (e.g. '12oz Hot', '16oz Cold')
  * @return array      List of ['item_id' => int, 'name' => string, 'unit' => string, 'amount' => float]
  */
-function calculate_product_consumption(array $product, ?string $sizeCode, int $quantity, PDO $pdo): array
+function calculate_product_consumption(array $product, ?string $sizeCode, int $quantity, PDO $pdo, ?string $sizeLabel = null): array
 {
     if ($quantity <= 0) return [];
 
@@ -326,11 +327,30 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
     $pName = strtolower(trim($product['name'] ?? ''));
     $isBeverage = !in_array($category, ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
 
+    // Hot beverage detection (by label, size code, or oz)
+    $isHot = ($sizeCode === '12oz') ||
+             ($sizeLabel !== null && str_contains(strtolower($sizeLabel), 'hot')) ||
+             ($sizeCode !== null && str_contains(strtolower($sizeCode), 'hot'));
+
     // Normalize size
     $sizeProfile = null;
     if ($isBeverage) {
-        $normCode = $sizeCode && isset(RECIPE_CUP_SIZES[$sizeCode]) ? $sizeCode : '16oz';
-        $sizeProfile = RECIPE_CUP_SIZES[$normCode];
+        $cleanCode = preg_replace('/[^0-9a-z]/i', '', str_replace(['hot', 'cold'], '', strtolower($sizeCode ?? '')));
+        if (!empty($cleanCode) && isset(RECIPE_CUP_SIZES[$cleanCode])) {
+            $normCode = $cleanCode;
+        } elseif ($sizeCode && isset(RECIPE_CUP_SIZES[$sizeCode])) {
+            $normCode = $sizeCode;
+        } else {
+            $normCode = $isHot ? '12oz' : '16oz';
+        }
+        $sizeProfile = RECIPE_CUP_SIZES[$normCode] ?? RECIPE_CUP_SIZES['16oz'];
+
+        // If explicitly hot, adapt packaging configuration
+        if ($isHot) {
+            $sizeProfile['straw'] = null; // Hot drinks don't use straws
+            $sizeProfile['lid_pattern'] = null; // Hot lid is packaged with 12oz Hot cup & lid
+            $sizeProfile['cup_pattern'] = '12oz Hot cup & lid';
+        }
     }
 
     $scale = $sizeProfile ? $sizeProfile['scale'] : 1.0;
@@ -352,21 +372,21 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
         $customIngs = $st->fetchAll();
     }
 
-    if (!empty($customIngs)) {
-        $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
+    $isHotDrink = $isHot || ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
 
+    if (!empty($customIngs)) {
         foreach ($customIngs as $ing) {
             $itemId = (int) $ing['item_id'];
             $baseDeduct = (float) $ing['deduction_amount'];
             $ingNameLower = strtolower($ing['name']);
 
             // Hot vs Cold packaging and ice rules
-            if ($is12ozHot) {
+            if ($isHotDrink) {
                 // Hot drinks never take ice, straws, or cold flat lids
                 if (str_contains($ingNameLower, 'ice') || str_contains($ingNameLower, 'straw') || str_contains($ingNameLower, 'flat lid')) {
                     continue;
                 }
-                // Skip 16oz or 22oz cups for hot drinks
+                // Skip 16oz or 22oz cold cups for hot drinks
                 if (str_contains($ingNameLower, '16oz') || str_contains($ingNameLower, '22oz')) {
                     continue;
                 }
@@ -457,7 +477,7 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
                 }
             }
             // For cold beverages, ensure straw is included if defined and missing
-            if (!$is12ozHot && !empty($sizeProfile['straw'])) {
+            if (!$isHotDrink && !empty($sizeProfile['straw'])) {
                 $hasStraw = false;
                 foreach ($consumption as $c) {
                     if (str_contains(strtolower($c['name']), 'straw')) {
@@ -504,10 +524,9 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
 
     if ($matchedProfile) {
         $is22oz = ($sizeProfile && $sizeProfile['code'] === '22oz');
-        $is12ozHot = ($sizeProfile && ($sizeProfile['code'] === '12oz' || $sizeProfile['oz'] === 12));
         foreach ($matchedProfile['items'] as $itemSpec) {
-            // Hot drinks (12oz) never take ice
-            if ($is12ozHot && str_contains(strtolower($itemSpec['name']), 'ice')) {
+            // Hot drinks never take ice
+            if ($isHotDrink && str_contains(strtolower($itemSpec['name']), 'ice')) {
                 continue;
             }
 
@@ -655,14 +674,15 @@ function verify_inventory_sufficiency(array $aggregatedConsumption, PDO $pdo): a
  * based on raw inventory materials required for 1 serving of that size.
  *
  * @param array       $product
- * @param string|null $sizeCode e.g. '16oz', '22oz', or null for default/non-sized
+ * @param string|null $sizeCode e.g. '12oz', '16oz', '22oz', or null for default/non-sized
  * @param PDO         $pdo
  * @param array|null  $invItemMap optional preloaded map of inventory rows
+ * @param string|null $sizeLabel optional size label for hot/cold distinction
  * @return string 'ok' | 'low' | 'out'
  */
-function evaluate_single_size_stock(array $product, ?string $sizeCode, PDO $pdo, ?array $invItemMap = null): string
+function evaluate_single_size_stock(array $product, ?string $sizeCode, PDO $pdo, ?array $invItemMap = null, ?string $sizeLabel = null): string
 {
-    $consumption = calculate_product_consumption($product, $sizeCode, 1, $pdo);
+    $consumption = calculate_product_consumption($product, $sizeCode, 1, $pdo, $sizeLabel);
 
     if (empty($consumption)) {
         return 'ok'; // No raw inventory dependencies defined
@@ -722,15 +742,28 @@ function evaluate_product_stock_state(array $product, PDO $pdo): string
     $hasSizes = !empty($product['has_sizes']) && $isBeverage;
 
     if ($hasSizes) {
-        $isCoffee = (strtolower($category) === 'coffee');
-        $sizesToCheck = $isCoffee ? ['12oz', '16oz'] : ['16oz', '22oz'];
+        $sizesToCheck = [];
+        if (!empty($product['sizes']) && is_array($product['sizes'])) {
+            foreach ($product['sizes'] as $sz) {
+                $sizesToCheck[] = [
+                    'code'  => $sz['code'] ?? ($sz['oz'] . 'oz'),
+                    'label' => $sz['label'] ?? null,
+                ];
+            }
+        }
+        if (empty($sizesToCheck)) {
+            $isCoffee = (strtolower($category) === 'coffee');
+            $sizesToCheck = $isCoffee
+                ? [['code' => '12oz', 'label' => '12oz Hot'], ['code' => '16oz', 'label' => '16oz Cold']]
+                : [['code' => '16oz', 'label' => '16oz Cold'], ['code' => '22oz', 'label' => '22oz Cold']];
+        }
 
         $allOut = true;
         $anyOut = false;
         $anyLow = false;
 
         foreach ($sizesToCheck as $sc) {
-            $st = evaluate_single_size_stock($product, $sc, $pdo);
+            $st = evaluate_single_size_stock($product, $sc['code'], $pdo, null, $sc['label']);
             if ($st !== 'out') {
                 $allOut = false;
             } else {

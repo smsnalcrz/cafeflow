@@ -13,6 +13,7 @@
 
   const money = n => '₱' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const qtyFmt = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const escapeHtml = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   /** Build a DOM element. Text is always inserted safely as text, never as HTML. */
   function h(tag, props = {}, ...kids) {
@@ -136,7 +137,7 @@
     if (c.includes('snack') || c.includes('fries') || c.includes('finger')) return '🍟';
     if (c.includes('boba') || c.includes('milk tea')) return '🧋';
     if (c.includes('fruit tea') || c.includes('lemonade') || c.includes('juice') || c.includes('tea')) return '🍋';
-    if (c.includes('non-coffee') || c.includes('milk') || c.includes('matcha') || c.includes('chocolate')) return '🥛';
+    if (c.includes('milk') || c.includes('matcha') || c.includes('chocolate')) return '🥛';
     if (c.includes('meal') || c.includes('rice') || c.includes('dish')) return '🍛';
     return '☕';
   }
@@ -346,7 +347,9 @@
 
     sizes.forEach(s => {
       const isOut = s.stock_state === 'out' || s.available === false;
-      const isHot = s.oz === 12 || s.code === '12oz';
+      const isHot = (s.temp && s.temp.toLowerCase() === 'hot') ||
+                    (s.label && s.label.toLowerCase().includes('hot')) ||
+                    s.oz === 12 || s.code === '12oz';
       const isLg  = s.oz === 22 || s.code === '22oz';
 
       const cupClass = isHot ? 'hot' : (isLg ? 'lg' : 'sm');
@@ -419,7 +422,7 @@
 
   function addToCart(p, oz = null, sizeLabel = null, customPrice = null) {
     if (oz && Array.isArray(p.sizes)) {
-      const sObj = p.sizes.find(s => s.oz === oz || s.code === (oz + 'oz'));
+      const sObj = p.sizes.find(s => (s.oz === oz || s.code === (oz + 'oz')) && (!sizeLabel || s.label === sizeLabel));
       if (sObj && (sObj.stock_state === 'out' || sObj.available === false)) {
         toast(`${p.name} (${sObj.label || sizeLabel || ''} · ${oz}oz) is currently out of stock.`, 'warn');
         return;
@@ -429,7 +432,7 @@
       return;
     }
     const sCode = oz ? oz + 'oz' : null;
-    const key = oz ? `${p.product_id}:${oz}` : `${p.product_id}:nosize`;
+    const key = oz ? `${p.product_id}:${oz}:${sizeLabel || ''}` : `${p.product_id}:nosize`;
     const price = customPrice !== null ? Number(customPrice) : Number(p.price);
     const line = cart.get(key);
     if (line) {
@@ -1039,42 +1042,181 @@
     }
   }
 
-  function updateProductSizeFields(cat) {
-    const nonBeverages = ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'];
-    const isBev = !nonBeverages.includes((cat || '').toLowerCase());
-    const isCoffee = (cat || '').toLowerCase() === 'coffee';
+  /* ------------------------------------------------------------------ *
+   *  Dynamic Cup Size Options Management
+   * ------------------------------------------------------------------ */
+  let productSheetSizes = []; // [{ oz: 12, temp: 'Hot', label: '12oz Hot', price: '100.00' }, ...]
+
+  function renderSizeOptionsList() {
+    const list = $('#sizeOptionsList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (productSheetSizes.length === 0) {
+      list.innerHTML = `
+        <div style="text-align:center; padding:14px 8px; color:var(--muted); font-size:12.5px; border:1px dashed var(--line); border-radius:var(--radius-xs); background:#ffffff;">
+          No cup sizes added. Click <strong>+ Add Cup Size</strong> or choose a preset above.
+        </div>
+      `;
+      return;
+    }
+
+    productSheetSizes.forEach((item, index) => {
+      const row = document.createElement('div');
+      row.className = 'size-option-row';
+
+      const isHot = (item.temp || '').toLowerCase() === 'hot';
+
+      row.innerHTML = `
+        <!-- Cup Size (oz) -->
+        <select class="size-oz-select" data-index="${index}" title="Select cup size in fluid ounces">
+          <option value="12" ${item.oz === 12 ? 'selected' : ''}>12 oz</option>
+          <option value="16" ${item.oz === 16 ? 'selected' : ''}>16 oz</option>
+          <option value="22" ${item.oz === 22 ? 'selected' : ''}>22 oz</option>
+          <option value="8"  ${item.oz === 8 ? 'selected' : ''}>8 oz</option>
+          <option value="20" ${item.oz === 20 ? 'selected' : ''}>20 oz</option>
+          <option value="24" ${item.oz === 24 ? 'selected' : ''}>24 oz</option>
+        </select>
+
+        <!-- Temperature -->
+        <select class="size-temp-select ${isHot ? 'temp-hot' : 'temp-cold'}" data-index="${index}" title="Select Hot or Cold">
+          <option value="Cold" ${!isHot ? 'selected' : ''}>❄️ Cold</option>
+          <option value="Hot"  ${isHot ? 'selected' : ''}>♨️ Hot</option>
+        </select>
+
+        <!-- Display Label -->
+        <input type="text" class="size-label-input" data-index="${index}" value="${item.label ? escapeHtml(item.label) : ''}" placeholder="${item.oz}oz ${item.temp}" title="Display name on POS and receipts">
+
+        <!-- Price (₱) -->
+        <div class="size-price-input-wrap">
+          <span class="currency-prefix">₱</span>
+          <input type="number" step="0.01" min="0" class="size-price-input" data-index="${index}" value="${item.price !== null && item.price !== undefined ? item.price : ''}" placeholder="0.00" inputmode="decimal" required>
+        </div>
+
+        <!-- Remove Button -->
+        <button type="button" class="btn-remove-size" data-index="${index}" title="Remove this size option">✕</button>
+      `;
+
+      const ozSel = row.querySelector('.size-oz-select');
+      const tempSel = row.querySelector('.size-temp-select');
+      const labelInp = row.querySelector('.size-label-input');
+      const priceInp = row.querySelector('.size-price-input');
+      const removeBtn = row.querySelector('.btn-remove-size');
+
+      ozSel.addEventListener('change', e => {
+        const newOz = parseInt(e.target.value, 10);
+        const oldDefaultLabel = `${item.oz}oz ${item.temp}`;
+        item.oz = newOz;
+        if (!item.label || item.label === oldDefaultLabel) {
+          item.label = `${newOz}oz ${item.temp}`;
+          labelInp.value = item.label;
+        }
+        labelInp.placeholder = `${newOz}oz ${item.temp}`;
+      });
+
+      tempSel.addEventListener('change', e => {
+        const newTemp = e.target.value;
+        const oldDefaultLabel = `${item.oz}oz ${item.temp}`;
+        item.temp = newTemp;
+        tempSel.className = `size-temp-select ${newTemp === 'Hot' ? 'temp-hot' : 'temp-cold'}`;
+        if (!item.label || item.label === oldDefaultLabel) {
+          item.label = `${item.oz}oz ${newTemp}`;
+          labelInp.value = item.label;
+        }
+        labelInp.placeholder = `${item.oz}oz ${newTemp}`;
+      });
+
+      labelInp.addEventListener('input', e => {
+        item.label = e.target.value;
+      });
+
+      priceInp.addEventListener('input', e => {
+        item.price = e.target.value;
+      });
+
+      removeBtn.addEventListener('click', () => {
+        productSheetSizes.splice(index, 1);
+        renderSizeOptionsList();
+      });
+
+      list.appendChild(row);
+    });
+  }
+
+  function addSizeOptionRow(oz = 16, temp = 'Cold', label = '', price = '') {
+    const finalLabel = label || `${oz}oz ${temp}`;
+    productSheetSizes.push({
+      oz: Number(oz),
+      temp: temp,
+      label: finalLabel,
+      price: price
+    });
+    renderSizeOptionsList();
+  }
+
+  function applySizePreset(presetKey) {
+    const existingPrices = {};
+    productSheetSizes.forEach(s => {
+      if (s.price !== '') existingPrices[`${s.oz}_${s.temp}`] = s.price;
+      if (s.price !== '') existingPrices[s.oz] = s.price;
+    });
+
+    if (presetKey === 'coffee') {
+      productSheetSizes = [
+        { oz: 12, temp: 'Hot',  label: '12oz Hot',  price: existingPrices['12_Hot'] || existingPrices[12] || '' },
+        { oz: 16, temp: 'Cold', label: '16oz Cold', price: existingPrices['16_Cold'] || existingPrices[16] || '' }
+      ];
+    } else if (presetKey === 'cold') {
+      productSheetSizes = [
+        { oz: 16, temp: 'Cold', label: '16oz Cold', price: existingPrices['16_Cold'] || existingPrices[16] || '' },
+        { oz: 22, temp: 'Cold', label: '22oz Cold', price: existingPrices['22_Cold'] || existingPrices[22] || '' }
+      ];
+    } else if (presetKey === 'all') {
+      productSheetSizes = [
+        { oz: 12, temp: 'Hot',  label: '12oz Hot',  price: existingPrices['12_Hot'] || existingPrices[12] || '' },
+        { oz: 16, temp: 'Cold', label: '16oz Cold', price: existingPrices['16_Cold'] || existingPrices[16] || '' },
+        { oz: 22, temp: 'Cold', label: '22oz Cold', price: existingPrices['22_Cold'] || existingPrices[22] || '' }
+      ];
+    }
+    renderSizeOptionsList();
+  }
+
+  function updateProductSizeFields(cat, forceReset = false) {
+    const c = (cat || '').toLowerCase();
+    const isFood = c.includes('croffle') || c.includes('pastry') || c.includes('sandwich') ||
+                   c.includes('snack') || c.includes('meal') || c.includes('dessert') || c.includes('bakery');
+    const isCoffee = c === 'coffee';
+    const isBev = !isFood;
 
     const hasSizesCheck = $('#pHasSizes');
     const hasSizesLabel = $('#pHasSizesLabel');
-    const sGrid = $('#pSizesGrid');
+    const sBox = $('#pSizesContainer');
     const bWrap = $('#pBasePriceWrap');
-    const f12Wrap = $('#pField12ozWrap');
-    const f16Wrap = $('#pField16ozWrap');
-    const f22Wrap = $('#pField22ozWrap');
-    const s16Label = $('#pSize16Label');
 
     if (hasSizesCheck) hasSizesCheck.checked = isBev;
-    if (sGrid) sGrid.hidden = !isBev;
+    if (sBox) sBox.hidden = !isBev;
     if (bWrap) bWrap.hidden = isBev;
 
-    if (isCoffee) {
-      if (hasSizesLabel) hasSizesLabel.innerHTML = '<strong>Enable Cup Sizes</strong> (12oz Hot & 16oz Cold)';
-      if (f12Wrap) f12Wrap.hidden = false;
-      if (f16Wrap) f16Wrap.hidden = false;
-      if (s16Label) s16Label.textContent = '16oz (Cold)';
-      if (f22Wrap) f22Wrap.hidden = true; // 22oz not available for Coffee
-    } else if (isBev) {
-      if (hasSizesLabel) hasSizesLabel.innerHTML = '<strong>Enable Cup Sizes</strong> (16oz Tall & 22oz Grande)';
-      if (f12Wrap) f12Wrap.hidden = true; // 12oz exclusive to hot coffee
-      if (f16Wrap) f16Wrap.hidden = false;
-      if (s16Label) s16Label.textContent = '16oz (Tall)';
-      if (f22Wrap) f22Wrap.hidden = false;
+    if (hasSizesLabel) {
+      hasSizesLabel.innerHTML = '<strong>Enable Cup Sizes</strong> (Flexible sizes & Hot/Cold options)';
+    }
+
+    if (forceReset || productSheetSizes.length === 0) {
+      if (isCoffee) {
+        applySizePreset('coffee');
+      } else if (isBev) {
+        applySizePreset('cold');
+      } else {
+        productSheetSizes = [];
+        renderSizeOptionsList();
+      }
     }
   }
 
   async function openProductSheet(mode, prod = null) {
     currentProductSheet = { mode, product: prod };
     removeCurrentImage = false;
+    $('#productModal').hidden = false;
     const qCard = $('#quickAddSupplyCard');
     if (qCard) qCard.hidden = true;
 
@@ -1124,15 +1266,60 @@
     }
 
     // Cup sizes handling
-    updateProductSizeFields(targetCat);
-    const isCoffee = targetCat.toLowerCase() === 'coffee';
+    const isFood = ['croffle', 'pastry', 'sandwich', 'snack', 'meal', 'dessert', 'bakery'].some(f => targetCat.toLowerCase().includes(f));
+    const isBeverage = !isFood;
+    const hasSizes = prod && typeof prod.has_sizes !== 'undefined'
+      ? Boolean(Number(prod.has_sizes))
+      : isBeverage;
 
-    const p12 = prod && prod.price_12oz ? Number(prod.price_12oz).toFixed(2) : (prod && prod.price ? Number(prod.price).toFixed(2) : '');
-    const p16 = prod && prod.price_16oz ? Number(prod.price_16oz).toFixed(2) : (prod && prod.price ? Number(prod.price).toFixed(2) : '');
-    const p22 = prod && prod.price_22oz ? Number(prod.price_22oz).toFixed(2) : (prod && prod.price ? (Number(prod.price) + 20).toFixed(2) : '');
-    if ($('#pPrice12oz')) $('#pPrice12oz').value = p12;
-    if ($('#pPrice16oz')) $('#pPrice16oz').value = p16;
-    if ($('#pPrice22oz')) $('#pPrice22oz').value = isCoffee ? '' : p22;
+    const hasSizesCheck = $('#pHasSizes');
+    if (hasSizesCheck) hasSizesCheck.checked = hasSizes;
+    const sBox = $('#pSizesContainer');
+    if (sBox) sBox.hidden = !hasSizes;
+    const bWrap = $('#pBasePriceWrap');
+    if (bWrap) bWrap.hidden = hasSizes;
+
+    // Populate productSheetSizes
+    productSheetSizes = [];
+    if (prod && Array.isArray(prod.sizes) && prod.sizes.length > 0) {
+      prod.sizes.forEach(s => {
+        const isHot = (s.temp && s.temp.toLowerCase() === 'hot') ||
+                      (s.label && s.label.toLowerCase().includes('hot')) ||
+                      s.oz === 12 || s.code === '12oz';
+        productSheetSizes.push({
+          oz: Number(s.oz || (s.code ? parseInt(s.code, 10) : 16)),
+          temp: isHot ? 'Hot' : 'Cold',
+          label: s.label || `${s.oz}oz ${isHot ? 'Hot' : 'Cold'}`,
+          price: s.price !== null && s.price !== undefined ? Number(s.price).toFixed(2) : ''
+        });
+      });
+    } else if (prod && (prod.price_12oz || prod.price_16oz || prod.price_22oz)) {
+      if (prod.price_12oz) {
+        productSheetSizes.push({ oz: 12, temp: 'Hot', label: '12oz Hot', price: Number(prod.price_12oz).toFixed(2) });
+      }
+      if (prod.price_16oz) {
+        productSheetSizes.push({ oz: 16, temp: 'Cold', label: '16oz Cold', price: Number(prod.price_16oz).toFixed(2) });
+      }
+      if (prod.price_22oz) {
+        productSheetSizes.push({ oz: 22, temp: 'Cold', label: '22oz Cold', price: Number(prod.price_22oz).toFixed(2) });
+      }
+    } else {
+      const isCoffee = targetCat.toLowerCase() === 'coffee';
+      if (isCoffee) {
+        productSheetSizes = [
+          { oz: 12, temp: 'Hot',  label: '12oz Hot',  price: prod && prod.price ? Number(prod.price).toFixed(2) : '' },
+          { oz: 16, temp: 'Cold', label: '16oz Cold', price: prod && prod.price ? Number(prod.price).toFixed(2) : '' }
+        ];
+      } else if (isBeverage) {
+        productSheetSizes = [
+          { oz: 16, temp: 'Cold', label: '16oz Cold', price: prod && prod.price ? Number(prod.price).toFixed(2) : '' },
+          { oz: 22, temp: 'Cold', label: '22oz Cold', price: prod && prod.price ? (Number(prod.price) + 20).toFixed(2) : '' }
+        ];
+      }
+    }
+
+    renderSizeOptionsList();
+
     if ($('#pPrice')) $('#pPrice').value = prod ? Number(prod.price).toFixed(2) : '';
     if ($('#pStock')) $('#pStock').value = '0';
 
@@ -1223,28 +1410,36 @@
 
     const name = $('#pName').value.trim();
     const category = $('#pCategory').value.trim() || 'General';
-    const isCoffee = category.toLowerCase() === 'coffee';
     const hasSizes = $('#pHasSizes') ? $('#pHasSizes').checked : false;
 
     let price = 0;
-    let price12 = null;
-    let price16 = null;
-    let price22 = null;
+    const sizesData = [];
 
     if (hasSizes) {
-      if (isCoffee) {
-        price12 = parseFloat($('#pPrice12oz').value);
-        price16 = parseFloat($('#pPrice16oz').value);
-        if (isNaN(price12) || price12 < 0) return showErr('12oz (Hot) price is required (₱0.00 or more).');
-        if (isNaN(price16) || price16 < 0) return showErr('16oz (Cold) price is required (₱0.00 or more).');
-        price = price12;
-      } else {
-        price16 = parseFloat($('#pPrice16oz').value);
-        price22 = parseFloat($('#pPrice22oz').value);
-        if (isNaN(price16) || price16 < 0) return showErr('16oz (Tall) price is required (₱0.00 or more).');
-        if (isNaN(price22) || price22 < 0) return showErr('22oz (Grande) price is required (₱0.00 or more).');
-        price = price16;
+      if (productSheetSizes.length === 0) {
+        return showErr('Please add at least one cup size option, or uncheck "Enable Cup Sizes".');
       }
+
+      for (let i = 0; i < productSheetSizes.length; i++) {
+        const item = productSheetSizes[i];
+        const pVal = parseFloat(item.price);
+        if (isNaN(pVal) || pVal < 0) {
+          return showErr(`Please enter a valid price for ${item.label || (item.oz + 'oz')} (₱0.00 or more).`);
+        }
+        const isHot = (item.temp || '').toLowerCase() === 'hot';
+        const sCode = isHot ? `${item.oz}oz_hot` : `${item.oz}oz`;
+        sizesData.push({
+          code: sCode,
+          oz: item.oz,
+          temp: item.temp || 'Cold',
+          label: item.label || `${item.oz}oz ${item.temp || 'Cold'}`,
+          price: pVal
+        });
+      }
+
+      // Base price is the minimum size price
+      const minP = Math.min(...sizesData.map(s => s.price));
+      price = minP;
     } else {
       price = parseFloat($('#pPrice').value);
       if (isNaN(price) || price < 0) return showErr('Please enter a valid price (₱0.00 or more).');
@@ -1273,18 +1468,15 @@
     formData.append('name', name);
     formData.append('category', category);
     formData.append('has_sizes', hasSizes ? '1' : '0');
+    formData.append('price', price.toFixed(2));
     if (hasSizes) {
-      if (isCoffee) {
-        formData.append('price_12oz', price12.toFixed(2));
-        formData.append('price_16oz', price16.toFixed(2));
-        formData.append('price', price12.toFixed(2));
-      } else {
-        formData.append('price_16oz', price16.toFixed(2));
-        formData.append('price_22oz', price22.toFixed(2));
-        formData.append('price', price16.toFixed(2));
-      }
-    } else {
-      formData.append('price', price.toFixed(2));
+      formData.append('sizes_json', JSON.stringify(sizesData));
+      const s12 = sizesData.find(s => s.oz === 12);
+      const s16 = sizesData.find(s => s.oz === 16);
+      const s22 = sizesData.find(s => s.oz === 22);
+      if (s12) formData.append('price_12oz', s12.price.toFixed(2));
+      if (s16) formData.append('price_16oz', s16.price.toFixed(2));
+      if (s22) formData.append('price_22oz', s22.price.toFixed(2));
     }
     formData.append('stock_quantity', '0.00');
     formData.append('track_stock', '1');
@@ -2114,17 +2306,38 @@
   if (hasSizesCheckbox) {
     hasSizesCheckbox.addEventListener('change', e => {
       const isChecked = e.target.checked;
-      const sGrid = $('#pSizesGrid');
+      const sBox = $('#pSizesContainer');
       const bWrap = $('#pBasePriceWrap');
-      if (sGrid) sGrid.hidden = !isChecked;
+      if (sBox) sBox.hidden = !isChecked;
       if (bWrap) bWrap.hidden = isChecked;
+      if (isChecked && productSheetSizes.length === 0) {
+        const cat = $('#pCategory') ? $('#pCategory').value : 'Coffee';
+        updateProductSizeFields(cat, true);
+      }
     });
   }
+
+  const addSizeBtn = $('#addSizeOptionBtn');
+  if (addSizeBtn) {
+    addSizeBtn.addEventListener('click', () => {
+      addSizeOptionRow(16, 'Cold', '', '');
+    });
+  }
+
+  // Preset buttons
+  $$('.btn-preset-pill').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.getAttribute('data-preset');
+      applySizePreset(preset);
+    });
+  });
 
   const categorySelect = $('#pCategory');
   if (categorySelect) {
     categorySelect.addEventListener('change', e => {
-      updateProductSizeFields(e.target.value || '');
+      if (currentProductSheet && currentProductSheet.mode === 'add') {
+        updateProductSizeFields(e.target.value || '', true);
+      }
     });
   }
 

@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS product_size_prices (
   size_oz    INT UNSIGNED NOT NULL DEFAULT 16,
   price      DECIMAL(8,2) NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_prod_size (product_id, size_code),
+  UNIQUE KEY uq_prod_size (product_id, size_code, size_label),
   KEY idx_psp_prod (product_id),
   CONSTRAINT fk_psp_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

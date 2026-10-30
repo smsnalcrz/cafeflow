@@ -50,17 +50,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
     }
 
     // Fetch size-specific prices
-    $spRows = $pdo->query('SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices ORDER BY size_oz ASC')->fetchAll();
+    $spRows = $pdo->query('SELECT product_id, size_code, size_label, size_oz, price FROM product_size_prices ORDER BY size_oz ASC, id ASC')->fetchAll();
     $sizesByProd = [];
     foreach ($spRows as $sp) {
         $label = $sp['size_label'];
         if ($sp['size_code'] === '16oz' && ($label === 'Large' || empty($label))) {
             $label = 'Tall';
         }
+        $isHot = str_contains(strtolower($label ?? ''), 'hot') || str_contains(strtolower($sp['size_code'] ?? ''), 'hot') || (int)$sp['size_oz'] === 12;
+        $temp = $isHot ? 'Hot' : 'Cold';
         $sizesByProd[(int) $sp['product_id']][] = [
             'code'  => $sp['size_code'],
             'label' => $label,
             'oz'    => (int) $sp['size_oz'],
+            'temp'  => $temp,
             'price' => (float) $sp['price'],
         ];
     }
@@ -77,32 +80,29 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         $linkedIds = array_map(static fn($item) => $item['item_id'], $linkedIngredients);
 
         $hasSizes = (bool) ((int) ($r['has_sizes'] ?? 1));
-        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        $isFood     = (bool) preg_match('/croffle|pastry|sandwich|snack|meal|dessert|bakery/i', $category);
+        $isBeverage = !$isFood;
         if (!$isBeverage) {
             $hasSizes = false;
         }
 
         $isCoffee = (strtolower($category) === 'coffee');
         $sizes = $sizesByProd[$pId] ?? [];
-        if ($isCoffee && !empty($sizes)) {
-            // Remove 22oz from Coffee products
-            $sizes = array_values(array_filter($sizes, fn($s) => ($s['code'] ?? '') !== '22oz' && ($s['oz'] ?? 0) !== 22));
-        }
 
         if (empty($sizes) && $hasSizes) {
             if ($isCoffee) {
                 $p12 = $r['price_12oz'] !== null ? (float) $r['price_12oz'] : (float) $r['price'];
                 $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
                 $sizes = [
-                    ['code' => '12oz', 'label' => '12oz Hot', 'oz' => 12, 'price' => $p12],
-                    ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'price' => $p16],
+                    ['code' => '12oz', 'label' => '12oz Hot', 'oz' => 12, 'temp' => 'Hot', 'price' => $p12],
+                    ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'temp' => 'Cold', 'price' => $p16],
                 ];
             } else {
                 $p16 = $r['price_16oz'] !== null ? (float) $r['price_16oz'] : (float) $r['price'];
                 $p22 = $r['price_22oz'] !== null ? (float) $r['price_22oz'] : ($p16 + 20.0);
                 $sizes = [
-                    ['code' => '16oz', 'label' => 'Tall', 'oz' => 16, 'price' => $p16],
-                    ['code' => '22oz', 'label' => 'Grande', 'oz' => 22, 'price' => $p22],
+                    ['code' => '16oz', 'label' => '16oz Cold', 'oz' => 16, 'temp' => 'Cold', 'price' => $p16],
+                    ['code' => '22oz', 'label' => '22oz Cold', 'oz' => 22, 'temp' => 'Cold', 'price' => $p22],
                 ];
             }
         }
@@ -135,7 +135,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         ];
     }
 
-    $defaultCategories = ['Coffee', 'Non-Coffee', 'Tea', 'Pastry', 'Meals', 'Dessert', 'Snacks', 'Beverages'];
+    $defaultCategories = ['Coffee', 'Milk Series', 'Milk Tea', 'Fruit Tea / Lemonade', 'Croffle Classic', 'Croffle Premium', 'Sandwich', 'Pastry', 'Snacks'];
     $allCategories = array_values(array_unique(array_merge($defaultCategories, array_keys($categorySet))));
 
     send_json([
@@ -150,9 +150,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 // -----------------------------------------------------------------------------
 require_method('POST');
 
-// Handle either multipart/form-data or application/json
-$isMultipart = str_starts_with($_SERVER['CONTENT_TYPE'] ?? '', 'multipart/form-data');
-if ($isMultipart) {
+// Handle either multipart/form-data, urlencoded, or application/json
+$isFormPost = !empty($_POST) || str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'multipart/form-data') || str_contains($_SERVER['CONTENT_TYPE'] ?? '', 'application/x-www-form-urlencoded');
+if ($isFormPost) {
     $data = $_POST;
 } else {
     $data = read_json();
@@ -250,14 +250,44 @@ switch ($action) {
         $stock    = as_decimal($data['stock_quantity'] ?? 0, 0.00, 999999.99);
         $track    = 1; // Always tracked via raw inventory
 
-        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        $isFood     = (bool) preg_match('/croffle|pastry|sandwich|snack|meal|dessert|bakery/i', $category);
+        $isBeverage = !$isFood;
         $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : ($isBeverage ? 1 : 0);
         $isCoffee   = (strtolower($category) === 'coffee');
         $price12oz  = as_decimal($data['price_12oz'] ?? null, 0.00, 999999.99);
         $price16oz  = as_decimal($data['price_16oz'] ?? null, 0.00, 999999.99);
         $price22oz  = as_decimal($data['price_22oz'] ?? null, 0.00, 999999.99);
 
-        if ($hasSizes) {
+        // Check if dynamic sizes_json is provided
+        $sizesJson = $data['sizes_json'] ?? null;
+        $incomingSizes = [];
+        if ($sizesJson) {
+            $decoded = json_decode($sizesJson, true);
+            if (is_array($decoded)) {
+                $incomingSizes = $decoded;
+            }
+        }
+
+        if ($hasSizes && !empty($incomingSizes)) {
+            $minPrice = null;
+            $price12oz = null;
+            $price16oz = null;
+            $price22oz = null;
+            foreach ($incomingSizes as $s) {
+                $pVal = as_decimal($s['price'] ?? 0, 0.00, 999999.99);
+                if ($pVal === null) {
+                    fail(422, 'All cup size prices must be valid amounts of 0.00 or more.');
+                }
+                $ozVal = (int) ($s['oz'] ?? 0);
+                if ($minPrice === null || (float)$pVal < (float)$minPrice) {
+                    $minPrice = $pVal;
+                }
+                if ($ozVal === 12 && $price12oz === null) $price12oz = $pVal;
+                if ($ozVal === 16 && $price16oz === null) $price16oz = $pVal;
+                if ($ozVal === 22 && $price22oz === null) $price22oz = $pVal;
+            }
+            $price = $minPrice ?? '0.00';
+        } elseif ($hasSizes) {
             if ($isCoffee) {
                 $price22oz = null;
                 if ($price12oz === null && $price !== null) $price12oz = $price;
@@ -280,11 +310,13 @@ switch ($action) {
         if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
         }
-        if ($hasSizes && $isCoffee && ($price12oz === null || $price16oz === null)) {
-            fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
-        }
-        if ($hasSizes && !$isCoffee && ($price16oz === null || $price22oz === null)) {
-            fail(422, 'Both 16oz (Tall) and 22oz (Grande) prices must be valid amounts of 0.00 or more.');
+        if ($hasSizes && empty($incomingSizes)) {
+            if ($isCoffee && ($price12oz === null || $price16oz === null)) {
+                fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
+            }
+            if (!$isCoffee && ($price16oz === null || $price22oz === null)) {
+                fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
+            }
         }
 
         // Handle ingredients and fallback link
@@ -319,7 +351,17 @@ switch ($action) {
         // Save cup size records in product_size_prices
         if ($hasSizes) {
             $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
-            if ($isCoffee && $price12oz !== null && $price16oz !== null) {
+            if (!empty($incomingSizes)) {
+                foreach ($incomingSizes as $s) {
+                    $sOz = (int) ($s['oz'] ?? 16);
+                    $sTemp = trim((string)($s['temp'] ?? 'Cold'));
+                    $isHot = strtolower($sTemp) === 'hot' || str_contains(strtolower($s['label'] ?? ''), 'hot');
+                    $sCode = !empty($s['code']) ? $s['code'] : ($sOz . 'oz' . ($isHot ? '_hot' : ''));
+                    $sLabel = !empty($s['label']) ? trim($s['label']) : ($sOz . 'oz ' . $sTemp);
+                    $sPrice = as_decimal($s['price'] ?? 0, 0.00, 999999.99) ?? '0.00';
+                    $insSp->execute([$newId, $sCode, $sLabel, $sOz, $sPrice]);
+                }
+            } elseif ($isCoffee && $price12oz !== null && $price16oz !== null) {
                 $insSp->execute([$newId, '12oz', '12oz Hot', 12, $price12oz]);
                 $insSp->execute([$newId, '16oz', '16oz Cold', 16, $price16oz]);
             } elseif (!$isCoffee && $price16oz !== null && $price22oz !== null) {
@@ -363,14 +405,44 @@ switch ($action) {
         $stock    = as_decimal($data['stock_quantity'] ?? $existing['stock_quantity'], 0.00, 999999.99);
         $track    = 1;
 
-        $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
+        $isFood     = (bool) preg_match('/croffle|pastry|sandwich|snack|meal|dessert|bakery/i', $category);
+        $isBeverage = !$isFood;
         $hasSizes   = isset($data['has_sizes']) ? (int) (bool) $data['has_sizes'] : (int) ($existing['has_sizes'] ?? ($isBeverage ? 1 : 0));
         $isCoffee   = (strtolower($category) === 'coffee');
         $price12oz  = as_decimal($data['price_12oz'] ?? $existing['price_12oz'], 0.00, 999999.99);
         $price16oz  = as_decimal($data['price_16oz'] ?? $existing['price_16oz'], 0.00, 999999.99);
         $price22oz  = as_decimal($data['price_22oz'] ?? $existing['price_22oz'], 0.00, 999999.99);
 
-        if ($hasSizes) {
+        // Check dynamic sizes_json
+        $sizesJson = $data['sizes_json'] ?? null;
+        $incomingSizes = [];
+        if ($sizesJson) {
+            $decoded = json_decode($sizesJson, true);
+            if (is_array($decoded)) {
+                $incomingSizes = $decoded;
+            }
+        }
+
+        if ($hasSizes && !empty($incomingSizes)) {
+            $minPrice = null;
+            $price12oz = null;
+            $price16oz = null;
+            $price22oz = null;
+            foreach ($incomingSizes as $s) {
+                $pVal = as_decimal($s['price'] ?? 0, 0.00, 999999.99);
+                if ($pVal === null) {
+                    fail(422, 'All cup size prices must be valid amounts of 0.00 or more.');
+                }
+                $ozVal = (int) ($s['oz'] ?? 0);
+                if ($minPrice === null || (float)$pVal < (float)$minPrice) {
+                    $minPrice = $pVal;
+                }
+                if ($ozVal === 12 && $price12oz === null) $price12oz = $pVal;
+                if ($ozVal === 16 && $price16oz === null) $price16oz = $pVal;
+                if ($ozVal === 22 && $price22oz === null) $price22oz = $pVal;
+            }
+            $price = $minPrice ?? '0.00';
+        } elseif ($hasSizes) {
             if ($isCoffee) {
                 $price22oz = null;
                 if ($price12oz === null && $price !== null) $price12oz = $price;
@@ -390,11 +462,13 @@ switch ($action) {
         if ($price === null && !$hasSizes) {
             fail(422, 'Price must be a valid amount of 0.00 or more.');
         }
-        if ($hasSizes && $isCoffee && ($price12oz === null || $price16oz === null)) {
-            fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
-        }
-        if ($hasSizes && !$isCoffee && ($price16oz === null || $price22oz === null)) {
-            fail(422, 'Both 16oz (Tall) and 22oz (Grande) prices must be valid amounts of 0.00 or more.');
+        if ($hasSizes && empty($incomingSizes)) {
+            if ($isCoffee && ($price12oz === null || $price16oz === null)) {
+                fail(422, 'Both 12oz (Hot) and 16oz (Cold) prices must be valid amounts of 0.00 or more.');
+            }
+            if (!$isCoffee && ($price16oz === null || $price22oz === null)) {
+                fail(422, 'Both 16oz and 22oz prices must be valid amounts of 0.00 or more.');
+            }
         }
 
         // Handle ingredients update
@@ -446,7 +520,17 @@ switch ($action) {
         $pdo->prepare('DELETE FROM product_size_prices WHERE product_id = ?')->execute([$productId]);
         if ($hasSizes) {
             $insSp = $pdo->prepare('INSERT INTO product_size_prices (product_id, size_code, size_label, size_oz, price) VALUES (?, ?, ?, ?, ?)');
-            if ($isCoffee && $price12oz !== null && $price16oz !== null) {
+            if (!empty($incomingSizes)) {
+                foreach ($incomingSizes as $s) {
+                    $sOz = (int) ($s['oz'] ?? 16);
+                    $sTemp = trim((string)($s['temp'] ?? 'Cold'));
+                    $isHot = strtolower($sTemp) === 'hot' || str_contains(strtolower($s['label'] ?? ''), 'hot');
+                    $sCode = !empty($s['code']) ? $s['code'] : ($sOz . 'oz' . ($isHot ? '_hot' : ''));
+                    $sLabel = !empty($s['label']) ? trim($s['label']) : ($sOz . 'oz ' . $sTemp);
+                    $sPrice = as_decimal($s['price'] ?? 0, 0.00, 999999.99) ?? '0.00';
+                    $insSp->execute([$productId, $sCode, $sLabel, $sOz, $sPrice]);
+                }
+            } elseif ($isCoffee && $price12oz !== null && $price16oz !== null) {
                 $insSp->execute([$productId, '12oz', '12oz Hot', 12, $price12oz]);
                 $insSp->execute([$productId, '16oz', '16oz Cold', 16, $price16oz]);
             } elseif (!$isCoffee && $price16oz !== null && $price22oz !== null) {
