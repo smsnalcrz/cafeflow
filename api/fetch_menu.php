@@ -42,14 +42,11 @@ foreach ($rows as $r) {
     $categorySet[$category] = true;
 
     $pId = (int) $r['product_id'];
-    $hasSizes = (bool) ((int) ($r['has_sizes'] ?? 1));
+    $sizes = $sizesByProd[$pId] ?? [];
     $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
-    if (!$isBeverage) {
-        $hasSizes = false;
-    }
+    $hasSizes = !empty($sizes) ? true : (bool) ((int) ($r['has_sizes'] ?? ($isBeverage ? 1 : 0)));
 
     $isCoffee = (strtolower($category) === 'coffee');
-    $sizes = $sizesByProd[$pId] ?? [];
 
     if (empty($sizes) && $hasSizes) {
         if ($isCoffee) {

@@ -67,7 +67,7 @@ $pdo = db();
 $productIds = array_values(array_unique(array_column($wanted, 'product_id')));
 $marks = implode(',', array_fill(0, count($productIds), '?'));
 
-$stmt = $pdo->prepare("SELECT product_id, name, category, price, has_sizes, price_16oz, price_22oz FROM menu_products WHERE product_id IN ($marks)");
+$stmt = $pdo->prepare("SELECT product_id, name, category, price, has_sizes, price_12oz, price_16oz, price_22oz FROM menu_products WHERE product_id IN ($marks)");
 $stmt->execute($productIds);
 $productRows = $stmt->fetchAll();
 $productsMap = [];
@@ -117,13 +117,17 @@ foreach ($wanted as $item) {
         $unitPrice = $sizePriceMap[$pId][$spKeyWithLabel];
     } elseif ($sCode && isset($sizePriceMap[$pId][$sCode])) {
         $unitPrice = $sizePriceMap[$pId][$sCode];
-    } elseif ($sCode === '16oz' && $prod['price_16oz'] !== null) {
+    } elseif ($sOz && isset($sizePriceMap[$pId][$sOz . 'oz'])) {
+        $unitPrice = $sizePriceMap[$pId][$sOz . 'oz'];
+    } elseif (($sCode === '12oz' || $sOz === 12) && !empty($prod['price_12oz'])) {
+        $unitPrice = (float) $prod['price_12oz'];
+    } elseif (($sCode === '16oz' || $sOz === 16) && !empty($prod['price_16oz'])) {
         $unitPrice = (float) $prod['price_16oz'];
-    } elseif ($sCode === '22oz' && $prod['price_22oz'] !== null) {
+    } elseif (($sCode === '22oz' || $sOz === 22) && !empty($prod['price_22oz'])) {
         $unitPrice = (float) $prod['price_22oz'];
     } elseif ($sCode && !empty($prod['has_sizes'])) {
         // Fallback size differential if not explicitly configured
-        if ($sCode === '22oz') {
+        if ($sCode === '22oz' || $sOz === 22) {
             $unitPrice = (float) $prod['price'] + 20.00;
         }
     }

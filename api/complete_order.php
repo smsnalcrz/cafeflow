@@ -60,9 +60,10 @@ try {
             'category'   => $item['category'] ?? 'Coffee',
         ];
         $sizeCode = $item['size_code'] ?? null;
+        $sizeLabel = $item['size_label'] ?? null;
         $qty = (int) $item['quantity'];
 
-        $itemCons = calculate_product_consumption($product, $sizeCode, $qty, $pdo);
+        $itemCons = calculate_product_consumption($product, $sizeCode, $qty, $pdo, $sizeLabel);
         foreach ($itemCons as $c) {
             $cId = (int) $c['item_id'];
             if (!isset($aggregatedConsumption[$cId])) {

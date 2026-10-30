@@ -175,7 +175,7 @@ const ESTIMATED_CONSUMPTION_PROFILES = [
         'requires_lid'   => true,
         'requires_straw' => true,
     ],
-    'category:non-coffee' => [
+    'category:milk series' => [
         'items' => [
             ['name' => 'Full Cream Milk',     'qty_16oz' => 180.0, 'qty_22oz' => 250.0, 'unit' => 'ml'],
             ['name' => 'Ice',                 'qty_16oz' => 120.0, 'qty_22oz' => 150.0, 'unit' => 'g'],
@@ -210,6 +210,18 @@ const ESTIMATED_CONSUMPTION_PROFILES = [
         'requires_straw' => true,
     ],
     'category:croffle' => [
+        'items' => [],
+        'requires_cup'   => false,
+        'requires_lid'   => false,
+        'requires_straw' => false,
+    ],
+    'category:croffle classic' => [
+        'items' => [],
+        'requires_cup'   => false,
+        'requires_lid'   => false,
+        'requires_straw' => false,
+    ],
+    'category:croffle premium' => [
         'items' => [],
         'requires_cup'   => false,
         'requires_lid'   => false,
@@ -327,10 +339,14 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
     $pName = strtolower(trim($product['name'] ?? ''));
     $isBeverage = !in_array($category, ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
 
-    // Hot beverage detection (by label, size code, or oz)
-    $isHot = ($sizeCode === '12oz') ||
+    // Hot beverage detection (explicit cold takes precedence)
+    $isExplicitCold = ($sizeLabel !== null && str_contains(strtolower($sizeLabel), 'cold')) ||
+                      ($sizeCode !== null && str_contains(strtolower($sizeCode), 'cold'));
+    $isHot = !$isExplicitCold && (
              ($sizeLabel !== null && str_contains(strtolower($sizeLabel), 'hot')) ||
-             ($sizeCode !== null && str_contains(strtolower($sizeCode), 'hot'));
+             ($sizeCode !== null && str_contains(strtolower($sizeCode), 'hot')) ||
+             ($sizeCode === '12oz')
+    );
 
     // Normalize size
     $sizeProfile = null;
@@ -518,8 +534,20 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
     }
 
     // If no product match, match by category
-    if (!$matchedProfile && isset(ESTIMATED_CONSUMPTION_PROFILES['category:' . $category])) {
-        $matchedProfile = ESTIMATED_CONSUMPTION_PROFILES['category:' . $category];
+    if (!$matchedProfile) {
+        if (isset(ESTIMATED_CONSUMPTION_PROFILES['category:' . $category])) {
+            $matchedProfile = ESTIMATED_CONSUMPTION_PROFILES['category:' . $category];
+        } else {
+            foreach (ESTIMATED_CONSUMPTION_PROFILES as $k => $prof) {
+                if (str_starts_with($k, 'category:')) {
+                    $catKey = substr($k, 9);
+                    if ($catKey !== '' && (str_contains($category, $catKey) || str_contains($catKey, $category))) {
+                        $matchedProfile = $prof;
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     if ($matchedProfile) {

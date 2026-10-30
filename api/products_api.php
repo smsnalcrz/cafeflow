@@ -79,15 +79,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
         $linkedIngredients = $ingsByProd[$pId] ?? [];
         $linkedIds = array_map(static fn($item) => $item['item_id'], $linkedIngredients);
 
-        $hasSizes = (bool) ((int) ($r['has_sizes'] ?? 1));
+        $sizes = $sizesByProd[$pId] ?? [];
         $isFood     = (bool) preg_match('/croffle|pastry|sandwich|snack|meal|dessert|bakery/i', $category);
         $isBeverage = !$isFood;
-        if (!$isBeverage) {
-            $hasSizes = false;
-        }
+        $hasSizes   = !empty($sizes) ? true : (bool) ((int) ($r['has_sizes'] ?? ($isBeverage ? 1 : 0)));
 
         $isCoffee = (strtolower($category) === 'coffee');
-        $sizes = $sizesByProd[$pId] ?? [];
 
         if (empty($sizes) && $hasSizes) {
             if ($isCoffee) {

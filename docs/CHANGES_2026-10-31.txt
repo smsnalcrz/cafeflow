@@ -1,0 +1,170 @@
+================================================================================
+CafeFlow System Update - October 31, 2026
+Flexible Cup Sizes & Hot/Cold Options Builder, Modular CSS Architecture,
+POS Hot vs Cold Visual Indicator, Recipe Engine Deductions & Completed Patches
+================================================================================
+
+SUMMARY OF IMPLEMENTATION:
+This update satisfies the user requirements to:
+1. Replace the legacy fixed 12oz Hot / 16oz Cold / 22oz form inputs with a fully
+   flexible, dynamic Cup Sizes Options Builder supporting arbitrary cup sizes (8oz,
+   12oz, 16oz, 20oz, 22oz, 24oz, etc.) and Hot (♨️) vs. Cold (❄️) temperature
+   designation across all product categories.
+2. Provide 1-click Quick Presets ("☕ 12oz Hot + 16oz Cold", "❄️ 16oz + 22oz Cold",
+   and "🥤 12oz Hot + 16oz + 22oz Cold") along with dynamic "+ Add Cup Size" and
+   row removal ("✕") buttons.
+3. Explode the monolithic 2,600+ line `style.css` into 13 modular, dedicated CSS
+   stylesheets with cache-busting version hashes for enhanced maintainability.
+4. Clean up legacy "Non-Coffee" references in favor of clean DK Cafe categories
+   (Coffee, Milk Series, Milk Tea, Fruit Tea / Lemonade, Croffle Classic,
+   Croffle Premium, Sandwich, Pastry, Snacks).
+5. Synchronize live MySQL database schema, unique constraints, and indices.
+6. Complete all missing patches across checkout pricing, order completion consumption,
+   menu fetching, recipe engine packaging deductions, and front-end helpers.
+
+--------------------------------------------------------------------------------
+1. FLEXIBLE CUP SIZES & HOT / COLD BUILDER
+--------------------------------------------------------------------------------
+- Dynamic Size Options Table in Product Sheet:
+  * When "Enable Cup Sizes" is checked, the product modal displays a dynamic builder:
+    - Cup Size selector (12oz, 16oz, 22oz, 8oz, 20oz, 24oz).
+    - Temperature selector with visual badges:
+      * ♨️ Hot  (warm terracotta styling)
+      * ❄️ Cold (cool ice-blue styling)
+    - Editable Display Label (e.g., "12oz Hot", "16oz Cold", "22oz Iced").
+      Auto-updates default placeholder when size or temperature changes.
+    - Price (₱) input field with currency prefix.
+    - Row delete button ("✕") to remove any size option.
+    - "+ Add Cup Size" button to append new rows on demand.
+  * When unchecked, gracefully transitions to a single fixed price input
+    (ideal for single-sized food items like Croffles, Sandwiches, and Pastries).
+
+- Quick Presets Toolbar:
+  * ☕ 12oz Hot + 16oz Cold: Standard Coffee menu preset.
+  * ❄️ 16oz + 22oz Cold: Iced beverages (Milk Series, Milk Tea, Fruit Tea / Lemonade).
+  * 🥤 12oz Hot + 16oz + 22oz Cold: Complete 3-size menu preset.
+
+- Multi-variant Support for Same Cup Size:
+  * Products can now offer BOTH Hot and Cold options for the same ounce size
+    (e.g., 16oz Hot alongside 16oz Cold) with distinct pricing.
+
+--------------------------------------------------------------------------------
+2. POS CASHIER SIZE PICKER & CART LOGIC
+--------------------------------------------------------------------------------
+- Dynamic POS Popover Modal:
+  * Popover renders buttons dynamically from the product's configured `sizes` array.
+  * Visual Temperature Icons:
+    - Hot drink options display an animated steaming cup SVG icon with steam lines.
+    - Cold drink options display a cold beverage cup SVG icon.
+  * Real-time stock status badge: out-of-stock sizes show "OUT OF STOCK" while
+    available sizes remain selectable.
+  * Shows explicit size label, ounce badge, and formatted price (₱).
+
+- Cart Line Keying:
+  * Cart line items are keyed by `${product_id}:${oz}:${size_label}` rather than
+    just ounce size. This allows a customer to purchase both 16oz Hot and 16oz Cold
+    versions of the same drink in a single order without item collision.
+
+--------------------------------------------------------------------------------
+3. MODULAR CSS ARCHITECTURE (EXPLODED STYLE.CSS)
+--------------------------------------------------------------------------------
+- The monolithic `style.css` (2,633 lines) was decomposed into 13 focused modules:
+  1. `assets/css/variables.css`  - Design tokens, CSS variables, color palettes, spacing.
+  2. `assets/css/base.css`       - Global resets, typography, buttons, tables, utility tags.
+  3. `assets/css/layout.css`     - Split-screen flex layout, panel containers.
+  4. `assets/css/topbar.css`     - Header branding lockup, navigation buttons, live clock.
+  5. `assets/css/pos.css`        - POS menu grid, category filter tabs, size popover.
+  6. `assets/css/cart.css`       - Order sidebar, cart list, payment buttons & modal.
+  7. `assets/css/queue.css`      - Live barista queue, order cards, status badges.
+  8. `assets/css/modals.css`     - Modal overlays, dialog cards, backdrop blur effects.
+  9. `assets/css/inventory.css`  - Inventory table, restock sheets, low-stock alerts.
+  10. `assets/css/products.css`  - Product table, add/edit sheet, flexible cup builder.
+  11. `assets/css/reports.css`   - Sales statistics, transaction table, export tools.
+  12. `assets/css/responsive.css`- Mobile/tablet media queries, responsive bottom bar.
+  13. `assets/css/print.css`     - Thermal receipt and report print stylesheets.
+- Loaded in `index.php` using `@filemtime()` cache-busting query strings.
+- `assets/css/style.css` preserved with `@import` rules for legacy backwards compatibility.
+
+--------------------------------------------------------------------------------
+4. RECIPE ENGINE & RAW INVENTORY DEDUCTIONS
+--------------------------------------------------------------------------------
+- Packaging & Ingredient Rule Enforcement:
+  * Hot Drinks:
+    - Deduct 1x "12oz Hot cup & lid" (Item ID 23).
+    - Automatically EXCLUDE ice, straws, and flat lids from consumption.
+  * Cold Drinks:
+    - Deduct matching cold cup ("16oz cup" Item ID 18 or "22oz cup" Item ID 19).
+    - Deduct 1x "Flat lid" (Item ID 20).
+    - Deduct 1x "Bendable straw" (Item ID 16) or Boba straw.
+    - Deduct ice (scaled by cup size: 120g for 16oz, 150g for 22oz).
+- Safeguard Against False Positives:
+  * Implemented `$isExplicitCold` checks: if a drink size explicitly designates
+    'Cold', it is NEVER treated as a hot drink even if configured with a 12oz cup.
+- Category Consumption Profiles:
+  * Added `category:milk series`, `category:croffle classic`, and `category:croffle premium`.
+  * Added fallback fuzzy matching so custom subcategories inherit expected raw supplies.
+
+--------------------------------------------------------------------------------
+5. DATABASE SCHEMA & PERSISTENCE
+--------------------------------------------------------------------------------
+- `product_size_prices` Index Update:
+  * Live MySQL and `database/schema.sql`:
+    Altered unique constraint `uq_prod_size` from `(product_id, size_code)` to:
+    `UNIQUE KEY uq_prod_size (product_id, size_code, size_label)`
+  * Enables storing multiple temperature variants for the same size code.
+- Cleanup of Destructive Migrations:
+  * Removed legacy automatic query in `core/db.php` that deleted 22oz from Coffee
+    on every database connection, ensuring merchant size configurations persist.
+  * Added auto-migration in `core/db.php` that verifies and upgrades `uq_prod_size`
+    if running against an older database.
+
+--------------------------------------------------------------------------------
+6. COMPLETED MISSING PATCHES
+--------------------------------------------------------------------------------
+1. `api/complete_order.php`:
+   - Bug: Did not pass `size_label` to `calculate_product_consumption($product, $sizeCode, $qty, $pdo)`.
+   - Fix: Passed `$item['size_label']` as 5th argument so completed barista queue orders
+     accurately deduct Hot cups/lids vs. Cold packaging/ice/straws.
+2. `api/checkout.php`:
+   - Bug: SELECT query did not fetch `price_12oz` from `menu_products`, causing size price fallback
+     to miss 12oz rates.
+   - Fix: Added `price_12oz` to SELECT and updated unit price resolution hierarchy:
+     1) `size_code|size_label`
+     2) `size_code`
+     3) `size_oz . 'oz'`
+     4) `price_12oz` / `price_16oz` / `price_22oz`
+3. `api/fetch_menu.php` & `api/products_api.php`:
+   - Bug: Hardcoded check `!in_array(strtolower($category), ['pastry', 'croffle', ...])` forced
+     `$hasSizes = false`, preventing flexible options on food categories.
+   - Fix: If product has rows in `product_size_prices` or `has_sizes = 1`, sizes are preserved
+     regardless of category name.
+4. `core/recipe_engine.php`:
+   - Bug: Missing `category:milk series` profile (fell back to empty/generic).
+   - Fix: Added `category:milk series`, `category:croffle classic`, `category:croffle premium`,
+     and fuzzy category substring resolution.
+5. `core/db.php`:
+   - Bug: In-code fallback DDL for `product_size_prices` still defined `UNIQUE KEY (product_id, size_code)`.
+   - Fix: Updated to `(product_id, size_code, size_label)` with automated `ALTER TABLE` check.
+6. `assets/js/script.js`:
+   - Bug: Undefined `escapeHtml` helper triggered ReferenceError in size row template.
+   - Fix: Added `escapeHtml` helper to small utilities; updated fallback sizes to `16oz Cold` /
+     `22oz Cold`; refined `isHot` to respect explicit cold selection.
+7. Temporary Test Files Cleanup:
+   - Completely deleted `scratch/` folder containing test runners and diagnostic scripts.
+
+--------------------------------------------------------------------------------
+7. VERIFICATION RESULTS
+--------------------------------------------------------------------------------
+- PHP Syntax Lint: All 14 PHP files passed syntax check (`php -l`) with 0 errors.
+- End-to-End Test Suite (`test_cup_sizes.php`):
+  * Menu API correctly returns products with flexible sizes and `temp` metadata.
+  * Adding product with 4 size options (12oz Hot, 16oz Hot, 16oz Cold, 22oz Cold) succeeded.
+  * Inventory recipe deduction confirmed:
+    - 16oz Hot excludes ice & straws, deducts 12oz Hot cup & lid.
+    - 22oz Cold includes ice, flat lid, straw, and 22oz cold cup.
+  * Checkout total calculation confirmed (₱135.00 + ₱165.00 = ₱300.00).
+- Visual Quality Assurance:
+  * Product sheet modal renders responsive builder with Quick Presets, dropdowns,
+    temperature pills, and add/remove buttons.
+  * POS cashier size picker popover displays steaming cup SVG for Hot and cold cup SVG for Cold.
+================================================================================

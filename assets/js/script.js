@@ -339,17 +339,22 @@
           { code: '16oz', label: '16oz Cold', oz: 16, price: Number(p.price_16oz || p.price), available: true, stock_state: 'ok' }
         ]
       : [
-          { code: '16oz', label: 'Tall', oz: 16, price: Number(p.price_16oz || p.price), available: true, stock_state: 'ok' },
-          { code: '22oz', label: 'Grande', oz: 22, price: Number(p.price_22oz || (Number(p.price) + 20)), available: true, stock_state: 'ok' }
+          { code: '16oz', label: '16oz Cold', oz: 16, price: Number(p.price_16oz || p.price), available: true, stock_state: 'ok' },
+          { code: '22oz', label: '22oz Cold', oz: 22, price: Number(p.price_22oz || (Number(p.price) + 20)), available: true, stock_state: 'ok' }
         ];
 
     const sizes = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes : fallbackSizes;
 
     sizes.forEach(s => {
       const isOut = s.stock_state === 'out' || s.available === false;
-      const isHot = (s.temp && s.temp.toLowerCase() === 'hot') ||
+      const isExplicitCold = (s.temp && s.temp.toLowerCase() === 'cold') ||
+                            (s.label && s.label.toLowerCase().includes('cold')) ||
+                            (s.code && s.code.toLowerCase().includes('cold'));
+      const isHot = !isExplicitCold && (
+                    (s.temp && s.temp.toLowerCase() === 'hot') ||
                     (s.label && s.label.toLowerCase().includes('hot')) ||
-                    s.oz === 12 || s.code === '12oz';
+                    s.oz === 12 || s.code === '12oz'
+      );
       const isLg  = s.oz === 22 || s.code === '22oz';
 
       const cupClass = isHot ? 'hot' : (isLg ? 'lg' : 'sm');

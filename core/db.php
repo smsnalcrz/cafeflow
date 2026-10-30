@@ -121,11 +121,22 @@ if (!function_exists('ensure_schema')) {
                         size_oz INT UNSIGNED NOT NULL DEFAULT 16,
                         price DECIMAL(8,2) NOT NULL,
                         PRIMARY KEY (id),
-                        UNIQUE KEY uq_prod_size (product_id, size_code),
+                        UNIQUE KEY uq_prod_size (product_id, size_code, size_label),
                         KEY idx_psp_prod (product_id),
                         CONSTRAINT fk_psp_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ");
+            }
+
+            // Ensure uq_prod_size includes size_label for flexible multi-temp options
+            try {
+                $idxInfo = $pdo->query("SHOW INDEX FROM product_size_prices WHERE Key_name = 'uq_prod_size'")->fetchAll();
+                $idxCols = array_column($idxInfo, 'Column_name');
+                if (!in_array('size_label', $idxCols, true)) {
+                    $pdo->exec("ALTER TABLE product_size_prices DROP INDEX uq_prod_size, ADD UNIQUE KEY uq_prod_size (product_id, size_code, size_label)");
+                }
+            } catch (Throwable $e) {
+                // Table might not exist yet or index already updated
             }
 
             // Populate essential raw supplies from reference inventory if not present
