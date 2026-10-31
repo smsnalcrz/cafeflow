@@ -112,7 +112,8 @@
    * ------------------------------------------------------------------ */
   let menu = [];
   let menuCategories = [];
-  let activeCategory = 'all';
+  const urlCat = new URLSearchParams(window.location.search).get('cat');
+  let activeCategory = urlCat ? urlCat : 'all';
   let searchQuery = '';
   const cardBadges = new Map(); // product_id -> badge element
 
@@ -128,18 +129,139 @@
     }
   }
 
-  function getCategoryIcon(cat) {
-    if (!cat) return '☕';
+  /* ------------------------------------------------------------------ *
+   *  Bespoke SVG Icon System (Designed for OK Café / CafeFlow)
+   * ------------------------------------------------------------------ */
+  const SVG_ICONS = {
+    // Categories
+    all: `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/></svg>`,
+
+    coffee: `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v7a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>`,
+
+    'croffle-classic': `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>`,
+
+    'croffle-premium': `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="14" rx="4"/><path d="M3 12h18M3 17h18M8 7v14M13 7v14M18 7v14"/><path d="M12 1.5l1.3 2.6 2.8.4-2 2 .5 2.8-2.6-1.4-2.6 1.4.5-2.8-2-2 2.8-.4z" fill="currentColor"/></svg>`,
+
+    'fruit-tea': `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5h12l-1.8 15a2 2 0 0 1-2 1.8H9.8a2 2 0 0 1-2-1.8L6 5z"/><path d="M4 5h16"/><circle cx="16" cy="10" r="3"/><path d="M16 7v6M13 10h6"/><path d="M13 1.5l-2 7"/></svg>`,
+
+    'milk-series': `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2h8v3H8z"/><path d="M7 5l-2.5 5v11a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V10L17 5H7z"/><path d="M12 11c-1.5 2-2.5 3.5-2.5 5a2.5 2.5 0 0 0 5 0c0-1.5-1-3-2.5-5z" fill="currentColor" fill-opacity="0.25"/></svg>`,
+
+    'milk-tea': `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1.5 13a2 2 0 0 1-2 1.8H9.5a2 2 0 0 1-2-1.8L6 7z"/><path d="M5 7h14"/><path d="M15 1.5l-3 9.5"/><circle cx="10" cy="17" r="1.3" fill="currentColor"/><circle cx="14" cy="17" r="1.3" fill="currentColor"/><circle cx="12" cy="14.5" r="1.3" fill="currentColor"/></svg>`,
+
+    pastry: `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c-1-3 0-7 3-9 4-3 10-3 13 1 2 3 2 7 0 9-3 2-6 2-9 1-2 1-4 1-5 0l-2-2z"/><path d="M7.5 10c2-1.5 5-1.5 7 0"/><path d="M6 13c1.5-1 3.5-1 5 0"/><path d="M13 13c1.5-.5 3 0 4 1"/></svg>`,
+
+    sandwich: `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l14-6a2 2 0 0 1 2.6 1.1l1.4 3.3a2 2 0 0 1-1.1 2.6L6 18a2 2 0 0 1-2.6-1.1l-1.4-3.3A2 2 0 0 1 3 11z"/><path d="M5 12l14-6"/><path d="M6 15l14-6"/></svg>`,
+
+    snacks: `<svg viewBox="0 0 24 24" width="{s}" height="{s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 10l2.5 11h9L19 10H5z"/><path d="M8 10V4.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1V10M11.5 10V2.5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1V10M15 10V5a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1V10"/></svg>`,
+
+    // Temperature & Size Badges
+    hot: `<svg class="chip-svg icon-hot" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 9h1a3 3 0 0 1 0 6h-1"/><path d="M3 9h15v6a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9z"/><path d="M7 2v3M11 2v3M15 2v3"/></svg>`,
+
+    cold: `<svg class="chip-svg icon-cold" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1.5 13a2 2 0 0 1-2 1.8H9.5a2 2 0 0 1-2-1.8L6 7z"/><path d="M5 7h14"/><line x1="15" y1="2" x2="12" y2="13"/></svg>`,
+
+    food: `<svg class="chip-svg icon-food" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/></svg>`,
+
+    // UI & Action
+    cart: `<svg class="cart-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/><path d="M2 3h3.5l2.4 12.2a2 2 0 0 0 2 1.6h8.8a2 2 0 0 0 2-1.6L22 7H6.5"/></svg>`
+  };
+
+  function getCategoryKey(cat) {
+    if (!cat) return 'coffee';
     const c = cat.toLowerCase();
-    if (c.includes('croffle') || c.includes('waffle')) return '🧇';
-    if (c.includes('sandwich') || c.includes('toast') || c.includes('burger')) return '🥪';
-    if (c.includes('pastry') || c.includes('bakery') || c.includes('croissant')) return '🥐';
-    if (c.includes('snack') || c.includes('fries') || c.includes('finger')) return '🍟';
-    if (c.includes('boba') || c.includes('milk tea')) return '🧋';
-    if (c.includes('fruit tea') || c.includes('lemonade') || c.includes('juice') || c.includes('tea')) return '🍋';
-    if (c.includes('milk') || c.includes('matcha') || c.includes('chocolate')) return '🥛';
-    if (c.includes('meal') || c.includes('rice') || c.includes('dish')) return '🍛';
-    return '☕';
+    if (c === 'all' || c === 'all items') return 'all';
+    if (c.includes('croffle classic')) return 'croffle-classic';
+    if (c.includes('croffle premium')) return 'croffle-premium';
+    if (c.includes('croffle') || c.includes('waffle')) return 'croffle-classic';
+    if (c.includes('fruit') || c.includes('lemonade') || c.includes('juice') || c.includes('soda')) return 'fruit-tea';
+    if (c.includes('milk tea') || c.includes('boba')) return 'milk-tea';
+    if (c.includes('milk series') || c.includes('milk')) return 'milk-series';
+    if (c.includes('pastry') || c.includes('bakery') || c.includes('croissant')) return 'pastry';
+    if (c.includes('sandwich') || c.includes('toast') || c.includes('burger')) return 'sandwich';
+    if (c.includes('snack') || c.includes('fries')) return 'snacks';
+    if (c.includes('coffee') || c.includes('espresso') || c.includes('latte')) return 'coffee';
+    return 'coffee';
+  }
+
+  function getCategorySvg(cat, size = 16) {
+    const key = getCategoryKey(cat);
+    const tmpl = SVG_ICONS[key] || SVG_ICONS.coffee;
+    return tmpl.replace(/{s}/g, String(size));
+  }
+
+  function getCategoryIcon(cat) {
+    return getCategorySvg(cat, 26);
+  }
+
+  function updateCatNavArrows() {
+    const bar = $('#categoryBar');
+    const leftBtn = $('#catScrollLeftBtn');
+    const rightBtn = $('#catScrollRightBtn');
+    if (!bar || !leftBtn || !rightBtn) return;
+    const hasOverflow = bar.scrollWidth > bar.clientWidth + 4;
+    leftBtn.hidden = !hasOverflow;
+    rightBtn.hidden = !hasOverflow;
+    if (hasOverflow) {
+      leftBtn.disabled = bar.scrollLeft <= 4;
+      rightBtn.disabled = Math.ceil(bar.scrollLeft + bar.clientWidth) >= bar.scrollWidth - 4;
+    }
+  }
+
+  function initCategoryBarScroll() {
+    const bar = $('#categoryBar');
+    const leftBtn = $('#catScrollLeftBtn');
+    const rightBtn = $('#catScrollRightBtn');
+    if (!bar) return;
+
+    if (leftBtn) {
+      leftBtn.addEventListener('click', () => {
+        bar.scrollBy({ left: -200, behavior: 'smooth' });
+        setTimeout(updateCatNavArrows, 250);
+      });
+    }
+    if (rightBtn) {
+      rightBtn.addEventListener('click', () => {
+        bar.scrollBy({ left: 200, behavior: 'smooth' });
+        setTimeout(updateCatNavArrows, 250);
+      });
+    }
+
+    bar.addEventListener('scroll', updateCatNavArrows, { passive: true });
+    window.addEventListener('resize', updateCatNavArrows);
+
+    // Mouse wheel horizontal scrolling
+    bar.addEventListener('wheel', e => {
+      if (e.deltaY !== 0 && bar.scrollWidth > bar.clientWidth) {
+        e.preventDefault();
+        bar.scrollLeft += e.deltaY;
+        updateCatNavArrows();
+      }
+    }, { passive: false });
+
+    // Drag-to-scroll support for mouse & touch
+    let isDown = false;
+    let startX = 0;
+    let startScrollLeft = 0;
+    bar.addEventListener('mousedown', e => {
+      isDown = true;
+      startX = e.pageX - bar.offsetLeft;
+      startScrollLeft = bar.scrollLeft;
+    });
+    window.addEventListener('mouseup', () => {
+      if (isDown) {
+        isDown = false;
+        bar.classList.remove('grabbing');
+      }
+    });
+    bar.addEventListener('mousemove', e => {
+      if (!isDown) return;
+      const x = e.pageX - bar.offsetLeft;
+      const walk = x - startX;
+      if (Math.abs(walk) > 4) {
+        bar.classList.add('grabbing');
+        bar.scrollLeft = startScrollLeft - walk;
+        updateCatNavArrows();
+      }
+    });
   }
 
   function renderCategoryBar() {
@@ -147,36 +269,44 @@
     if (!bar) return;
     bar.textContent = '';
 
+    const allIcon = h('span', { class: 'cat-icon' });
+    allIcon.innerHTML = getCategorySvg('all', 16);
     const allPill = h('button', {
       type: 'button',
       role: 'tab',
       'aria-selected': activeCategory === 'all' ? 'true' : 'false',
       class: 'cat-pill' + (activeCategory === 'all' ? ' active' : ''),
-      text: 'All Items',
       onclick: () => {
         activeCategory = 'all';
         renderCategoryBar();
         renderMenu();
+        const active = bar.querySelector('.cat-pill.active');
+        if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }
-    });
+    }, allIcon, h('span', { class: 'cat-text', text: 'All Items' }));
     bar.append(allPill);
 
     for (const cat of menuCategories) {
       const isSelected = activeCategory.toLowerCase() === cat.toLowerCase();
+      const icon = h('span', { class: 'cat-icon' });
+      icon.innerHTML = getCategorySvg(cat, 16);
       const pill = h('button', {
         type: 'button',
         role: 'tab',
         'aria-selected': isSelected ? 'true' : 'false',
         class: 'cat-pill' + (isSelected ? ' active' : ''),
-        text: cat,
         onclick: () => {
           activeCategory = cat;
           renderCategoryBar();
           renderMenu();
+          const active = bar.querySelector('.cat-pill.active');
+          if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         }
-      });
+      }, icon, h('span', { class: 'cat-text', text: cat }));
       bar.append(pill);
     }
+
+    setTimeout(updateCatNavArrows, 50);
   }
 
   function renderMenu() {
@@ -228,6 +358,12 @@
 
     for (const p of filtered) {
       const badge = h('span', { class: 'in-cart', hidden: true });
+      const cartIconWrap = h('span', { class: 'cart-icon-wrap' });
+      cartIconWrap.innerHTML = SVG_ICONS.cart;
+      const cartPill = h('div', { class: 'item-cart-pill', 'aria-hidden': 'true' },
+        cartIconWrap,
+        badge
+      );
 
       // Image or placeholder
       let imgNode;
@@ -240,13 +376,19 @@
             onerror: function () {
               this.parentElement.className = 'item-img-wrap item-placeholder';
               this.parentElement.textContent = '';
-              this.parentElement.append(h('span', { class: 'placeholder-icon', text: getCategoryIcon(p.category) }));
+              const phCircle = h('div', { class: 'placeholder-circle' });
+              phCircle.innerHTML = getCategorySvg(p.category, 26);
+              this.parentElement.append(phCircle, cartPill);
             }
-          })
+          }),
+          cartPill
         );
       } else {
+        const phCircle = h('div', { class: 'placeholder-circle' });
+        phCircle.innerHTML = getCategorySvg(p.category, 26);
         imgNode = h('div', { class: 'item-img-wrap item-placeholder' },
-          h('span', { class: 'placeholder-icon', text: getCategoryIcon(p.category) })
+          phCircle,
+          cartPill
         );
       }
 
@@ -270,6 +412,34 @@
         priceText = money(p.price);
       }
 
+      // Sizes chips row with custom SVG icons
+      const sizeChipsWrap = h('div', { class: 'item-sizes-row' });
+      if (p.has_sizes && Array.isArray(p.sizes) && p.sizes.length > 0) {
+        p.sizes.forEach(s => {
+          const isExplicitCold = (s.temp && s.temp.toLowerCase() === 'cold') ||
+                                (s.label && s.label.toLowerCase().includes('cold'));
+          const isHot = !isExplicitCold && (
+                        (s.temp && s.temp.toLowerCase() === 'hot') ||
+                        (s.label && s.label.toLowerCase().includes('hot')) ||
+                        s.oz === 12
+          );
+          const iconSpan = h('span', { class: 'chip-icon' });
+          iconSpan.innerHTML = isHot ? SVG_ICONS.hot : SVG_ICONS.cold;
+          const labelSpan = h('span', { class: 'chip-label', text: s.oz ? `${s.oz}oz` : (s.label || s.code) });
+          sizeChipsWrap.append(h('span', {
+            class: 'size-chip ' + (isHot ? 'chip-hot' : 'chip-cold'),
+          }, iconSpan, labelSpan));
+        });
+      } else {
+        const catLabel = p.category && activeCategory === 'all' ? p.category : 'Single size';
+        const foodIcon = h('span', { class: 'chip-icon' });
+        foodIcon.innerHTML = SVG_ICONS.food;
+        const foodLabel = h('span', { class: 'chip-label', text: catLabel });
+        sizeChipsWrap.append(h('span', {
+          class: 'size-chip chip-food',
+        }, foodIcon, foodLabel));
+      }
+
       const itemBtn = h('button', {
         type: 'button',
         class: 'item' + (isOut ? ' is-out-of-stock' : ''),
@@ -287,13 +457,16 @@
           }
         }
       },
-        badge,
         imgNode,
-        h('span', { class: 'item-cat', text: p.category || 'General' }),
-        h('span', { class: 'item-name', text: p.name }),
-        h('div', { class: 'item-foot' },
-          h('span', { class: 'item-price', text: priceText }),
-          tag
+        h('div', { class: 'item-info' },
+          h('div', { class: 'item-header-row' },
+            h('span', { class: 'item-name', text: p.name }),
+            h('span', { class: 'item-price', text: priceText })
+          ),
+          h('div', { class: 'item-sub-row' },
+            sizeChipsWrap,
+            tag
+          )
         )
       );
 
@@ -311,8 +484,13 @@
       for (const [key, line] of cart) {
         if (line.id === productId) total += line.qty;
       }
+      badge.textContent = total;
       badge.hidden = total === 0;
-      if (total > 0) badge.textContent = total;
+      const cartPill = badge.closest('.item-cart-pill');
+      if (cartPill) {
+        cartPill.classList.toggle('has-items', total > 0);
+      }
+      badge.closest('.item')?.classList.toggle('in-cart-item', total > 0);
     }
   }
 
@@ -2619,6 +2797,7 @@
   });
 
   // Init
+  initCategoryBarScroll();
   renderCart();
   tickClock();
   setInterval(tickClock, 15000);

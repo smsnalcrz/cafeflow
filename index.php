@@ -84,7 +84,11 @@ $cssModules = [
       </div>
 
       <!-- Category Filter Pills Bar -->
-      <div class="category-bar" id="categoryBar" role="tablist" aria-label="Product categories"></div>
+      <div class="category-nav-container">
+        <button type="button" class="cat-arrow-btn prev" id="catScrollLeftBtn" aria-label="Previous categories" title="Scroll left" hidden>‹</button>
+        <div class="category-bar" id="categoryBar" role="tablist" aria-label="Product categories"></div>
+        <button type="button" class="cat-arrow-btn next" id="catScrollRightBtn" aria-label="Next categories" title="Scroll right" hidden>›</button>
+      </div>
 
       <!-- Products Grid -->
       <div class="menu-grid" id="menuGrid"></div>
