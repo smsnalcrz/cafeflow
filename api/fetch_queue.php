@@ -5,6 +5,10 @@
  * inventory items at or below their restock threshold for the nav badge.
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
+
+// RBAC: Only Baristas are permitted to access POS barista queue
+require_role('barista');
 
 require_method('GET');
 $pdo = db();

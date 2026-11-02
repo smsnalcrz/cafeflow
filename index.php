@@ -1,4 +1,12 @@
 <?php
+require_once __DIR__ . '/core/db.php';
+require_once __DIR__ . '/core/auth.php';
+
+// Enforce authentication: unauthenticated visits redirect to login.php
+$currentUser = require_login();
+$currentRole = strtolower($currentUser['role'] ?? 'barista');
+$csrfToken = get_csrf_token();
+
 // Cache-bust the CSS/JS by file modification time so the tablet never runs stale code.
 $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
 
@@ -7,6 +15,7 @@ $cssModules = [
   'assets/css/base.css',
   'assets/css/layout.css',
   'assets/css/topbar.css',
+  'assets/css/auth.css',
   'assets/css/pos.css',
   'assets/css/cart.css',
   'assets/css/queue.css',
@@ -53,22 +62,69 @@ $cssModules = [
       </div>
     </div>
     <nav class="nav" aria-label="Main">
+      <?php if ($currentRole === 'barista'): ?>
       <button type="button" class="nav-btn active" data-view="pos">
         🧾 POS <span class="badge" id="queueBadge" hidden>0</span>
       </button>
       <button type="button" class="nav-btn" data-view="products">
         🏷️ Products
       </button>
+      <?php endif; ?>
       <button type="button" class="nav-btn" data-view="inventory">
         📦 Inventory <span class="badge warn" id="lowBadge" hidden>0</span>
       </button>
       <button type="button" class="nav-btn" data-view="report">
         📊 Sales Report
       </button>
+
+      <!-- Profile Button in Topbar (Positioned between Sales Report and Clock) -->
+      <div class="user-profile-wrap" id="userProfileWrap">
+        <button type="button" class="profile-btn" id="profileBtn" aria-expanded="false" aria-haspopup="true" title="User Profile">
+          <div class="profile-avatar <?= $currentRole === 'manager' ? 'role-manager' : 'role-barista' ?>" id="topbarAvatar">
+            <?= strtoupper(substr($currentUser['full_name'] ?: $currentUser['username'], 0, 1)) ?>
+          </div>
+          <div class="profile-meta">
+            <span class="profile-name" id="topbarUserName"><?= htmlspecialchars($currentUser['full_name']) ?></span>
+            <span class="profile-role-badge <?= $currentRole === 'manager' ? 'role-manager' : 'role-barista' ?>">
+              <?= ucfirst($currentRole) ?>
+            </span>
+          </div>
+          <span class="profile-chevron" aria-hidden="true">▾</span>
+        </button>
+
+        <!-- Profile Dropdown Menu -->
+        <div class="profile-dropdown" id="profileDropdown" hidden>
+          <div class="profile-dropdown-header">
+            <div class="dropdown-avatar-lg <?= $currentRole === 'manager' ? 'role-manager' : 'role-barista' ?>">
+              <?= strtoupper(substr($currentUser['full_name'] ?: $currentUser['username'], 0, 1)) ?>
+            </div>
+            <div class="dropdown-user-info">
+              <strong class="dropdown-fullname"><?= htmlspecialchars($currentUser['full_name']) ?></strong>
+              <span class="dropdown-username">@<?= htmlspecialchars($currentUser['username']) ?></span>
+              <span class="dropdown-role-tag <?= $currentRole === 'manager' ? 'role-manager' : 'role-barista' ?>">
+                <?= ucfirst($currentRole) ?>
+              </span>
+            </div>
+          </div>
+          <div class="profile-dropdown-menu">
+            <?php if ($currentRole === 'manager'): ?>
+            <button type="button" class="dropdown-item" id="openAccountsBtn">
+              <span class="dropdown-item-icon">👥</span>
+              <span>Account Management</span>
+            </button>
+            <?php endif; ?>
+            <a href="logout.php" class="dropdown-item danger" id="logoutLink" style="text-decoration: none;">
+              <span class="dropdown-item-icon">🚪</span>
+              <span>Sign Out</span>
+            </a>
+          </div>
+        </div>
+      </div>
     </nav>
     <div class="clock" id="clock" aria-hidden="true"></div>
   </header>
 
+  <?php if ($currentRole === 'barista'): ?>
   <!-- ===== Single-screen dual mode ===== -->
   <main class="split">
 
@@ -145,7 +201,52 @@ $cssModules = [
       <button type="button" class="mob-pay-btn mob-pay-gcash" id="mobPayGcashBtn">📱 GCash</button>
     </div>
   </div>
+  <?php else: ?>
+  <!-- ===== Manager Dedicated Dashboard Workspace ===== -->
+  <div class="manager-dashboard-container" id="managerDashboard">
+    <div class="mgr-welcome-banner">
+      <div>
+        <h1>Welcome back, <?= htmlspecialchars($currentUser['full_name']) ?>!</h1>
+        <p>Manager Portal &middot; Access raw inventory levels, sales revenue analytics, and account administration.</p>
+      </div>
+      <span class="mgr-banner-badge">Role: Manager (Administrative Access)</span>
+    </div>
 
+    <div class="mgr-cards-grid">
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Raw Supplies Inventory</span>
+          <span class="mgr-card-icon">📦</span>
+        </div>
+        <div class="mgr-card-value" id="mgrCardSupplyCount">--</div>
+        <p class="muted" style="margin: 0 0 10px;">Monitor stock counts, restock raw materials, and inspect low-stock alerts.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenInventoryBtn">Manage Inventory</button>
+      </div>
+
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Today's Sales Revenue</span>
+          <span class="mgr-card-icon">📊</span>
+        </div>
+        <div class="mgr-card-value" id="mgrCardSalesToday">₱0.00</div>
+        <p class="muted" style="margin: 0 0 10px;">Inspect historical transaction records, date spans, and export spreadsheets.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenReportBtn">View Sales Reports</button>
+      </div>
+
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Account Administration</span>
+          <span class="mgr-card-icon">👥</span>
+        </div>
+        <div class="mgr-card-value" id="mgrCardUserCount">--</div>
+        <p class="muted" style="margin: 0 0 10px;">Create Barista/Manager accounts, approve registrations, and manage credentials.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAccountsBtn">Manage Accounts</button>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <?php if ($currentRole === 'barista'): ?>
   <!-- ===== Products Management modal ===== -->
   <div class="modal" id="productModal" hidden>
     <div class="modal-card">
@@ -328,6 +429,7 @@ $cssModules = [
       </form>
     </div><!-- /#productSheet -->
   </div><!-- /#productModal -->
+  <?php endif; ?>
 
 
   <!-- ===== Inventory modal ===== -->
@@ -539,6 +641,187 @@ $cssModules = [
     </div>
   </div>
 
+  <?php if ($currentRole === 'manager'): ?>
+  <!-- ===== Accounts Management modal (Manager Only) ===== -->
+  <div class="modal" id="accountsModal" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h2>👥 Account Management</h2>
+        <div class="modal-search-wrap">
+          <input type="search" id="accountSearch" class="search-input" placeholder="🔍 Search accounts by name, username, email..." autocomplete="off">
+          <button type="button" class="search-clear" id="accountSearchClearBtn" hidden title="Clear search">✕</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn primary" id="addNewAccountBtn">+ New Account</button>
+          <button type="button" class="btn ghost" data-close>✕ Close</button>
+        </div>
+      </div>
+
+      <!-- Account Overview Stats Cards -->
+      <div class="accounts-overview-grid">
+        <div class="account-stat-card">
+          <span class="stat-num" id="statTotalAccounts">0</span>
+          <span class="stat-label">Total Accounts</span>
+        </div>
+        <div class="account-stat-card">
+          <span class="stat-num" id="statBaristaAccounts">0</span>
+          <span class="stat-label">Baristas</span>
+        </div>
+        <div class="account-stat-card">
+          <span class="stat-num" id="statManagerAccounts">0</span>
+          <span class="stat-label">Managers</span>
+        </div>
+        <div class="account-stat-card stat-active">
+          <span class="stat-num" id="statActiveAccounts">0</span>
+          <span class="stat-label">Active</span>
+        </div>
+        <div class="account-stat-card stat-pending">
+          <span class="stat-num" id="statPendingAccounts">0</span>
+          <span class="stat-label">Pending / Inactive</span>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="accounts-filter-bar">
+        <button type="button" class="acc-filter-tab active" data-filter="all">All Accounts</button>
+        <button type="button" class="acc-filter-tab" data-filter="barista">Baristas</button>
+        <button type="button" class="acc-filter-tab" data-filter="manager">Managers</button>
+        <button type="button" class="acc-filter-tab" data-filter="active">Active</button>
+        <button type="button" class="acc-filter-tab" data-filter="pending">Pending Approval</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="accounts-table-container">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Full Name</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Last Login</th>
+                <th class="act">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="accountsTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /.modal-card -->
+
+    <!-- Add / Edit Account Sheet -->
+    <div class="sheet" id="accountSheet" hidden>
+      <form class="sheet-card" id="accountForm" autocomplete="off" novalidate>
+        <h3 id="accountSheetTitle">Create New Account</h3>
+        <input type="hidden" id="accUserId" value="">
+        <input type="hidden" id="accCsrfToken" value="<?= htmlspecialchars($csrfToken) ?>">
+
+        <div class="sheet-grid-2">
+          <label>Full Name *
+            <input type="text" id="accFullName" maxlength="100" placeholder="e.g. Maria Santos" required>
+          </label>
+          <label>Username *
+            <input type="text" id="accUsername" maxlength="50" placeholder="e.g. maria_barista" required>
+          </label>
+        </div>
+
+        <div class="sheet-grid-2">
+          <label>Email Address
+            <input type="email" id="accEmail" maxlength="100" placeholder="e.g. maria@cafeflow.com">
+          </label>
+          <label>Role *
+            <select id="accRole" required>
+              <option value="barista">Barista (Full POS & System Access)</option>
+              <option value="manager">Manager (Inventory, Reports & Accounts)</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="sheet-grid-2" id="accStatusGroup">
+          <label>Account Status *
+            <select id="accStatus" required>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="pending">Pending Approval</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="accPasswordSection">
+          <div class="sheet-grid-2">
+            <label><span id="accPassLabel">Password *</span>
+              <div class="pass-input-wrap">
+                <input type="password" id="accPassword" minlength="6" placeholder="Min. 6 characters">
+                <button type="button" class="btn-toggle-pass" data-target="accPassword" tabindex="-1">👁️</button>
+              </div>
+            </label>
+            <label><span id="accPassConfirmLabel">Confirm Password *</span>
+              <div class="pass-input-wrap">
+                <input type="password" id="accConfirmPassword" minlength="6" placeholder="Repeat password">
+                <button type="button" class="btn-toggle-pass" data-target="accConfirmPassword" tabindex="-1">👁️</button>
+              </div>
+            </label>
+          </div>
+          <small class="auth-hint" id="accPassHint" hidden>Leave password blank if you do not wish to change it.</small>
+        </div>
+
+        <p class="form-error" id="accountSheetError" hidden></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn ghost" id="accountSheetCancel">Cancel</button>
+          <button type="submit" class="btn primary" id="accountSheetSaveBtn">Save Account</button>
+        </div>
+      </form>
+    </div><!-- /#accountSheet -->
+
+    <!-- Reset Password Sheet -->
+    <div class="sheet" id="resetPassSheet" hidden>
+      <form class="sheet-card" id="resetPassForm" autocomplete="off" novalidate>
+        <h3>Reset Account Password</h3>
+        <p class="muted" style="margin-bottom: 12px;">Resetting password for: <strong id="resetTargetUsername">--</strong></p>
+        <input type="hidden" id="resetUserId" value="">
+        <input type="hidden" id="resetCsrfToken" value="<?= htmlspecialchars($csrfToken) ?>">
+
+        <div class="sheet-grid-2">
+          <label>New Password *
+            <div class="pass-input-wrap">
+              <input type="password" id="resetNewPass" minlength="6" placeholder="Min. 6 characters" required>
+              <button type="button" class="btn-toggle-pass" data-target="resetNewPass" tabindex="-1">👁️</button>
+            </div>
+          </label>
+          <label>Confirm Password *
+            <div class="pass-input-wrap">
+              <input type="password" id="resetConfirmPass" minlength="6" placeholder="Repeat password" required>
+              <button type="button" class="btn-toggle-pass" data-target="resetConfirmPass" tabindex="-1">👁️</button>
+            </div>
+          </label>
+        </div>
+
+        <p class="form-error" id="resetPassError" hidden></p>
+        <div class="sheet-actions">
+          <button type="button" class="btn ghost" id="resetPassCancel">Cancel</button>
+          <button type="submit" class="btn primary" id="resetPassSaveBtn">Set New Password</button>
+        </div>
+      </form>
+    </div><!-- /#resetPassSheet -->
+
+  </div><!-- /#accountsModal -->
+  <?php endif; ?>
+
+  <script>
+    window.CafeFlowUser = <?= json_encode([
+      'user_id'    => (int) $currentUser['user_id'],
+      'full_name'  => $currentUser['full_name'],
+      'username'   => $currentUser['username'],
+      'email'      => $currentUser['email'] ?? '',
+      'role'       => $currentRole,
+      'status'     => $currentUser['status'],
+      'csrf_token' => $csrfToken
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
+  </script>
   <script src="assets/js/script.js?v=<?= $ver('assets/js/script.js') ?>" defer></script>
 </body>
 </html>

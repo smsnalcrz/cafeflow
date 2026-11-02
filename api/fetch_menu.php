@@ -4,7 +4,11 @@
  * Menu items for the cashier grid, each with category, image, prices per cup size, and raw-inventory stock_state.
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/recipe_engine.php';
+
+// RBAC: Only Baristas have access to POS Menu items
+require_role('barista');
 
 require_method('GET');
 

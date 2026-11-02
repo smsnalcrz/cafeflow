@@ -14,10 +14,20 @@
  * Checks raw inventory sufficiency before order entry.
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/recipe_engine.php';
+
+// RBAC: Only Baristas are authorized to process orders and POS transactions
+$user = require_role('barista');
+$cashierId = (int) $user['user_id'];
 
 require_method('POST');
 $body = read_json();
+
+$csrf = $body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+if (!validate_csrf_token($csrf)) {
+    fail(403, 'CSRF security token invalid or missing.');
+}
 
 $method = $body['payment_method'] ?? null;
 if (!in_array($method, ['Cash', 'GCash'], true)) {
@@ -184,9 +194,9 @@ $changeDue = number_format(max(0, (float)$amountPaid - (float)$total), 2, '.', '
 $pdo->beginTransaction();
 try {
     $pdo->prepare(
-        "INSERT INTO transactions (total_amount, amount_paid, change_due, subtotal, tax, discount, status, payment_method)
-         VALUES (?, ?, ?, ?, 0.00, 0.00, 'Pending', ?)"
-    )->execute([$total, $amountPaid, $changeDue, $total, $method]);
+        "INSERT INTO transactions (cashier_user_id, total_amount, amount_paid, change_due, subtotal, tax, discount, status, payment_method)
+         VALUES (?, ?, ?, ?, ?, 0.00, 0.00, 'Pending', ?)"
+    )->execute([$cashierId, $total, $amountPaid, $changeDue, $total, $method]);
     $transactionId = (int) $pdo->lastInsertId();
 
     $insert = $pdo->prepare(

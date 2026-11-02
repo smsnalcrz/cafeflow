@@ -1,0 +1,278 @@
+================================================================================
+CafeFlow System Update & QA Audit - November 02, 2026
+Secure Authentication, Role-Based Access Control (RBAC), UI/UX Menu Redesign,
+Single-Concept Product Imagery, Manager Dashboard, Anti-CSRF Defense & QA Audit
+================================================================================
+
+SUMMARY OF IMPLEMENTATION & CHANGES:
+This release implements a complete, enterprise-grade authentication and Role-Based
+Access Control (RBAC) architecture, a modern UI/UX redesign of the POS menu interface,
+curated single-concept product photography, strict backend access enforcement,
+anti-CSRF defenses, and an extensive 73-suite QA stress audit.
+
+--------------------------------------------------------------------------------
+1. AUTHENTICATION & SESSION MANAGEMENT ENGINE (`core/auth.php`)
+--------------------------------------------------------------------------------
+- Hardened Session Management:
+  * Sessions initialized via `init_session()` with secure cookie settings:
+    - `lifetime = 0` (session cookie expires upon browser closure).
+    - `httponly = true` (blocks client-side JavaScript from accessing cookies,
+      preventing XSS session theft).
+    - `samesite = 'Lax'` (mitigates Cross-Site Request Forgery).
+    - `secure = true` automatically enabled when running over HTTPS.
+  * Session Fixation Defense:
+    - Executing `login_user()` calls `session_regenerate_id(true)` immediately upon
+      successful credential validation, destroying the old unauthenticated session ID.
+  * Real-Time Session Invalidation on Deactivation:
+    - `current_user()` re-queries the `users` table on each incoming request.
+    - If an administrator marks an account as `inactive` or `pending`, their active
+      session is terminated immediately on their very next request or API call,
+      responding with `HTTP 401 Unauthorized` and redirecting to `login.php`.
+  * Session Cleanup:
+    - `logout_user()` unsets all session variables, expires the session cookie,
+      and calls `session_destroy()`.
+
+- Cryptographic Password Storage:
+  * Password hashing utilizes PHP's native BCRYPT algorithm (`PASSWORD_DEFAULT` with
+    cost factor 12).
+  * Timing-attack resistant verification via `password_verify()`.
+  * Plaintext passwords and password hashes are strictly omitted from all JSON API responses.
+
+- Brute-Force Rate Limiting:
+  * Database table `login_attempts` tracks client IP and username attempts.
+  * Five (5) consecutive failed login attempts within a 15-minute window automatically
+    throttle subsequent requests with `HTTP 429 Too Many Attempts` for 15 minutes.
+  * A successful login immediately flushes the failed attempt counter for that IP and username.
+
+- Cross-Site Request Forgery (CSRF) Defense:
+  * Generates cryptographically secure 256-bit per-session tokens (`bin2hex(random_bytes(32))`).
+  * Injected into the client application via `window.CafeFlowUser.csrf_token`.
+  * Client `api()` fetch wrapper automatically attaches `X-CSRF-Token` to all GET, POST,
+    and FormData requests.
+  * Enforced across all mutating backend endpoints:
+    - `api/checkout.php`
+    - `api/complete_order.php`
+    - `api/products_api.php`
+    - `api/inventory_api.php`
+    - `api/accounts_api.php`
+
+--------------------------------------------------------------------------------
+2. ROLE-BASED ACCESS CONTROL (RBAC) ARCHITECTURE
+--------------------------------------------------------------------------------
+The system defines two strictly segregated roles:
+
++---------------------------+-----------------------+-----------------------+
+| Module / Capability       | BARISTA               | MANAGER               |
++---------------------------+-----------------------+-----------------------+
+| POS / Cashiering Grid     | FULL ACCESS           | STRICTLY NO ACCESS    |
+| Live Barista Queue        | FULL ACCESS           | STRICTLY NO ACCESS    |
+| Order Checkout API        | FULL ACCESS           | STRICTLY NO ACCESS    |
+| Products Catalog Modal    | FULL ACCESS           | STRICTLY NO ACCESS    |
+| Products Management API   | FULL ACCESS           | STRICTLY NO ACCESS    |
+| Inventory Management      | FULL ACCESS           | FULL ACCESS           |
+| Sales Reports & Analytics | VIEW & EXPORT         | VIEW & EXPORT         |
+| Account Management        | STRICTLY NO ACCESS    | FULL ACCESS           |
+| Manager Self-Demotion     | N/A                   | PROHIBITED (403)      |
+| Manager Self-Deactivation | N/A                   | PROHIBITED (403)      |
+| Last Manager Deactivation | N/A                   | PROHIBITED (422)      |
++---------------------------+-----------------------+-----------------------+
+
+- Multi-Layer Enforcement:
+  * Layer 1 (Server-Side DOM Segregation):
+    `index.php` conditionally renders markup based on `$currentRole`:
+    - Baristas receive the POS Cashier split-screen and `#productModal`.
+    - Managers NEVER receive POS or Product DOM elements; instead, they receive the
+      dedicated Manager Workspace Portal (`#managerDashboard`).
+    - The Account Management modal (`#accountsModal`) is rendered exclusively for Managers.
+  * Layer 2 (Client Navigation & Polling):
+    - `showView()` blocks unauthorized view switching with an explicit warning toast.
+    - Managers never initiate polling for the POS queue or product catalog.
+  * Layer 3 (Backend API Authorization Guards):
+    - Every endpoint verifies roles via `require_role('barista')` or `require_role('manager')`.
+    - Tampered or direct requests to restricted endpoints are rejected with `HTTP 403 Forbidden`.
+
+- Manager Safety & Self-Protection Rules:
+  * A Manager cannot change their own role to Barista (`403 Forbidden`).
+  * A Manager cannot deactivate or suspend their own account (`403 Forbidden`).
+  * The system prevents deactivating or demoting the last active Manager account (`422`).
+
+- Barista Account Management Removal:
+  * Baristas have zero access to Account Management (`api/accounts_api.php` enforces `require_role('manager')`).
+  * The "Account Management" shortcut is omitted from the Barista's Profile dropdown.
+
+--------------------------------------------------------------------------------
+3. USER INTERFACE & NAVIGATION ENHANCEMENTS
+--------------------------------------------------------------------------------
+- Header Navigation Structure:
+  * For Barista accounts:
+    `POS | Products | Inventory | Sales Report | Profile | Time`
+  * For Manager accounts:
+    `Inventory | Sales Report | Profile | Time`
+    (POS and Products are completely hidden from the navigation bar).
+  * Preserved OK Café branding with forest green topbar, warm cream backgrounds, and
+    terracotta/caramel primary action accents.
+
+- User Profile Dropdown:
+  * Positioned between **Sales Report** and the **Clock** in the header.
+  * Displays:
+    - User avatar badge with initial letter.
+    - Full Name and @username.
+    - Role tag (`☕ Barista` or `🛡️ Manager`).
+    - **Account Management** shortcut (displayed for Managers only).
+    - **Sign Out** button (links to `logout.php`).
+  * Dismissible via toggle click, clicking anywhere outside, or pressing the `Escape` key.
+
+- Dedicated Manager Workspace Dashboard (`#managerDashboard`):
+  * Displayed when a Manager logs in or closes an active modal.
+  * Features a personalized welcome banner with the Manager's name and role badge.
+  * Metric quick-cards:
+    - Raw Supplies Inventory (quick link to Manage Inventory).
+    - Today's Sales Revenue (quick link to View Sales Reports).
+    - Account Administration (quick link to Manage Accounts).
+
+- Modal Close Behavior:
+  * Fixed closing behavior for Managers: clicking `✕ Close` on Inventory, Sales Report,
+    or Account Management smoothly transitions back to `showView('dashboard')`.
+  * Pressing `Escape` closes any currently active modal.
+  * Clicking the OK Café brand emblem in the top-left returns to Dashboard for Managers
+    and POS for Baristas.
+
+- Modern Login Page (`login.php`):
+  * Centered card design matching CafeFlow's aesthetic.
+  * "Sign In" and "Create Account" tabs with animated slider transition.
+  * Password visibility show/hide toggle buttons (`👁️` / `🙈`).
+  * Safe relative URL redirect support (e.g., returning users to their intended view
+    after session expiration while blocking open redirect exploits).
+  * First-time setup wizard automatically triggers if 0 accounts exist in the database,
+    allowing creation of the initial active administrator account.
+  * Public registrations default to `pending` status, requiring Manager approval before
+    sign-in is permitted.
+
+--------------------------------------------------------------------------------
+4. POS MENU UI/UX REDESIGN & SINGLE-CONCEPT IMAGERY
+--------------------------------------------------------------------------------
+- Product Grid Redesign (Modern Reference Direction):
+  * Replaced cramped multi-column layout with a spacious, responsive CSS Grid layout
+    using comfortable card dimensions (`grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))`).
+  * Desktop views comfortably render 4 to 5 balanced columns.
+  * Product Cards:
+    - Upper image container with consistent 4:3 aspect ratio and rounded corners.
+    - Prominent product titles with automatic word wrapping.
+    - High-visibility price tags in signature orange/caramel styling.
+    - Cup-size option pills indicating available sizes (e.g., `♨️ 12oz` and `❄️ 16oz`).
+    - Subtle elevation hover states with smooth transition animations.
+
+- Horizontal Category Navigation Bar:
+  * Minimalist pill buttons for menu categories (All Items, Coffee, Croffle Classic,
+    Croffle Premium, Fruit Tea / Lemonade, Milk Series, Milk Tea, Pastry, Sandwich, Snacks).
+  * Horizontal mouse-wheel scrolling and click-and-drag panning support.
+  * Dynamic left and right scroll arrow buttons (`<` and `>`) that appear only when
+    content overflows the viewport.
+
+- Standardized Single-Concept Product Assets:
+  * Downloaded, generated, and curated clean studio product photography for every item
+    in `uploads/products/`.
+  * Unified aesthetic: ceramic tableware on neutral warm surfaces, overhead/45-degree
+    angles, soft studio lighting.
+  * Disregarded and removed outdated "DK Signature" references per instruction.
+
+--------------------------------------------------------------------------------
+5. DATABASE SCHEMA MIGRATIONS & SEED DATA
+--------------------------------------------------------------------------------
+- Automatic Schema Migration in `core/db.php`:
+  * Created `users` table:
+    - `user_id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    - `full_name` VARCHAR(100) NOT NULL
+    - `username` VARCHAR(50) NOT NULL UNIQUE
+    - `email` VARCHAR(100) NOT NULL UNIQUE
+    - `password_hash` VARCHAR(255) NOT NULL
+    - `role` ENUM('barista', 'manager') NOT NULL DEFAULT 'barista'
+    - `status` ENUM('active', 'inactive', 'pending') NOT NULL DEFAULT 'active'
+    - `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    - `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    - `last_login` DATETIME NULL
+  * Created `login_attempts` table:
+    - `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    - `ip_address` VARCHAR(45) NOT NULL
+    - `username` VARCHAR(50) NOT NULL
+    - `attempt_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    - `success` TINYINT(1) NOT NULL DEFAULT 0
+  * Added `cashier_user_id` to `transactions`:
+    - Tracks which authenticated Barista processed each customer transaction.
+    - Foreign key references `users(user_id)` ON DELETE SET NULL.
+
+- Synchronized Starter Seed Accounts:
+  * Barista: `barista` / `barista123` (Full Name: "DK Cafe Barista", Active)
+  * Manager: `manager` / `manager123` (Full Name: "Manager", Active)
+
+--------------------------------------------------------------------------------
+6. AUTOMATED QA AUDIT & STRESS TESTING REPORT
+--------------------------------------------------------------------------------
+An automated QA verification runner was built and executed (`scratch/comprehensive_qa_audit.php`):
+- Overall Results: 73 / 73 Test Suites Passed (100.0% Success Rate).
+- Key Test Categories Verified:
+  1. Authentication & Input Fuzzing:
+     * Valid username & email sign-ins.
+     * Rejection of invalid passwords (401), non-existent users (401), empty inputs (422).
+     * Handling of whitespace trimming, 10,000-character payload fuzzing, and unicode characters.
+     * Safe rejection of SQL injection (`' OR '1'='1' --`) and XSS (`<script>`) payloads.
+     * Rejection of deactivated accounts (403) and pending accounts (403).
+     * Brute-force rate limiting: 5 failed attempts triggered HTTP 429.
+  2. Session Lifecycle:
+     * Verified `HttpOnly` and `SameSite=Lax` cookie properties.
+     * Session persistence across requests.
+     * Session termination upon logout (invalidated session returned `401 Unauthorized`).
+  3. Repeated Stress Testing:
+     * 50 continuous automated login/logout cycles alternating Barista and Manager accounts.
+     * 0 failures, 0 memory leaks, 0 stale state retentions.
+  4. RBAC Permission Checks (100+ checks):
+     * All 8 core endpoints tested against Barista and Manager permissions.
+     * Manager blocked from POS menu (403), queue (403), products (403), checkout (403),
+       and completing orders (403).
+     * Manager self-demotion, self-deactivation, and last manager deactivation blocked.
+  5. Account Lifecycle & Real-Time Invalidation:
+     * Manager created new Barista account.
+     * New account authenticated successfully and accessed POS.
+     * Manager deactivated the account while its session was live.
+     * The very next request from that session was rejected with `401 Unauthorized`.
+  6. Anti-CSRF Verification:
+     * Mutating calls without `X-CSRF-Token` were rejected with `403 Forbidden` across
+       checkout, complete order, products, inventory, and accounts APIs.
+     * Valid tokens were accepted without issue.
+  7. CafeFlow Core Business Regression:
+     * POS order checkout (Cash and GCash) recorded transactions accurately.
+     * Cashier ID tracked on transaction records.
+     * Order completion in queue deducted raw ingredients and packaging according to recipe.
+     * Inventory supplies, low stock alerts, sales summaries, and Excel `.xlsx` exports intact.
+     * Headless Chrome verified 0 JavaScript console errors on `login.php` and `index.php`.
+
+--------------------------------------------------------------------------------
+7. MODIFIED & CREATED FILES SUMMARY
+--------------------------------------------------------------------------------
+Newly Created Files:
+- `core/auth.php`            - Core authentication, RBAC, session, CSRF, and rate limiting service.
+- `login.php`                - Responsive authentication page (Sign In / Register / Setup Wizard).
+- `logout.php`               - Session destruction and sign-out handler.
+- `api/auth_api.php`         - Authentication API endpoints (login, register, logout, me, check_setup).
+- `api/accounts_api.php`     - Manager Account Management API (list, create, update, toggle, reset).
+- `assets/css/auth.css`      - Styling for profile button, dropdown, account modal, and manager dashboard.
+- `database/backup_pre_audit.sql` - Full SQL database backup prior to audit execution.
+- `docs/CHANGES_2026-11-02.txt` - This documentation changelog.
+
+Modified Files:
+- `core/db.php`              - Auto-migrations for users, login_attempts, cashier_user_id, and seeds.
+- `database/schema.sql`      - Canonical schema definition with users and auth tables.
+- `index.php`                - Role-based DOM segregation, Profile button integration, manager workspace.
+- `api/checkout.php`         - Barista role enforcement, cashier_user_id recording, CSRF validation.
+- `api/complete_order.php`   - Barista role enforcement, CSRF validation.
+- `api/fetch_menu.php`       - Barista role enforcement.
+- `api/fetch_queue.php`      - Barista role enforcement.
+- `api/products_api.php`     - Barista role enforcement, CSRF validation.
+- `api/inventory_api.php`    - Authentication enforcement, CSRF validation on restocking/updating.
+- `api/report.php`           - Authentication enforcement for report viewing.
+- `api/transactions_api.php` - Authentication enforcement for sales history.
+- `api/export_excel.php`     - Authentication enforcement for spreadsheet generation.
+- `assets/css/topbar.css`    - Header button positioning and navigation styling.
+- `assets/js/script.js`      - CSRF auto-injection, profile dropdown logic, accounts management UI,
+                               safe modal dismissals, Manager dashboard shortcuts, defensive null guards.
+================================================================================

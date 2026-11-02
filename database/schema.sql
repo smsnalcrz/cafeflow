@@ -526,3 +526,43 @@ INSERT IGNORE INTO product_ingredients (id, product_id, item_id, deduction_amoun
   (252, 41, 18, 1.00),
   (253, 44, 21, 1.00),
   (254, 45, 22, 150.00);
+
+-- ------------------------------------------------------------
+--  10. User Accounts & RBAC Authentication
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+  user_id       INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  full_name     VARCHAR(100)  NOT NULL,
+  username      VARCHAR(50)   NOT NULL,
+  email         VARCHAR(100)  NULL DEFAULT NULL,
+  password_hash VARCHAR(255)  NOT NULL,
+  role          ENUM('barista', 'manager') NOT NULL DEFAULT 'barista',
+  status        ENUM('active', 'inactive', 'pending') NOT NULL DEFAULT 'active',
+  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_login    DATETIME      NULL DEFAULT NULL,
+  PRIMARY KEY (user_id),
+  UNIQUE KEY uq_users_username (username),
+  UNIQUE KEY uq_users_email (email),
+  KEY idx_users_role (role),
+  KEY idx_users_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  ip_address   VARCHAR(45)  NOT NULL,
+  username     VARCHAR(100) NOT NULL,
+  attempt_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  success      TINYINT(1)   NOT NULL DEFAULT 0,
+  PRIMARY KEY (id),
+  KEY idx_attempt_ip (ip_address, attempt_time),
+  KEY idx_attempt_user (username, attempt_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Starter Accounts:
+-- barista / barista123
+-- manager / manager123
+INSERT IGNORE INTO users (user_id, full_name, username, email, password_hash, role, status) VALUES
+  (1, 'DK Cafe Barista', 'barista', 'barista@cafeflow.com', '$2y$10$O03V3jV14p9gq4kF00k46.0oK72m82P8iU9l2Y8lD3B7S9tN.8eSm', 'barista', 'active'),
+  (2, 'Manager', 'manager', 'manager@cafeflow.com', '$2y$10$7vN3QG8L2p5N0P9Q1w2e3.9e6o5a4b3c2d1e0f9a8b7c6d5e4f3a2', 'manager', 'active');
+

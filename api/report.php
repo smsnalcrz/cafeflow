@@ -13,6 +13,10 @@
  * - `format`: 'json' (default) or 'html' for printable standalone report
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
+
+// RBAC: Requires authenticated user (both Barista and Manager can view reports)
+require_login();
 
 require_method('GET');
 

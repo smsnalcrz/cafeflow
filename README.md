@@ -325,6 +325,27 @@ When adjusting measurements, simply update the quantities in this array. All sto
 
 ---
 
+## 🔐 Authentication & Role-Based Access Control (RBAC)
+
+CafeFlow enforces strict role-based access control across all frontend UI modules and backend API endpoints.
+
+### Default Starter Accounts
+
+| Role | Username | Password | Default Landing Page | Allowed Modules & Permissions |
+|---|---|---|---|---|
+| **Barista** | `barista` | `barista123` | **POS** (`index.php`) | **Full POS Operations**, Products Management, Inventory Management, Sales Reports (View-Only). |
+| **Manager** | `manager` | `manager123` | **Manager Dashboard** | **Full Inventory Management**, **Sales Reports** (Historical analysis & export), **Account Management** (Create, approve pending users, activate/deactivate, role assignment). Strictly blocked from POS & Products. |
+| **Active Barista** | `tan_smsn` | `alcaraz030303` | **POS** (`index.php`) | Barista operations (Tristan Alcaraz). |
+
+### Account Registration & Approval Workflow
+1. **Self-Registration**: New staff members register via the **Create Account** tab on the login screen (`login.php`).
+2. **Pending Approval**: Newly registered accounts default to `status = 'pending'`. The system prevents sign-in with the alert:
+   > *"✕ Your account registration is currently pending approval by a Manager."*
+3. **Manager Authorization**: A Manager logs in, navigates to **Account Management** -> **Pending Approval** tab, and approves or activates the staff account.
+4. **Immediate Access**: Once activated, the user can immediately sign in with their registered credentials and access the modules granted to their role.
+
+---
+
 ## 🔒 Security & Offline Reliability
 - **Strict Input Validation**: All POST requests validate numeric types, sanitize string inputs, and guard against SQL injection via PDO parameterized queries.
 - **Centavo Precision**: All financial calculations are evaluated in whole integer centavos internally to avoid floating-point rounding discrepancies.

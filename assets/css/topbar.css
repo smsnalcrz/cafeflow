@@ -128,7 +128,7 @@
 .brand::before { content: none; }
 .brand small { display: none; }
 
-.nav { display: flex; gap: 6px; margin-left: auto; }
+.nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 
 .nav-btn {
   display: flex;
@@ -177,4 +177,5 @@
   font-variant-numeric: tabular-nums;
   opacity: .75;
   letter-spacing: .5px;
+  flex-shrink: 0;
 }

@@ -4,6 +4,7 @@
 (() => {
   const POLL_MS = 3000;   // barista queue refresh interval
   const MAX_QTY = 99;
+  const currentUser = window.CafeFlowUser || { role: 'barista', username: 'guest' };
 
   /* ------------------------------------------------------------------ *
    *  Small helpers
@@ -30,18 +31,24 @@
     return el;
   }
 
-  /** fetch() wrapper: supports JSON and FormData, throws friendly Error on failure. */
+  /** fetch() wrapper: supports JSON and FormData, auto-attaches CSRF token, handles session expiration. */
   async function api(url, body) {
     const finalUrl = (url.startsWith('api/') || url.startsWith('http')) ? url : 'api/' + url;
     let init;
+    const headers = {};
+    if (currentUser && currentUser.csrf_token) {
+      headers['X-CSRF-Token'] = currentUser.csrf_token;
+    }
+
     if (body === undefined) {
-      init = { cache: 'no-store' };
+      init = { cache: 'no-store', headers };
     } else if (body instanceof FormData) {
-      init = { method: 'POST', body, cache: 'no-store' };
+      init = { method: 'POST', body, cache: 'no-store', headers };
     } else {
+      headers['Content-Type'] = 'application/json';
       init = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
         cache: 'no-store'
       };
@@ -53,6 +60,12 @@
     } catch (_) {
       throw new Error('Cannot reach the server. Is XAMPP running?');
     }
+
+    if (res.status === 401) {
+      window.location.href = 'login.php?error=session_expired';
+      throw new Error('Your session has expired. Redirecting to sign in…');
+    }
+
     let data = null;
     try { data = await res.json(); } catch (_) { /* non-JSON reply */ }
 
@@ -587,13 +600,17 @@
   }
 
   function closeSizePicker() {
-    $('#sizeBackdrop').hidden = true;
-    $('#sizePopover').hidden = true;
+    const bDrop = $('#sizeBackdrop');
+    if (bDrop) bDrop.hidden = true;
+    const pop = $('#sizePopover');
+    if (pop) pop.hidden = true;
     _sizePickerProduct = null;
   }
 
-  $('#sizePopoverClose').addEventListener('click', closeSizePicker);
-  $('#sizeBackdrop').addEventListener('click', closeSizePicker);
+  const szClose = $('#sizePopoverClose');
+  if (szClose) szClose.addEventListener('click', closeSizePicker);
+  const szBdrop = $('#sizeBackdrop');
+  if (szBdrop) szBdrop.addEventListener('click', closeSizePicker);
 
   /* ------------------------------------------------------------------ *
    *  Cart & Checkout (with Cash Tender dialog)
@@ -779,7 +796,8 @@
   }
 
   function closePayModal() {
-    $('#payModal').hidden = true;
+    const pm = $('#payModal');
+    if (pm) pm.hidden = true;
   }
 
   async function checkout(method, amountPaid = null) {
@@ -919,20 +937,37 @@
   }
 
   /* ------------------------------------------------------------------ *
-   *  Navigation: POS / Products / Inventory / Sales Report
+   *  Navigation: POS / Products / Inventory / Sales Report / Accounts
    * ------------------------------------------------------------------ */
   function showView(view) {
+    if (currentUser.role === 'manager' && (view === 'pos' || view === 'products')) {
+      toast('Access restricted: Manager role does not have access to POS or Products.', 'error', 3500);
+      return;
+    }
+    if (currentUser.role !== 'manager' && view === 'accounts') {
+      toast('Access restricted: Only Managers have access to Account Management.', 'error', 3500);
+      return;
+    }
+
     currentView = view;
     $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-    $('#productModal').hidden = view !== 'products';
-    $('#inventoryModal').hidden = view !== 'inventory';
-    $('#reportModal').hidden = view !== 'report';
-    $('#receiptModal').hidden = true;
+    const pModal = $('#productModal');
+    if (pModal) pModal.hidden = view !== 'products';
+    const invModal = $('#inventoryModal');
+    if (invModal) invModal.hidden = view !== 'inventory';
+    const repModal = $('#reportModal');
+    if (repModal) repModal.hidden = view !== 'report';
+    const accModal = $('#accountsModal');
+    if (accModal) accModal.hidden = view !== 'accounts';
+    const recModal = $('#receiptModal');
+    if (recModal) recModal.hidden = true;
     closePayModal();
     syncMobOrderBar();
 
-    if (view !== 'products') closeProductSheet();
-    if (view !== 'inventory') closeSheet();
+    if (view !== 'products' && typeof closeProductSheet === 'function') closeProductSheet();
+    if (view !== 'inventory' && typeof closeSheet === 'function') closeSheet();
+    if (view !== 'accounts' && typeof closeAccountSheet === 'function') closeAccountSheet();
+    if (view !== 'accounts' && typeof closeResetPassSheet === 'function') closeResetPassSheet();
     if (view !== 'report') {
       calDrawerOpen = false;
       const drawer = $('#reportCalDrawer');
@@ -953,6 +988,8 @@
       loadInventory();
     }
     if (view === 'report') loadReport();
+    if (view === 'accounts' && currentUser.role === 'manager') loadAccounts();
+    if (view === 'dashboard' && currentUser.role === 'manager') loadManagerDashboard();
   }
 
   /* ------------------------------------------------------------------ *
@@ -1525,7 +1562,8 @@
   }
 
   function closeProductSheet() {
-    $('#productSheet').hidden = true;
+    const ps = $('#productSheet');
+    if (ps) ps.hidden = true;
     const qCard = $('#quickAddSupplyCard');
     if (qCard) qCard.hidden = true;
   }
@@ -1834,7 +1872,8 @@
   }
 
   function closeSheet() {
-    $('#itemSheet').hidden = true;
+    const ish = $('#itemSheet');
+    if (ish) ish.hidden = true;
   }
 
   const parseNum = text => {
@@ -2398,41 +2437,350 @@
   }
 
   /* ------------------------------------------------------------------ *
+   *  Account Management Module
+   * ------------------------------------------------------------------ */
+  let accountsList = [];
+  let accountsOverview = { total: 0, baristas: 0, managers: 0, active: 0, pending: 0, inactive: 0 };
+  let accountFilter = 'all';
+  let accountSearchQuery = '';
+
+  async function loadAccounts() {
+    try {
+      const data = await api('accounts_api.php');
+      accountsList = data.items || [];
+      accountsOverview = data.overview || {};
+      renderAccountStats();
+      renderAccountsTable();
+    } catch (e) {
+      toast(e.message, 'error', 4000);
+    }
+  }
+
+  function renderAccountStats() {
+    if ($('#statTotalAccounts')) $('#statTotalAccounts').textContent = accountsOverview.total || 0;
+    if ($('#statBaristaAccounts')) $('#statBaristaAccounts').textContent = accountsOverview.baristas || 0;
+    if ($('#statManagerAccounts')) $('#statManagerAccounts').textContent = accountsOverview.managers || 0;
+    if ($('#statActiveAccounts')) $('#statActiveAccounts').textContent = accountsOverview.active || 0;
+    if ($('#statPendingAccounts')) $('#statPendingAccounts').textContent = (accountsOverview.pending || 0) + (accountsOverview.inactive || 0);
+
+    // Also update manager dashboard card if present
+    if ($('#mgrCardUserCount')) {
+      $('#mgrCardUserCount').textContent = `${accountsOverview.total || 0} accounts`;
+    }
+  }
+
+  function renderAccountsTable() {
+    const tbody = $('#accountsTableBody');
+    if (!tbody) return;
+    tbody.textContent = '';
+
+    const q = accountSearchQuery.toLowerCase().trim();
+    const filtered = accountsList.filter(acc => {
+      // Filter by tab
+      if (accountFilter === 'barista' && acc.role !== 'barista') return false;
+      if (accountFilter === 'manager' && acc.role !== 'manager') return false;
+      if (accountFilter === 'active' && acc.status !== 'active') return false;
+      if (accountFilter === 'pending' && acc.status !== 'pending') return false;
+
+      // Filter by search query
+      if (q) {
+        const matchName = (acc.full_name || '').toLowerCase().includes(q);
+        const matchUser = (acc.username || '').toLowerCase().includes(q);
+        const matchEmail = (acc.email || '').toLowerCase().includes(q);
+        return matchName || matchUser || matchEmail;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      const tr = h('tr', {},
+        h('td', { colspan: '8', style: 'text-align: center; padding: 32px; color: var(--muted);' },
+          h('p', { style: 'font-size: 15px; margin: 0;' }, 'No accounts match your current filter.')
+        )
+      );
+      tbody.append(tr);
+      return;
+    }
+
+    for (const acc of filtered) {
+      const isSelf = Boolean(acc.is_self);
+      const isManager = (acc.role === 'manager');
+      const isCurrentUserMgr = (currentUser.role === 'manager');
+
+      // Status Badge
+      const statusBadge = h('span', { class: `status-badge ${acc.status}` },
+        h('span', { class: 'status-dot' }),
+        acc.status.toUpperCase()
+      );
+
+      // Role Badge
+      const roleBadge = h('span', { class: `role-badge role-${acc.role}` },
+        acc.role === 'barista' ? '☕ Barista' : '🛡️ Manager'
+      );
+
+      // Actions Container
+      const actWrap = h('div', { style: 'display: flex; gap: 6px; align-items: center; justify-content: flex-end;' });
+
+      // Edit Button
+      const editBtn = h('button', {
+        type: 'button',
+        class: 'acc-act-btn',
+        title: 'Edit account details',
+        onclick: () => openEditAccountSheet(acc)
+      }, '✏️ Edit');
+      actWrap.append(editBtn);
+
+      // Reset Password Button
+      const resetPassBtn = h('button', {
+        type: 'button',
+        class: 'acc-act-btn',
+        title: 'Reset account password',
+        onclick: () => openResetPasswordSheet(acc)
+      }, '🔑 Reset');
+      actWrap.append(resetPassBtn);
+
+      // Status Action (Approve / Deactivate / Activate)
+      if (acc.status === 'pending') {
+        const approveBtn = h('button', {
+          type: 'button',
+          class: 'acc-act-btn btn-activate',
+          title: 'Approve and activate this account',
+          onclick: () => toggleAccountStatus(acc.user_id, 'active', `Approve and activate account for @${acc.username}?`)
+        }, '✓ Approve');
+        actWrap.append(approveBtn);
+      } else if (acc.status === 'active') {
+        const deactBtn = h('button', {
+          type: 'button',
+          class: 'acc-act-btn btn-deactivate',
+          title: 'Deactivate account',
+          onclick: () => toggleAccountStatus(acc.user_id, 'inactive', `Are you sure you want to deactivate the account @${acc.username}?`)
+        }, 'Deactivate');
+
+        // Manager cannot deactivate self
+        if (isCurrentUserMgr && isSelf) {
+          deactBtn.disabled = true;
+          deactBtn.title = 'Security Rule: You cannot deactivate your own Manager account.';
+        }
+        // Protect last active manager
+        if (isManager && accountsOverview.managers <= 1) {
+          deactBtn.disabled = true;
+          deactBtn.title = 'Security Rule: Cannot deactivate the last active Manager account.';
+        }
+        actWrap.append(deactBtn);
+      } else {
+        const actBtn = h('button', {
+          type: 'button',
+          class: 'acc-act-btn btn-activate',
+          title: 'Activate account',
+          onclick: () => toggleAccountStatus(acc.user_id, 'active', `Reactivate account for @${acc.username}?`)
+        }, 'Activate');
+        actWrap.append(actBtn);
+      }
+
+      const formattedCreated = acc.created_at ? acc.created_at.replace('T', ' ').slice(0, 16) : '--';
+      const loginText = acc.last_login ? acc.last_login.replace('T', ' ').slice(0, 16) : 'Never';
+
+      const tr = h('tr', {},
+        h('td', { style: 'font-weight: 700;' }, acc.full_name + (isSelf ? ' (You)' : '')),
+        h('td', { style: 'font-family: monospace; font-size: 13.5px;' }, '@' + acc.username),
+        h('td', { style: 'color: var(--muted); font-size: 13px;' }, acc.email || '—'),
+        h('td', {}, roleBadge),
+        h('td', {}, statusBadge),
+        h('td', { style: 'font-size: 12.5px; color: var(--muted); white-space: nowrap;' }, formattedCreated),
+        h('td', { style: 'font-size: 12.5px; color: acc.last_login ? "inherit" : "var(--muted)"; white-space: nowrap;' }, loginText),
+        h('td', { class: 'act' }, actWrap)
+      );
+
+      tbody.append(tr);
+    }
+  }
+
+  function openCreateAccountSheet() {
+    $('#accountSheetTitle').textContent = 'Create New Account';
+    $('#accUserId').value = '';
+    $('#accFullName').value = '';
+    $('#accUsername').value = '';
+    $('#accUsername').disabled = false;
+    $('#accEmail').value = '';
+    $('#accRole').value = 'barista';
+    $('#accRole').disabled = false;
+    $('#accStatus').value = 'active';
+    $('#accStatus').disabled = false;
+    $('#accPassword').value = '';
+    $('#accPassword').required = true;
+    $('#accConfirmPassword').value = '';
+    $('#accConfirmPassword').required = true;
+    $('#accPassLabel').textContent = 'Password *';
+    $('#accPassConfirmLabel').textContent = 'Confirm Password *';
+    $('#accPassHint').hidden = true;
+    $('#accountSheetError').hidden = true;
+    $('#accountSheet').hidden = false;
+    $('#accFullName').focus();
+  }
+
+  function openEditAccountSheet(acc) {
+    $('#accountSheetTitle').textContent = `Edit Account: @${acc.username}`;
+    $('#accUserId').value = acc.user_id;
+    $('#accFullName').value = acc.full_name;
+    $('#accUsername').value = acc.username;
+    $('#accUsername').disabled = true; // Username cannot be changed
+    $('#accEmail').value = acc.email || '';
+    $('#accRole').value = acc.role;
+    $('#accStatus').value = acc.status;
+
+    // Security Rules for Manager:
+    // Manager cannot change their own role or deactivate themselves
+    const isCurrentUserMgr = (currentUser.role === 'manager');
+    const isSelf = Boolean(acc.is_self);
+    if (isCurrentUserMgr && isSelf) {
+      $('#accRole').disabled = true;
+      $('#accRole').title = 'Security Rule: Managers cannot alter their own role.';
+      $('#accStatus').disabled = true;
+      $('#accStatus').title = 'Security Rule: You cannot deactivate your own account.';
+    } else {
+      $('#accRole').disabled = false;
+      $('#accRole').title = '';
+      $('#accStatus').disabled = false;
+      $('#accStatus').title = '';
+    }
+
+    $('#accPassword').value = '';
+    $('#accPassword').required = false;
+    $('#accConfirmPassword').value = '';
+    $('#accConfirmPassword').required = false;
+    $('#accPassLabel').textContent = 'New Password (Optional)';
+    $('#accPassConfirmLabel').textContent = 'Confirm New Password';
+    $('#accPassHint').hidden = false;
+    $('#accountSheetError').hidden = true;
+    $('#accountSheet').hidden = false;
+    $('#accFullName').focus();
+  }
+
+  function closeAccountSheet() {
+    const ash = $('#accountSheet');
+    if (ash) ash.hidden = true;
+    const asErr = $('#accountSheetError');
+    if (asErr) asErr.hidden = true;
+  }
+
+  function openResetPasswordSheet(acc) {
+    $('#resetUserId').value = acc.user_id;
+    $('#resetTargetUsername').textContent = `@${acc.username} (${acc.full_name})`;
+    $('#resetNewPass').value = '';
+    $('#resetConfirmPass').value = '';
+    $('#resetPassError').hidden = true;
+    $('#resetPassSheet').hidden = false;
+    $('#resetNewPass').focus();
+  }
+
+  function closeResetPassSheet() {
+    const rsh = $('#resetPassSheet');
+    if (rsh) rsh.hidden = true;
+    const rshErr = $('#resetPassError');
+    if (rshErr) rshErr.hidden = true;
+  }
+
+  async function toggleAccountStatus(userId, newStatus, promptMsg) {
+    if (!confirm(promptMsg)) return;
+    try {
+      const res = await api('accounts_api.php', {
+        action: 'toggle_status',
+        user_id: userId,
+        status: newStatus,
+        csrf_token: currentUser.csrf_token
+      });
+      toast(res.message || 'Status updated.', 'success', 3000);
+      loadAccounts();
+    } catch (e) {
+      toast(e.message, 'error', 4500);
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Manager Home Dashboard Loader
+   * ------------------------------------------------------------------ */
+  async function loadManagerDashboard() {
+    try {
+      // 1. Load accounts overview
+      const accData = await api('accounts_api.php');
+      if ($('#mgrCardUserCount')) {
+        $('#mgrCardUserCount').textContent = `${(accData.overview && accData.overview.total) || 0} accounts`;
+      }
+
+      // 2. Load inventory items count
+      const invData = await api('inventory_api.php');
+      if ($('#mgrCardSupplyCount')) {
+        const totalItems = (invData.items || []).length;
+        const lowCount = (invData.items || []).filter(i => i.low).length;
+        $('#mgrCardSupplyCount').textContent = `${totalItems} items` + (lowCount > 0 ? ` (${lowCount} low)` : '');
+      }
+
+      // 3. Load today's sales
+      const todayIso = toIsoDate(new Date());
+      const repData = await api(`report.php?range=date&date=${todayIso}`);
+      if ($('#mgrCardSalesToday')) {
+        const totalSales = (repData.summary && repData.summary.total_sales) || 0;
+        $('#mgrCardSalesToday').textContent = money(totalSales);
+      }
+    } catch (_) {
+      // Ignore background stats refresh errors
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
    *  Wire Everything Up
    * ------------------------------------------------------------------ */
   // Top nav
-  $$('.nav-btn').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
-  $$('[data-close]').forEach(b => b.addEventListener('click', () => showView('pos')));
+  $$('.nav-btn').forEach(b => b.addEventListener('click', () => {
+    if (currentUser.role === 'manager' && currentView === b.dataset.view) {
+      showView('dashboard');
+    } else {
+      showView(b.dataset.view);
+    }
+  }));
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => {
+    if (currentUser.role === 'manager') {
+      showView('dashboard');
+    } else {
+      showView('pos');
+    }
+  }));
 
-  // Brand logo click returns to POS and clears filters
+  // Brand logo click returns to POS (or Dashboard for Manager) and clears filters
   const brandEl = $('.brand');
   if (brandEl) {
     brandEl.addEventListener('click', () => {
-      showView('pos');
-      activeCategory = 'all';
-      searchQuery = '';
-      if (searchInput) searchInput.value = '';
-      if (clearBtn) clearBtn.hidden = true;
-      renderCategoryBar();
-      renderMenu();
+      if (currentUser.role === 'manager') {
+        showView('dashboard');
+      } else {
+        showView('pos');
+        activeCategory = 'all';
+        searchQuery = '';
+        if (searchInput) searchInput.value = '';
+        if (clearBtn) clearBtn.hidden = true;
+        renderCategoryBar();
+        renderMenu();
+      }
     });
   }
 
   // Search input on POS
   const searchInput = $('#productSearch');
   const clearBtn = $('#searchClearBtn');
-  searchInput.addEventListener('input', e => {
-    searchQuery = e.target.value.trim().toLowerCase();
-    clearBtn.hidden = !searchQuery;
-    renderMenu();
-  });
-  clearBtn.addEventListener('click', () => {
-    searchInput.value = '';
-    searchQuery = '';
-    clearBtn.hidden = true;
-    searchInput.focus();
-    renderMenu();
-  });
+  if (searchInput && clearBtn) {
+    searchInput.addEventListener('input', e => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      clearBtn.hidden = !searchQuery;
+      renderMenu();
+    });
+    clearBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      searchQuery = '';
+      clearBtn.hidden = true;
+      searchInput.focus();
+      renderMenu();
+    });
+  }
 
   // Manage products search
   const manageSearchInp = $('#manageProductSearch');
@@ -2455,35 +2803,51 @@
   }
 
   // Add product shortcuts
-  $('#openAddProductBtn').addEventListener('click', () => {
-    showView('products');
-    openProductSheet('add');
-  });
-  $('#addNewProductBtn').addEventListener('click', () => openProductSheet('add'));
+  const openAddBtn = $('#openAddProductBtn');
+  if (openAddBtn) {
+    openAddBtn.addEventListener('click', () => {
+      showView('products');
+      openProductSheet('add');
+    });
+  }
+  const addNewProdBtn = $('#addNewProductBtn');
+  if (addNewProdBtn) addNewProdBtn.addEventListener('click', () => openProductSheet('add'));
 
   // Product Form & Image upload
-  $('#productSheetCancel').addEventListener('click', closeProductSheet);
-  $('#productSheet').addEventListener('click', e => { if (e.target === e.currentTarget) closeProductSheet(); });
-  $('#productForm').addEventListener('submit', submitProductForm);
+  const pSheetCancel = $('#productSheetCancel');
+  if (pSheetCancel) pSheetCancel.addEventListener('click', closeProductSheet);
+  const pSheet = $('#productSheet');
+  if (pSheet) pSheet.addEventListener('click', e => { if (e.target === e.currentTarget) closeProductSheet(); });
+  const pForm = $('#productForm');
+  if (pForm) pForm.addEventListener('submit', submitProductForm);
 
-  $('#pImageInput').addEventListener('change', e => {
-    const file = e.target.files && e.target.files[0];
-    if (file) {
-      removeCurrentImage = false;
-      const reader = new FileReader();
-      reader.onload = ev => {
-        $('#imagePreviewImg').src = ev.target.result;
-        $('#imagePreviewBox').hidden = false;
-      };
-      reader.readAsDataURL(file);
-    }
-  });
+  const pImgInp = $('#pImageInput');
+  if (pImgInp) {
+    pImgInp.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) {
+        removeCurrentImage = false;
+        const reader = new FileReader();
+        reader.onload = ev => {
+          const prevImg = $('#imagePreviewImg');
+          if (prevImg) prevImg.src = ev.target.result;
+          const prevBox = $('#imagePreviewBox');
+          if (prevBox) prevBox.hidden = false;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
 
-  $('#removeImageBtn').addEventListener('click', () => {
-    removeCurrentImage = true;
-    $('#pImageInput').value = '';
-    $('#imagePreviewBox').hidden = true;
-  });
+  const remImgBtn = $('#removeImageBtn');
+  if (remImgBtn) {
+    remImgBtn.addEventListener('click', () => {
+      removeCurrentImage = true;
+      if (pImgInp) pImgInp.value = '';
+      const prevBox = $('#imagePreviewBox');
+      if (prevBox) prevBox.hidden = true;
+    });
+  }
 
   const hasSizesCheckbox = $('#pHasSizes');
   if (hasSizesCheckbox) {
@@ -2544,28 +2908,37 @@
     });
   }
 
-  $('#openQuickAddSupplyBtn').addEventListener('click', () => {
+  const openQuickAdd = $('#openQuickAddSupplyBtn');
+  if (openQuickAdd) {
+    openQuickAdd.addEventListener('click', () => {
+      const card = $('#quickAddSupplyCard');
+      if (!card) return;
+      card.hidden = !card.hidden;
+      if (!card.hidden) {
+        if ($('#quickSupplyName')) $('#quickSupplyName').value = '';
+        if ($('#quickSupplyUnit')) $('#quickSupplyUnit').value = '';
+        if ($('#quickSupplyStock')) $('#quickSupplyStock').value = '0';
+        if ($('#quickSupplyThreshold')) $('#quickSupplyThreshold').value = '0';
+        if ($('#quickSupplyError')) $('#quickSupplyError').hidden = true;
+        if ($('#quickSupplyName')) $('#quickSupplyName').focus();
+      }
+    });
+  }
+
+  const quickClose = $('#quickAddSupplyClose');
+  if (quickClose) quickClose.addEventListener('click', () => {
     const card = $('#quickAddSupplyCard');
-    card.hidden = !card.hidden;
-    if (!card.hidden) {
-      $('#quickSupplyName').value = '';
-      $('#quickSupplyUnit').value = '';
-      $('#quickSupplyStock').value = '0';
-      $('#quickSupplyThreshold').value = '0';
-      $('#quickSupplyError').hidden = true;
-      $('#quickSupplyName').focus();
-    }
+    if (card) card.hidden = true;
   });
 
-  $('#quickAddSupplyClose').addEventListener('click', () => {
-    $('#quickAddSupplyCard').hidden = true;
+  const quickCancel = $('#quickSupplyCancel');
+  if (quickCancel) quickCancel.addEventListener('click', () => {
+    const card = $('#quickAddSupplyCard');
+    if (card) card.hidden = true;
   });
 
-  $('#quickSupplyCancel').addEventListener('click', () => {
-    $('#quickAddSupplyCard').hidden = true;
-  });
-
-  $('#quickSupplySaveBtn').addEventListener('click', submitQuickAddSupply);
+  const quickSave = $('#quickSupplySaveBtn');
+  if (quickSave) quickSave.addEventListener('click', submitQuickAddSupply);
 
   ['#quickSupplyName', '#quickSupplyUnit', '#quickSupplyStock', '#quickSupplyThreshold'].forEach(sel => {
     const el = $(sel);
@@ -2580,20 +2953,30 @@
   });
 
   // Cart operations
-  $('#clearCart').addEventListener('click', () => { cart.clear(); renderCart(); });
+  const clrCartBtn = $('#clearCart');
+  if (clrCartBtn) clrCartBtn.addEventListener('click', () => { cart.clear(); renderCart(); });
 
   // Pay buttons
-  $('.pay.cash').addEventListener('click', openPayModal);
-  $('.pay.gcash').addEventListener('click', () => {
-    const total = Array.from(cart.values()).reduce((sum, l) => sum + lineCents(l), 0) / 100;
-    checkout('GCash', total);
-  });
+  const payCashBtn = $('.pay.cash');
+  if (payCashBtn) payCashBtn.addEventListener('click', openPayModal);
+  const payGcashBtn = $('.pay.gcash');
+  if (payGcashBtn) {
+    payGcashBtn.addEventListener('click', () => {
+      const total = Array.from(cart.values()).reduce((sum, l) => sum + lineCents(l), 0) / 100;
+      checkout('GCash', total);
+    });
+  }
 
-  $('#cancelPayBtn').addEventListener('click', closePayModal);
-  $('#confirmCashPayBtn').addEventListener('click', () => {
-    const tendered = parseFloat($('#payTenderedInput').value) || 0;
-    checkout('Cash', tendered);
-  });
+  const cancelPayBtn = $('#cancelPayBtn');
+  if (cancelPayBtn) cancelPayBtn.addEventListener('click', closePayModal);
+  const confirmCashPayBtn = $('#confirmCashPayBtn');
+  if (confirmCashPayBtn) {
+    confirmCashPayBtn.addEventListener('click', () => {
+      const payInp = $('#payTenderedInput');
+      const tendered = payInp ? (parseFloat(payInp.value) || 0) : 0;
+      checkout('Cash', tendered);
+    });
+  }
 
   // Mobile sticky order dock actions
   const mobViewBtn = $('#mobOrderViewBtn');
@@ -2792,16 +3175,302 @@
   });
 
   // Receipt modal close
-  $('#closeReceiptBtn').addEventListener('click', () => {
-    $('#receiptModal').hidden = true;
+  const closeReceiptBtn = $('#closeReceiptBtn');
+  if (closeReceiptBtn) {
+    closeReceiptBtn.addEventListener('click', () => {
+      const recModal = $('#receiptModal');
+      if (recModal) recModal.hidden = true;
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Profile Dropdown & Topbar Navigation
+   * ------------------------------------------------------------------ */
+  const profileBtn = $('#profileBtn');
+  const profileDropdown = $('#profileDropdown');
+  if (profileBtn && profileDropdown) {
+    profileBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isHidden = profileDropdown.hidden;
+      profileDropdown.hidden = !isHidden;
+      profileBtn.classList.toggle('active', isHidden);
+      profileBtn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!profileDropdown.hidden && !e.target.closest('#userProfileWrap')) {
+        profileDropdown.hidden = true;
+        profileBtn.classList.remove('active');
+        profileBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!profileDropdown.hidden) {
+          profileDropdown.hidden = true;
+          profileBtn.classList.remove('active');
+          profileBtn.setAttribute('aria-expanded', 'false');
+          return;
+        }
+        if (currentView && currentView !== 'pos' && currentView !== 'dashboard') {
+          showView(currentUser.role === 'manager' ? 'dashboard' : 'pos');
+        }
+      }
+    });
+  }
+
+  const openAccountsBtn = $('#openAccountsBtn');
+  if (openAccountsBtn) {
+    openAccountsBtn.addEventListener('click', () => {
+      if (profileDropdown) profileDropdown.hidden = true;
+      if (profileBtn) profileBtn.classList.remove('active');
+      showView('accounts');
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Manager Dashboard Shortcuts
+   * ------------------------------------------------------------------ */
+  const mgrOpenInventoryBtn = $('#mgrOpenInventoryBtn');
+  if (mgrOpenInventoryBtn) {
+    mgrOpenInventoryBtn.addEventListener('click', () => showView('inventory'));
+  }
+  const mgrOpenReportBtn = $('#mgrOpenReportBtn');
+  if (mgrOpenReportBtn) {
+    mgrOpenReportBtn.addEventListener('click', () => showView('report'));
+  }
+  const mgrOpenAccountsBtn = $('#mgrOpenAccountsBtn');
+  if (mgrOpenAccountsBtn) {
+    mgrOpenAccountsBtn.addEventListener('click', () => showView('accounts'));
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Account Management Form & Search Handlers
+   * ------------------------------------------------------------------ */
+  const accSearch = $('#accountSearch');
+  const accSearchClear = $('#accountSearchClearBtn');
+  if (accSearch) {
+    accSearch.addEventListener('input', () => {
+      accountSearchQuery = accSearch.value;
+      if (accSearchClear) accSearchClear.hidden = !accSearch.value.trim();
+      renderAccountsTable();
+    });
+  }
+  if (accSearchClear) {
+    accSearchClear.addEventListener('click', () => {
+      if (accSearch) accSearch.value = '';
+      accountSearchQuery = '';
+      accSearchClear.hidden = true;
+      renderAccountsTable();
+      accSearch?.focus();
+    });
+  }
+
+  // Filter Tabs
+  $$('.acc-filter-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.acc-filter-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      accountFilter = tab.dataset.filter || 'all';
+      renderAccountsTable();
+    });
+  });
+
+  // Open New Account Sheet
+  const addNewAccBtn = $('#addNewAccountBtn');
+  if (addNewAccBtn) addNewAccBtn.addEventListener('click', openCreateAccountSheet);
+
+  // Close Sheets
+  const accCancelBtn = $('#accountSheetCancel');
+  if (accCancelBtn) accCancelBtn.addEventListener('click', closeAccountSheet);
+  const accSheet = $('#accountSheet');
+  if (accSheet) {
+    accSheet.addEventListener('click', (e) => {
+      if (e.target === accSheet) closeAccountSheet();
+    });
+  }
+
+  const resetCancelBtn = $('#resetPassCancel');
+  if (resetCancelBtn) resetCancelBtn.addEventListener('click', closeResetPassSheet);
+  const resetSheet = $('#resetPassSheet');
+  if (resetSheet) {
+    resetSheet.addEventListener('click', (e) => {
+      if (e.target === resetSheet) closeResetPassSheet();
+    });
+  }
+
+  // Account Form Save
+  const accForm = $('#accountForm');
+  if (accForm) {
+    accForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = $('#accountSheetError');
+      errBox.hidden = true;
+      errBox.textContent = '';
+
+      const userId = $('#accUserId').value;
+      const isEdit = Boolean(userId);
+      const fullName = $('#accFullName').value.trim();
+      const username = $('#accUsername').value.trim();
+      const email = $('#accEmail').value.trim();
+      const role = $('#accRole').value;
+      const status = $('#accStatus').value;
+      const pass = $('#accPassword').value;
+      const confirmPass = $('#accConfirmPassword').value;
+
+      if (!fullName) {
+        errBox.textContent = 'Full Name is required.';
+        errBox.hidden = false;
+        return;
+      }
+      if (!isEdit && !username) {
+        errBox.textContent = 'Username is required.';
+        errBox.hidden = false;
+        return;
+      }
+      if (!isEdit && (!pass || pass.length < 6)) {
+        errBox.textContent = 'Password must be at least 6 characters.';
+        errBox.hidden = false;
+        return;
+      }
+      if (pass && pass !== confirmPass) {
+        errBox.textContent = 'Passwords do not match.';
+        errBox.hidden = false;
+        return;
+      }
+
+      const saveBtn = $('#accountSheetSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+
+      try {
+        const payload = isEdit ? {
+          action: 'update',
+          user_id: parseInt(userId, 10),
+          full_name: fullName,
+          email: email,
+          role: role,
+          status: status,
+          password: pass,
+          csrf_token: currentUser.csrf_token
+        } : {
+          action: 'create',
+          full_name: fullName,
+          username: username,
+          email: email,
+          role: role,
+          status: status,
+          password: pass,
+          csrf_token: currentUser.csrf_token
+        };
+
+        const res = await api('accounts_api.php', payload);
+        toast(res.message || 'Account saved.', 'success', 3000);
+        closeAccountSheet();
+        loadAccounts();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.hidden = false;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Account';
+      }
+    });
+  }
+
+  // Reset Password Form Submit
+  const resetForm = $('#resetPassForm');
+  if (resetForm) {
+    resetForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const errBox = $('#resetPassError');
+      errBox.hidden = true;
+      errBox.textContent = '';
+
+      const userId = $('#resetUserId').value;
+      const newPass = $('#resetNewPass').value;
+      const confirmPass = $('#resetConfirmPass').value;
+
+      if (newPass.length < 6) {
+        errBox.textContent = 'New password must be at least 6 characters.';
+        errBox.hidden = false;
+        return;
+      }
+      if (newPass !== confirmPass) {
+        errBox.textContent = 'Passwords do not match.';
+        errBox.hidden = false;
+        return;
+      }
+
+      const saveBtn = $('#resetPassSaveBtn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Resetting…';
+
+      try {
+        const res = await api('accounts_api.php', {
+          action: 'reset_password',
+          user_id: parseInt(userId, 10),
+          new_password: newPass,
+          confirm_password: confirmPass,
+          csrf_token: currentUser.csrf_token
+        });
+        toast(res.message || 'Password reset successfully.', 'success', 3000);
+        closeResetPassSheet();
+      } catch (err) {
+        errBox.textContent = err.message;
+        errBox.hidden = false;
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Set New Password';
+      }
+    });
+  }
+
+  // Password Show/Hide Toggle Buttons
+  $$('.btn-toggle-pass').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-target');
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        input.type = 'password';
+        btn.textContent = '👁️';
+      }
+    });
   });
 
   // Init
   initCategoryBarScroll();
-  renderCart();
   tickClock();
   setInterval(tickClock, 15000);
-  loadMenu();
-  pollQueue();
-  setInterval(pollQueue, POLL_MS);
+
+  if (currentUser.role === 'manager') {
+    // Manager Restricted Mode: do NOT poll POS queue or fetch menu
+    loadManagerDashboard();
+
+    // Check URL param or default to dashboard
+    const urlParams = new URLSearchParams(window.location.search);
+    const reqView = urlParams.get('view');
+    if (reqView === 'inventory' || reqView === 'report' || reqView === 'accounts') {
+      showView(reqView);
+    } else {
+      showView('dashboard');
+    }
+  } else {
+    // Barista Mode: full POS system access
+    renderCart();
+    loadMenu();
+    pollQueue();
+    setInterval(pollQueue, POLL_MS);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const reqView = urlParams.get('view');
+    if (reqView && ['pos', 'products', 'inventory', 'report'].includes(reqView)) {
+      showView(reqView);
+    }
+  }
 })();

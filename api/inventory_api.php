@@ -8,6 +8,10 @@
  *   POST {action:"restock", item_id, amount}                         (adds to current stock)
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
+
+// RBAC: Requires authenticated user (both Barista and Manager have full inventory management)
+require_login();
 
 const MAX_AMOUNT = 9999999;
 
@@ -34,6 +38,11 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
 
 require_method('POST');
 $d      = read_json();
+
+$csrf = $d['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+if (!validate_csrf_token($csrf)) {
+    fail(403, 'CSRF security token invalid or missing.');
+}
 $action = $d['action'] ?? '';
 
 /** Trimmed text of 1..$max bytes, or a 422. */

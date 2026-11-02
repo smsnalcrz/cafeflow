@@ -77,6 +77,9 @@ if (!function_exists('ensure_schema')) {
             }
 
             $txCols = $pdo->query("SHOW COLUMNS FROM transactions")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('cashier_user_id', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN cashier_user_id INT UNSIGNED NULL DEFAULT NULL AFTER transaction_id");
+            }
             if (!in_array('amount_paid', $txCols, true)) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN amount_paid DECIMAL(10,2) NULL DEFAULT NULL AFTER total_amount");
             }
@@ -126,6 +129,57 @@ if (!function_exists('ensure_schema')) {
                         CONSTRAINT fk_psp_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ");
+            }
+
+            if (!in_array('users', $tables, true)) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS users (
+                        user_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        full_name VARCHAR(100) NOT NULL,
+                        username VARCHAR(50) NOT NULL,
+                        email VARCHAR(100) NULL DEFAULT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        role ENUM('barista', 'manager') NOT NULL DEFAULT 'barista',
+                        status ENUM('active', 'inactive', 'pending') NOT NULL DEFAULT 'active',
+                        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        last_login DATETIME NULL DEFAULT NULL,
+                        PRIMARY KEY (user_id),
+                        UNIQUE KEY uq_users_username (username),
+                        UNIQUE KEY uq_users_email (email),
+                        KEY idx_users_role (role),
+                        KEY idx_users_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+
+            if (!in_array('login_attempts', $tables, true)) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS login_attempts (
+                        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        ip_address VARCHAR(45) NOT NULL,
+                        username VARCHAR(100) NOT NULL,
+                        attempt_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        success TINYINT(1) NOT NULL DEFAULT 0,
+                        PRIMARY KEY (id),
+                        KEY idx_attempt_ip (ip_address, attempt_time),
+                        KEY idx_attempt_user (username, attempt_time)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+
+            // Seed default authorized accounts if users table is empty
+            $userCount = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+            if ($userCount === 0) {
+                $baristaHash = password_hash('barista123', PASSWORD_DEFAULT);
+                $managerHash = password_hash('manager123', PASSWORD_DEFAULT);
+                $seedStmt = $pdo->prepare("
+                    INSERT INTO users (full_name, username, email, password_hash, role, status)
+                    VALUES 
+                    ('DK Cafe Barista', 'barista', 'barista@cafeflow.com', ?, 'barista', 'active'),
+                    ('Manager', 'manager', 'manager@cafeflow.com', ?, 'manager', 'active')
+                ");
+                $seedStmt->execute([$baristaHash, $managerHash]);
             }
 
             // Ensure uq_prod_size includes size_label for flexible multi-temp options

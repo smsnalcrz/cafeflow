@@ -10,10 +10,19 @@
  *   4. Prevents negative inventory balances and provides clear feedback if stock is insufficient.
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/recipe_engine.php';
+
+// RBAC: Only Baristas can manage and complete the Barista queue
+require_role('barista');
 
 require_method('POST');
 $body = read_json();
+
+$csrf = $body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+if (!validate_csrf_token($csrf)) {
+    fail(403, 'CSRF security token invalid or missing.');
+}
 
 $transactionId = as_int($body['transaction_id'] ?? null, 1, 4294967295);
 if ($transactionId === null) {

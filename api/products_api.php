@@ -6,7 +6,11 @@
  * POST -> Add, update, delete products or quick update stock (supports multipart/form-data with image upload)
  */
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/recipe_engine.php';
+
+// RBAC: Only Baristas are authorized to access the Products management module
+require_role('barista');
 
 $pdo = db();
 
@@ -153,6 +157,11 @@ if ($isFormPost) {
     $data = $_POST;
 } else {
     $data = read_json();
+}
+
+$csrf = $data['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+if (!validate_csrf_token($csrf)) {
+    fail(403, 'CSRF security token invalid or missing.');
 }
 
 $action = $data['action'] ?? '';
