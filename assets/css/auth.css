@@ -6,6 +6,7 @@
  *  Top Navigation Profile Button & Dropdown
  * ------------------------------------------------------------------ */
 .user-profile-wrap {
+  z-index: 10;
   position: relative;
   display: inline-flex;
   align-items: center;

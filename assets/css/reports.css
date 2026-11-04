@@ -862,10 +862,26 @@
   margin: 0;
 }
 
+/* Single-view donut panel: constrain canvas so it doesn't stretch too wide */
+.chart-panel.chart-donut .chart-panel-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-panel.chart-donut .donut-wrap {
+  width: min(440px, 100%);
+  height: 280px;
+}
+.chart-panel.chart-donut .donut-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* "All Charts" view: 3-panel grid */
 .chart-panel.all-view {
   display: flex;
 }
+.chart-panels-all-grid[hidden] { display: none !important; }
 .chart-panels-all-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -889,11 +905,15 @@
   align-items: center;
   justify-content: center;
 }
-.chart-panels-all-grid .chart-panel.chart-donut canvas {
-  max-width: 220px;
-  max-height: 220px;
-  width: auto !important;
-  height: auto !important;
+/* Force the donut-wrap to a fixed size so the centered label lands in the hole */
+.chart-panels-all-grid .chart-panel.chart-donut .donut-wrap {
+  width: min(360px, 100%);
+  height: 200px;
+  flex-shrink: 0;
+}
+.chart-panels-all-grid .chart-panel.chart-donut .donut-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 @media (max-width: 700px) {
@@ -911,13 +931,19 @@
   height: 100%;
 }
 .donut-center-label {
+  display: none !important;
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   user-select: none;
+  text-align: center;
+  width: max-content;
 }
 .donut-center-total {
   font-size: 18px;

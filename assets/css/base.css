@@ -73,7 +73,7 @@ h2, h3 { margin: 0; }
    ====================================================================== */
 .toast {
   position: fixed;
-  z-index: 50;
+  z-index: 1500;
   left: 50%;
   top: calc(var(--topbar-h) + 18px);
   display: flex;

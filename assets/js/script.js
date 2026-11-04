@@ -2156,10 +2156,17 @@
   }
 
   // Global chart instance references so we can destroy before re-creating
-  var _reportLineChart = null;
-  var _reportBarChart  = null;
-  var _mgrLineChart    = null;
-  var _mgrBarChart     = null;
+  var _reportLineChart     = null;
+  var _reportBarChart      = null;
+  var _reportDonutChart    = null;
+  var _reportAllLineChart  = null;
+  var _reportAllBarChart   = null;
+  var _reportAllDonutChart = null;
+  var _mgrLineChart        = null;
+  var _mgrBarChart         = null;
+
+  // Active chart tab state for the report selector
+  var _activeChartTab = 'trend';
 
   function destroyChart(ref) {
     if (ref) { try { ref.destroy(); } catch (e) {} }
@@ -2309,18 +2316,90 @@
       h('strong', { class: 'stat-value', text: value }));
 
 
-  function renderDonutChart(canvas, data, centerLabel) {
+  function renderDonutChart(canvas, data) {
     if (typeof Chart === 'undefined' || !canvas) return null;
     var ctx = canvas.getContext('2d');
-    var palette = [CF_ORANGE, CF_GREEN, '#1a5ecb', '#8b5cf6', '#e8623a', '#059669', '#dc2626', '#d97706'];
-    return new Chart(ctx, {
+
+    // Color mapper: GCash is blue (#007DFE), Cash is green (#2a9b52)
+    function getPaymentColor(label, idx) {
+      var l = String(label || '').toLowerCase();
+      if (l === 'cash') return '#2a9b52';      // Green for Cash
+      if (l === 'gcash') return '#007DFE';     // Blue for GCash
+      var fallbacks = ['#2a9b52', '#007DFE', '#8b5cf6', '#e8623a', '#d97706'];
+      return fallbacks[idx % fallbacks.length];
+    }
+
+    var sliceColors = data.labels.map(function(lbl, i) {
+      return getPaymentColor(lbl, i);
+    });
+
+    var totalVal = data.values.reduce(function(a, b) { return a + b; }, 0);
+
+    function formatMoneyShort(val) {
+      var num = Number(val || 0);
+      var dec = (num % 1 !== 0) ? 2 : 0;
+      return '\u20b1' + num.toLocaleString('en-PH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    // Chart.js plugin to draw amount and label perfectly centered in the donut hole with hover feedback
+    var centerTextPlugin = {
+      id: 'donutCenterDynamicText',
+      afterDraw: function(chart) {
+        var meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data.length) return;
+
+        var arc = meta.data[0];
+        var centerX = (arc && arc.x != null) ? arc.x : (chart.chartArea.left + chart.chartArea.right) / 2;
+        var centerY = (arc && arc.y != null) ? arc.y : (chart.chartArea.top + chart.chartArea.bottom) / 2;
+        var innerRadius = (arc && arc.innerRadius) ? arc.innerRadius : (Math.min(chart.chartArea.right - chart.chartArea.left, chart.chartArea.bottom - chart.chartArea.top) * 0.31);
+
+        var c = chart.ctx;
+        c.save();
+
+        var hIdx = chart._hoveredSliceIndex;
+        var displayAmount, displaySub, displayColor;
+
+        if (hIdx != null && data.values[hIdx] != null) {
+          displayAmount = formatMoneyShort(data.values[hIdx]);
+          var pct = totalVal > 0 ? Math.round(data.values[hIdx] / totalVal * 100) : 0;
+          displaySub    = String(data.labels[hIdx] || '').toUpperCase() + ' (' + pct + '%)';
+          displayColor  = sliceColors[hIdx] || CF_ESPRESSO;
+        } else {
+          displayAmount = formatMoneyShort(totalVal);
+          displaySub    = 'TOTAL SALES';
+          displayColor  = CF_ESPRESSO;
+        }
+
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+
+        // Responsive font sizes scaled to the donut hole
+        var amountSize = Math.max(13, Math.min(22, Math.round(innerRadius * 0.38)));
+        var subSize    = Math.max(9, Math.min(11, Math.round(amountSize * 0.52)));
+
+        // 1. Amount
+        c.font = '800 ' + amountSize + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        c.fillStyle = displayColor;
+        c.fillText(displayAmount, centerX, centerY - Math.round(subSize * 0.7));
+
+        // 2. Sub-label
+        c.font = '700 ' + subSize + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+        c.fillStyle = (hIdx != null) ? displayColor : CF_MUTED;
+        c.fillText(displaySub, centerX, centerY + Math.round(amountSize * 0.75));
+
+        c.restore();
+      }
+    };
+
+    var chartInstance = new Chart(ctx, {
       type: 'doughnut',
+      plugins: [centerTextPlugin],
       data: {
         labels: data.labels,
         datasets: [{
           data: data.values,
-          backgroundColor: palette.slice(0, data.labels.length),
-          borderColor: '#fff',
+          backgroundColor: sliceColors,
+          borderColor: '#ffffff',
           borderWidth: 3,
           hoverOffset: 8
         }]
@@ -2329,21 +2408,55 @@
         responsive: true,
         maintainAspectRatio: false,
         cutout: '62%',
+        onHover: function(event, elements, ch) {
+          var prev = ch._hoveredSliceIndex;
+          if (elements && elements.length > 0) {
+            ch._hoveredSliceIndex = elements[0].index;
+            ch.canvas.style.cursor = 'pointer';
+          } else {
+            ch._hoveredSliceIndex = null;
+            ch.canvas.style.cursor = 'default';
+          }
+          if (prev !== ch._hoveredSliceIndex) {
+            ch.draw();
+          }
+        },
         plugins: {
           legend: {
             position: 'right',
+            onHover: function(event, legendItem, legend) {
+              var ch = legend.chart;
+              if (ch && ch._hoveredSliceIndex !== legendItem.index) {
+                ch._hoveredSliceIndex = legendItem.index;
+                ch.canvas.style.cursor = 'pointer';
+                ch.draw();
+              }
+            },
+            onLeave: function(event, legendItem, legend) {
+              var ch = legend.chart;
+              if (ch && ch._hoveredSliceIndex != null) {
+                ch._hoveredSliceIndex = null;
+                ch.canvas.style.cursor = 'default';
+                ch.draw();
+              }
+            },
             labels: {
-              boxWidth: 13,
-              padding: 14,
-              font: { size: 12 },
-              generateLabels: function(chart) {
-                var ds = chart.data.datasets[0];
-                return chart.data.labels.map(function(lbl, i) {
+              boxWidth: 14,
+              boxHeight: 14,
+              borderRadius: 3,
+              useBorderRadius: true,
+              padding: 16,
+              font: { size: 12, weight: '600' },
+              generateLabels: function(ch) {
+                var ds = ch.data.datasets[0];
+                return ch.data.labels.map(function(lbl, i) {
                   var total = ds.data.reduce(function(a, b) { return a + b; }, 0);
                   var pct = total > 0 ? Math.round(ds.data[i] / total * 100) : 0;
                   return {
                     text: lbl + ' (' + pct + '%)',
-                    fillStyle: palette[i] || '#ccc',
+                    fillStyle: sliceColors[i] || '#ccc',
+                    strokeStyle: '#ffffff',
+                    lineWidth: 1,
                     hidden: false,
                     index: i
                   };
@@ -2352,26 +2465,24 @@
             }
           },
           tooltip: {
-            backgroundColor: CF_ESPRESSO,
-            titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.8)',
-            padding: 10,
-            cornerRadius: 8,
-            callbacks: {
-              label: function(c) {
-                var total = c.dataset.data.reduce(function(a, b) { return a + b; }, 0);
-                var pct = total > 0 ? Math.round(c.parsed / total * 100) : 0;
-                if (data.isRevenue) {
-                  return '  \u20b1' + Number(c.parsed).toLocaleString('en-PH', { minimumFractionDigits: 2 }) + ' (' + pct + '%)';
-                }
-                return '  ' + c.parsed + ' units (' + pct + '%)';
-              }
-            }
+            enabled: false // Dynamic center text in donut hole acts as the indicator
           }
         }
       }
     });
+
+    // Reset when mouse leaves canvas
+    canvas.addEventListener('mouseleave', function() {
+      if (chartInstance && chartInstance._hoveredSliceIndex != null) {
+        chartInstance._hoveredSliceIndex = null;
+        chartInstance.canvas.style.cursor = 'default';
+        chartInstance.draw();
+      }
+    });
+
+    return chartInstance;
   }
+  
   async function renderReport(r) {
     const s = r.summary;
     const body = $('#reportBody');
@@ -2393,14 +2504,18 @@
       stat('Pending queue', String(s.pending))));
 
     // Destroy any previous report charts to free canvas contexts
-    _reportLineChart = destroyChart(_reportLineChart);
-    _reportBarChart  = destroyChart(_reportBarChart);
+    _reportLineChart     = destroyChart(_reportLineChart);
+    _reportBarChart      = destroyChart(_reportBarChart);
+    _reportDonutChart    = destroyChart(_reportDonutChart);
+    _reportAllLineChart  = destroyChart(_reportAllLineChart);
+    _reportAllBarChart   = destroyChart(_reportAllBarChart);
+    _reportAllDonutChart = destroyChart(_reportAllDonutChart);
 
-    // ---- Manager-only Chart Analytics Section (Option A) ----
+    // ---- Manager-only Chart Selector (Sales Trend / Top Products / Payment Breakdown / Compare All) ----
     if (currentUser.role === 'manager') {
       var hasHourly  = r.by_hour && r.by_hour.length > 0;
       var hasItems   = r.top_items && r.top_items.length > 0;
-      var isMultiDay = r.by_day  && r.by_day.length  > 1;
+      var isMultiDay = r.by_day && r.by_day.length > 1;
       var trendLabels, trendTotals, trendOrders, trendTitle;
       if (!isMultiDay && hasHourly) {
         var ds = buildHourlyDataset(r.by_hour);
@@ -2417,42 +2532,171 @@
         trendTitle  = 'Sales Trend by Day';
       }
       var hasTrend = trendLabels && trendLabels.length > 0;
-      var lineWrapInner = h('div', { class: 'report-chart-wrap' });
-      var lineWrap = h('div', { class: 'report-chart-card' },
-        h('div', { class: 'report-chart-card-head' },
-          h('span', { class: 'report-chart-card-title', text: trendTitle || 'Sales Trend' })
-        ),
-        lineWrapInner
-      );
-      var barWrapInner = h('div', { class: 'report-chart-wrap' });
-      var barWrap = h('div', { class: 'report-chart-card' },
-        h('div', { class: 'report-chart-card-head' },
-          h('span', { class: 'report-chart-card-title', text: 'Top Sellers (Units)' })
-        ),
-        barWrapInner
-      );
-      body.append(h('div', { class: 'report-charts-grid' }, lineWrap, barWrap));
+
+      // Build payment breakdown data for donut
+      var payLabels = [], payValues = [];
+      if ((r.summary.cash || 0) > 0)  { payLabels.push('Cash');  payValues.push(r.summary.cash); }
+      if ((r.summary.gcash || 0) > 0) { payLabels.push('GCash'); payValues.push(r.summary.gcash); }
+      var hasPayData = payLabels.length > 0;
+
+      // Helper: build a single chart panel element
+      function makeChartPanel(id, title, extraClass) {
+        var panelBody = h('div', { class: 'chart-panel-body' });
+        var panel = h('div', { class: 'chart-panel' + (extraClass ? ' ' + extraClass : ''), id: id },
+          h('div', { class: 'chart-panel-head' },
+            h('span', { class: 'chart-panel-title', text: title })
+          ),
+          panelBody
+        );
+        return { panel: panel, body: panelBody };
+      }
+
+      // Build all four panels
+      var trendPanel  = makeChartPanel('chartPanelTrend',   trendTitle || 'Sales Trend', 'chart-line');
+      var prodPanel   = makeChartPanel('chartPanelProducts', 'Top Products (Units Sold)', 'chart-bar');
+      var payPanel    = makeChartPanel('chartPanelPayment',  'Payment Breakdown', 'chart-donut');
+      var allGrid     = h('div', { class: 'chart-panels-all-grid', id: 'chartPanelAll', hidden: true });
+
+      // --- Trend panel content ---
       if (hasTrend) {
         var lineCanvas = h('canvas', { 'aria-label': 'Sales trend chart' });
-        lineWrapInner.append(lineCanvas);
+        trendPanel.body.append(lineCanvas);
         (function(c, l, t, o) {
           requestAnimationFrame(function() { _reportLineChart = renderLineChart(c, { labels: l, totals: t, orders: o }); });
         })(lineCanvas, trendLabels, trendTotals, trendOrders);
       } else {
-        lineWrapInner.append(h('p', { class: 'report-chart-empty', text: 'No trend data for this period.' }));
+        trendPanel.body.append(h('p', { class: 'chart-panel-empty', text: 'No trend data for this period.' }));
       }
+
+      // --- Top Products panel content ---
       if (hasItems) {
-        var barCanvas = h('canvas', { 'aria-label': 'Top sellers chart' });
-        barWrapInner.append(barCanvas);
-        barWrapInner.style.height = Math.max(180, r.top_items.length * 36) + 'px';
+        var barCanvas = h('canvas', { 'aria-label': 'Top products chart' });
+        prodPanel.body.style.height = Math.max(260, r.top_items.length * 38) + 'px';
+        prodPanel.body.append(barCanvas);
         (function(c, lbs, qs) {
           requestAnimationFrame(function() { _reportBarChart = renderBarChart(c, { labels: lbs, qtys: qs }); });
         })(barCanvas, r.top_items.map(function(t) { return t.name; }), r.top_items.map(function(t) { return t.qty; }));
       } else {
-        barWrapInner.append(h('p', { class: 'report-chart-empty', text: 'No item sales recorded in this period.' }));
+        prodPanel.body.append(h('p', { class: 'chart-panel-empty', text: 'No item sales recorded in this period.' }));
       }
+
+      // --- Payment Breakdown donut panel content ---
+      if (hasPayData) {
+        var donutWrap = h('div', { class: 'donut-wrap' });
+        var donutCanvas = h('canvas', { 'aria-label': 'Payment breakdown donut chart' });
+        donutWrap.append(donutCanvas);
+        payPanel.body.append(donutWrap);
+        (function(c, lbs, vals) {
+          requestAnimationFrame(function() { _reportDonutChart = renderDonutChart(c, { labels: lbs, values: vals, isRevenue: true }); });
+        })(donutCanvas, payLabels, payValues);
+      } else {
+        payPanel.body.append(h('p', { class: 'chart-panel-empty', text: 'No payment data for this period.' }));
+      }
+
+      // --- Compare All grid: clone 3 mini-panels ---
+      function makeAllMini(srcTitle, extraClass) {
+        var miniBody = h('div', { class: 'chart-panel-body' });
+        var mini = h('div', { class: 'chart-panel' + (extraClass ? ' ' + extraClass : '') },
+          h('div', { class: 'chart-panel-head' }, h('span', { class: 'chart-panel-title', text: srcTitle })),
+          miniBody
+        );
+        return { panel: mini, body: miniBody };
+      }
+      var allTrend = makeAllMini(trendTitle || 'Sales Trend', 'chart-line');
+      var allProd  = makeAllMini('Top Products', 'chart-bar');
+      var allPay   = makeAllMini('Payment Breakdown', 'chart-donut');
+      allGrid.append(allTrend.panel, allProd.panel, allPay.panel);
+
+      // Render chart selector tabs
+      var tabs = [
+        { id: 'trend',    label: '📈 Sales Trend' },
+        { id: 'products', label: '🏆 Top Products' },
+        { id: 'payment',  label: '💳 Payment Breakdown' },
+        { id: 'all',      label: '⊞ Compare All' }
+      ];
+      var tabEls = tabs.map(function(tab) {
+        return h('button', {
+          type: 'button',
+          class: 'chart-tab' + (tab.id === _activeChartTab ? ' active' : ''),
+          dataset: { tab: tab.id },
+          text: tab.label
+        });
+      });
+      var tabsWrap = h('div', { class: 'chart-selector-tabs' }, ...tabEls);
+      var selectorRow = h('div', { class: 'chart-selector-wrap' },
+        h('span', { class: 'chart-selector-label', text: 'Chart View:' }),
+        tabsWrap
+      );
+
+      var panelsWrap = h('div', { class: 'chart-panels-wrap' });
+
+      function showChartTab(tabId) {
+        _activeChartTab = tabId;
+        // Update tab button active states
+        tabEls.forEach(function(btn) {
+          btn.classList.toggle('active', btn.dataset.tab === tabId);
+        });
+        // Show/hide individual panels
+        trendPanel.panel.hidden  = (tabId !== 'trend');
+        prodPanel.panel.hidden   = (tabId !== 'products');
+        payPanel.panel.hidden    = (tabId !== 'payment');
+        allGrid.hidden           = (tabId !== 'all');
+        // Render Compare All charts lazily on first show
+        if (tabId === 'all') {
+          if (!allTrend.body._chartBuilt) {
+            allTrend.body._chartBuilt = true;
+            if (hasTrend) {
+              var c1 = h('canvas', { 'aria-label': 'Sales trend mini' });
+              allTrend.body.append(c1);
+              (function(c, l, t, o) {
+                requestAnimationFrame(function() { _reportAllLineChart = renderLineChart(c, { labels: l, totals: t, orders: o }); });
+              })(c1, trendLabels, trendTotals, trendOrders);
+            } else {
+              allTrend.body.append(h('p', { class: 'chart-panel-empty', text: 'No trend data.' }));
+            }
+          }
+          if (!allProd.body._chartBuilt) {
+            allProd.body._chartBuilt = true;
+            if (hasItems) {
+              allProd.body.style.height = Math.max(200, Math.min(r.top_items.length, 5) * 38) + 'px';
+              var c2 = h('canvas', { 'aria-label': 'Top products mini' });
+              allProd.body.append(c2);
+              (function(c, lbs, qs) {
+                requestAnimationFrame(function() { _reportAllBarChart = renderBarChart(c, { labels: lbs, qtys: qs }); });
+              })(c2, r.top_items.slice(0,5).map(function(t) { return t.name; }), r.top_items.slice(0,5).map(function(t) { return t.qty; }));
+            } else {
+              allProd.body.append(h('p', { class: 'chart-panel-empty', text: 'No item data.' }));
+            }
+          }
+          if (!allPay.body._chartBuilt) {
+            allPay.body._chartBuilt = true;
+            if (hasPayData) {
+              var dWrap2 = h('div', { class: 'donut-wrap' });
+              var dCvs2 = h('canvas', { 'aria-label': 'Payment donut mini' });
+              dWrap2.append(dCvs2);
+              allPay.body.append(dWrap2);
+              (function(c, lbs, vals) {
+                requestAnimationFrame(function() { _reportAllDonutChart = renderDonutChart(c, { labels: lbs, values: vals, isRevenue: true }); });
+              })(dCvs2, payLabels, payValues);
+            } else {
+              allPay.body.append(h('p', { class: 'chart-panel-empty', text: 'No payment data.' }));
+            }
+          }
+        }
+      }
+
+      // Wire up tab click events
+      tabEls.forEach(function(btn) {
+        btn.addEventListener('click', function() { showChartTab(btn.dataset.tab); });
+      });
+
+      panelsWrap.append(trendPanel.panel, prodPanel.panel, payPanel.panel, allGrid);
+      body.append(selectorRow, panelsWrap);
+
+      // Show whichever tab was last active (default: trend)
+      showChartTab(_activeChartTab);
     }
-    // ---- End Manager Chart Section ----
+    // ---- End Manager Chart Selector Section ----
 
     // Top items
     const maxQty = Math.max(1, ...r.top_items.map(t => t.qty));
