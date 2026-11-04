@@ -243,6 +243,34 @@ $cssModules = [
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAccountsBtn">Manage Accounts</button>
       </div>
     </div>
+
+    <!-- ===== Manager Dashboard Charts (Option B) ===== -->
+    <div class="mgr-charts-section" id="mgrChartsSection">
+      <div class="mgr-charts-header">
+        <h2 class="mgr-charts-title">📈 Today's Sales Overview</h2>
+        <span class="mgr-charts-subtitle" id="mgrChartsPeriodLabel">Loading...</span>
+      </div>
+      <div class="mgr-charts-grid">
+        <div class="mgr-chart-card">
+          <div class="mgr-chart-card-head">
+            <span class="mgr-chart-card-title">Hourly Sales Trend (₱)</span>
+          </div>
+          <div class="mgr-chart-wrap">
+            <canvas id="mgrLineChart" aria-label="Hourly sales trend chart"></canvas>
+            <p class="mgr-chart-empty" id="mgrLineChartEmpty" hidden>☕ No hourly data for today yet.</p>
+          </div>
+        </div>
+        <div class="mgr-chart-card">
+          <div class="mgr-chart-card-head">
+            <span class="mgr-chart-card-title">Top Sellers Today (Units)</span>
+          </div>
+          <div class="mgr-chart-wrap">
+            <canvas id="mgrBarChart" aria-label="Top selling products chart"></canvas>
+            <p class="mgr-chart-empty" id="mgrBarChartEmpty" hidden>☕ No product sales recorded today.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <?php endif; ?>
 
@@ -822,6 +850,7 @@ $cssModules = [
       'csrf_token' => $csrfToken
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
   </script>
+  <script src="assets/js/vendor/chart.umd.min.js"></script>
   <script src="assets/js/script.js?v=<?= $ver('assets/js/script.js') ?>" defer></script>
 </body>
 </html>

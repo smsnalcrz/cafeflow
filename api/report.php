@@ -211,8 +211,25 @@ $stmt->execute([':start' => $startStr, ':end' => $endStr]);
 $days = $stmt->fetchAll();
 
 // -----------------------------------------------------------------------------
-// Hourly breakdown (for single date or today)
+// Category breakdown (all ranges)
 // -----------------------------------------------------------------------------
+$stmt = $pdo->prepare(
+    "SELECT COALESCE(p.category, 'Other') AS category,
+            SUM(ti.quantity)              AS qty,
+            COALESCE(SUM(ti.unit_price * ti.quantity), 0) AS revenue
+       FROM transaction_items ti
+       JOIN transactions t ON t.transaction_id = ti.transaction_id
+       LEFT JOIN menu_products p ON p.product_id = ti.product_id
+      WHERE t.`timestamp` >= :start AND t.`timestamp` < :end
+      GROUP BY category
+      ORDER BY revenue DESC"
+);
+$stmt->execute([':start' => $startStr, ':end' => $endStr]);
+$categories = $stmt->fetchAll();
+
+// -----------------------------------------------------------------------------
+// Hourly breakdown
+
 $hours = [];
 if ($rangeType === 'date' || $rangeType === 'today' || $startDateStr === $endDateStr) {
     $stmt = $pdo->prepare(
@@ -340,4 +357,9 @@ send_json([
         'orders' => (int) $r['orders'],
         'total'  => (float) $r['total'],
     ], $hours),
+    'by_category' => array_map(static fn(array $r): array => [
+        'category' => $r['category'],
+        'qty'      => (int) $r['qty'],
+        'revenue'  => (float) $r['revenue'],
+    ], $categories),
 ]);

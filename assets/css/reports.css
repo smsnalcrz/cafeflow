@@ -615,3 +615,322 @@
   color: var(--muted);
   margin-top: 6px;
 }
+
+/* ======================================================================
+   MANAGER DASHBOARD — CHART SECTION (Option B)
+   ====================================================================== */
+.mgr-charts-section {
+  margin: 0;
+  padding: 0;
+}
+.mgr-charts-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.mgr-charts-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--espresso);
+  margin: 0;
+}
+.mgr-charts-subtitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.mgr-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 860px) {
+  .mgr-charts-grid { grid-template-columns: 1fr; }
+}
+.mgr-chart-card {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.mgr-chart-card-head {
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--line);
+  background: var(--parchment);
+}
+.mgr-chart-card-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+}
+.mgr-chart-wrap {
+  padding: 12px 14px 14px;
+  min-height: 220px;
+  height: 240px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mgr-chart-wrap canvas {
+  max-width: 100%;
+  max-height: 100%;
+}
+.mgr-chart-empty {
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* ======================================================================
+   SALES REPORT MODAL — MANAGER ANALYTICS CHARTS (Option A)
+   ====================================================================== */
+.report-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 16px 0;
+}
+@media (max-width: 720px) {
+  .report-charts-grid { grid-template-columns: 1fr; }
+}
+.report-chart-card {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+.report-chart-card-head {
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--parchment);
+}
+.report-chart-card-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+}
+.report-chart-wrap {
+  padding: 12px 10px 10px;
+  min-height: 220px;
+  height: 240px;
+  position: relative;
+}
+.report-chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.report-chart-empty {
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+  padding: 40px 16px;
+  margin: 0;
+}
+
+/* ======================================================================
+   SALES REPORT — FULL WORKSPACE (overrides .modal popup behaviour)
+   ====================================================================== */
+#reportModal {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+  animation: none;
+  display: flex;
+  flex-direction: column;
+}
+#reportModal[hidden] { display: none; }
+
+#reportModal .modal-card {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+  border: none;
+  background: var(--bg);
+}
+
+/* ======================================================================
+   CHART SELECTOR — Segmented tab control (manager-only)
+   ====================================================================== */
+.chart-selector-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0 6px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.chart-selector-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.chart-selector-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  gap: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--parchment-mid);
+  border: 1.5px solid var(--line);
+}
+.chart-tab {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 7px;
+  background: transparent;
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.chart-tab:hover { color: var(--ink); background: rgba(255,255,255,.5); }
+.chart-tab.active {
+  background: var(--espresso);
+  color: #fff;
+  box-shadow: var(--shadow-xs);
+}
+
+/* ======================================================================
+   CHART PANELS — individually toggled chart containers
+   ====================================================================== */
+.chart-panels-wrap {
+  margin: 0 0 16px;
+}
+
+/* Single-chart view: one full-width panel */
+.chart-panel {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chart-panel[hidden] { display: none !important; }
+
+.chart-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--line);
+  background: var(--parchment);
+}
+.chart-panel-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+}
+.chart-panel-body {
+  padding: 14px 16px 16px;
+  height: 300px;
+  position: relative;
+}
+.chart-panel-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+.chart-panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+}
+
+/* "All Charts" view: 3-panel grid */
+.chart-panel.all-view {
+  display: flex;
+}
+.chart-panels-all-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 0 0 16px;
+}
+.chart-panels-all-grid .chart-panel {
+  display: flex;
+}
+.chart-panels-all-grid .chart-panel-body {
+  height: 240px;
+}
+/* Payment/Donut chart spans both columns in 3-col-within-2-col approach */
+.chart-panels-all-grid .chart-panel.chart-donut {
+  grid-column: 1 / -1;
+  /* Show donut side by side with a legend to avoid extra height */
+}
+.chart-panels-all-grid .chart-panel.chart-donut .chart-panel-body {
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.chart-panels-all-grid .chart-panel.chart-donut canvas {
+  max-width: 220px;
+  max-height: 220px;
+  width: auto !important;
+  height: auto !important;
+}
+
+@media (max-width: 700px) {
+  .chart-panels-all-grid { grid-template-columns: 1fr; }
+  .chart-panels-all-grid .chart-panel.chart-donut { grid-column: 1; }
+}
+
+/* Donut center label overlay */
+.donut-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.donut-center-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  user-select: none;
+}
+.donut-center-total {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--espresso);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.5px;
+}
+.donut-center-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-top: 1px;
+}

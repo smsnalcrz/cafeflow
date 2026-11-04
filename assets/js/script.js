@@ -2133,6 +2133,173 @@
     $$('#calDaysGrid .cal-day').forEach(b => b.classList.remove('range-preview'));
   }
 
+
+  /* ------------------------------------------------------------------ *
+   *  Chart.js helpers — shared palette matching CafeFlow CSS tokens
+   * ------------------------------------------------------------------ */
+  const CF_ORANGE      = '#e8623a';
+  const CF_ORANGE_MID  = '#f07348';
+  const CF_GREEN       = '#2a9b52';
+  const CF_ESPRESSO    = '#162318';
+  const CF_MUTED       = '#5a7a63';
+  const CF_LINE        = '#cde5d4';
+
+  // Fill all 24 hours with zero so the line chart never has gaps
+  function buildHourlyDataset(byHour) {
+    const totals = new Array(24).fill(0);
+    const orders = new Array(24).fill(0);
+    (byHour || []).forEach(function(h) {
+      totals[h.hour] = h.total;
+      orders[h.hour] = h.orders;
+    });
+    return { totals, orders };
+  }
+
+  // Global chart instance references so we can destroy before re-creating
+  var _reportLineChart = null;
+  var _reportBarChart  = null;
+  var _mgrLineChart    = null;
+  var _mgrBarChart     = null;
+
+  function destroyChart(ref) {
+    if (ref) { try { ref.destroy(); } catch (e) {} }
+    return null;
+  }
+
+  function buildChartDefaults() {
+    if (typeof Chart === 'undefined') return;
+    Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    Chart.defaults.color = CF_MUTED;
+  }
+  buildChartDefaults();
+
+  function renderLineChart(canvas, data) {
+    if (typeof Chart === 'undefined' || !canvas) return null;
+    var ctx = canvas.getContext('2d');
+    var grad = ctx.createLinearGradient(0, 0, 0, 240);
+    grad.addColorStop(0, 'rgba(232,98,58,0.22)');
+    grad.addColorStop(1, 'rgba(232,98,58,0.0)');
+    return new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Sales (\u20b1)',
+          data: data.totals,
+          borderColor: CF_ORANGE,
+          backgroundColor: grad,
+          borderWidth: 2.5,
+          pointBackgroundColor: CF_ESPRESSO,
+          pointBorderColor: CF_ORANGE,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.4,
+          fill: true,
+          yAxisID: 'y'
+        }, {
+          label: 'Orders',
+          data: data.orders,
+          borderColor: CF_GREEN,
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointBackgroundColor: CF_GREEN,
+          pointRadius: 3,
+          pointHoverRadius: 5,
+          tension: 0.4,
+          fill: false,
+          borderDash: [5, 3],
+          yAxisID: 'y2'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { boxWidth: 12, padding: 16, font: { size: 12 } } },
+          tooltip: {
+            backgroundColor: CF_ESPRESSO,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.8)',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: function(c) {
+                return c.dataset.yAxisID === 'y'
+                  ? '  \u20b1' + Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })
+                  : '  ' + c.parsed.y + ' orders';
+              }
+            }
+          }
+        },
+        scales: {
+          x: { grid: { color: CF_LINE }, ticks: { font: { size: 11 }, maxRotation: 45 } },
+          y: {
+            position: 'left', grid: { color: CF_LINE },
+            ticks: { font: { size: 11 }, callback: function(v) { return '\u20b1' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 0 }); } }
+          },
+          y2: {
+            position: 'right', grid: { drawOnChartArea: false },
+            ticks: { font: { size: 11 }, stepSize: 1, precision: 0 }
+          }
+        }
+      }
+    });
+  }
+
+  function renderBarChart(canvas, data) {
+    if (typeof Chart === 'undefined' || !canvas) return null;
+    var ctx = canvas.getContext('2d');
+    var n = data.labels.length;
+    var barColors = data.labels.map(function(_, i) {
+      var alpha = 1 - (i / Math.max(n, 1)) * 0.4;
+      return 'rgba(42,155,82,' + alpha + ')';
+    });
+    return new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          label: 'Units Sold',
+          data: data.qtys,
+          backgroundColor: barColors,
+          borderColor: barColors.map(function(c) { return c.replace(/[\d.]+\)$/, '1)'); }),
+          borderWidth: 1,
+          borderRadius: 6,
+          borderSkipped: false
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: CF_ESPRESSO,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.8)',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: { label: function(c) { return '  ' + c.parsed.x + ' units sold'; } }
+          }
+        },
+        scales: {
+          x: { grid: { color: CF_LINE }, ticks: { font: { size: 11 }, precision: 0 } },
+          y: {
+            grid: { display: false },
+            ticks: {
+              font: { size: 11 },
+              callback: function(val) {
+                var lbl = this.getLabelForValue(val);
+                return lbl && lbl.length > 22 ? lbl.slice(0, 20) + '\u2026' : lbl;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
   /* ------------------------------------------------------------------ *
    *  Sales Report Renderer
    * ------------------------------------------------------------------ */
@@ -2141,6 +2308,70 @@
       h('span', { class: 'stat-label', text: label }),
       h('strong', { class: 'stat-value', text: value }));
 
+
+  function renderDonutChart(canvas, data, centerLabel) {
+    if (typeof Chart === 'undefined' || !canvas) return null;
+    var ctx = canvas.getContext('2d');
+    var palette = [CF_ORANGE, CF_GREEN, '#1a5ecb', '#8b5cf6', '#e8623a', '#059669', '#dc2626', '#d97706'];
+    return new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: data.labels,
+        datasets: [{
+          data: data.values,
+          backgroundColor: palette.slice(0, data.labels.length),
+          borderColor: '#fff',
+          borderWidth: 3,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 13,
+              padding: 14,
+              font: { size: 12 },
+              generateLabels: function(chart) {
+                var ds = chart.data.datasets[0];
+                return chart.data.labels.map(function(lbl, i) {
+                  var total = ds.data.reduce(function(a, b) { return a + b; }, 0);
+                  var pct = total > 0 ? Math.round(ds.data[i] / total * 100) : 0;
+                  return {
+                    text: lbl + ' (' + pct + '%)',
+                    fillStyle: palette[i] || '#ccc',
+                    hidden: false,
+                    index: i
+                  };
+                });
+              }
+            }
+          },
+          tooltip: {
+            backgroundColor: CF_ESPRESSO,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.8)',
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: function(c) {
+                var total = c.dataset.data.reduce(function(a, b) { return a + b; }, 0);
+                var pct = total > 0 ? Math.round(c.parsed / total * 100) : 0;
+                if (data.isRevenue) {
+                  return '  \u20b1' + Number(c.parsed).toLocaleString('en-PH', { minimumFractionDigits: 2 }) + ' (' + pct + '%)';
+                }
+                return '  ' + c.parsed + ' units (' + pct + '%)';
+              }
+            }
+          }
+        }
+      }
+    });
+  }
   async function renderReport(r) {
     const s = r.summary;
     const body = $('#reportBody');
@@ -2160,6 +2391,68 @@
       stat('Cash sales', money(s.cash)),
       stat('GCash sales', money(s.gcash)),
       stat('Pending queue', String(s.pending))));
+
+    // Destroy any previous report charts to free canvas contexts
+    _reportLineChart = destroyChart(_reportLineChart);
+    _reportBarChart  = destroyChart(_reportBarChart);
+
+    // ---- Manager-only Chart Analytics Section (Option A) ----
+    if (currentUser.role === 'manager') {
+      var hasHourly  = r.by_hour && r.by_hour.length > 0;
+      var hasItems   = r.top_items && r.top_items.length > 0;
+      var isMultiDay = r.by_day  && r.by_day.length  > 1;
+      var trendLabels, trendTotals, trendOrders, trendTitle;
+      if (!isMultiDay && hasHourly) {
+        var ds = buildHourlyDataset(r.by_hour);
+        var lastActiveHour = r.by_hour.length ? Math.max.apply(null, r.by_hour.map(function(x) { return x.hour; })) : 22;
+        var sliceEnd = Math.max(lastActiveHour + 1, 12);
+        trendLabels = Array.from({ length: sliceEnd - 6 }, function(_, i) { return formatHour(i + 6); });
+        trendTotals = ds.totals.slice(6, sliceEnd);
+        trendOrders = ds.orders.slice(6, sliceEnd);
+        trendTitle  = 'Sales Trend by Hour';
+      } else if (isMultiDay) {
+        trendLabels = r.by_day.map(function(d) { return dayLabel(d.day); }).reverse();
+        trendTotals = r.by_day.map(function(d) { return d.total; }).reverse();
+        trendOrders = r.by_day.map(function(d) { return d.orders; }).reverse();
+        trendTitle  = 'Sales Trend by Day';
+      }
+      var hasTrend = trendLabels && trendLabels.length > 0;
+      var lineWrapInner = h('div', { class: 'report-chart-wrap' });
+      var lineWrap = h('div', { class: 'report-chart-card' },
+        h('div', { class: 'report-chart-card-head' },
+          h('span', { class: 'report-chart-card-title', text: trendTitle || 'Sales Trend' })
+        ),
+        lineWrapInner
+      );
+      var barWrapInner = h('div', { class: 'report-chart-wrap' });
+      var barWrap = h('div', { class: 'report-chart-card' },
+        h('div', { class: 'report-chart-card-head' },
+          h('span', { class: 'report-chart-card-title', text: 'Top Sellers (Units)' })
+        ),
+        barWrapInner
+      );
+      body.append(h('div', { class: 'report-charts-grid' }, lineWrap, barWrap));
+      if (hasTrend) {
+        var lineCanvas = h('canvas', { 'aria-label': 'Sales trend chart' });
+        lineWrapInner.append(lineCanvas);
+        (function(c, l, t, o) {
+          requestAnimationFrame(function() { _reportLineChart = renderLineChart(c, { labels: l, totals: t, orders: o }); });
+        })(lineCanvas, trendLabels, trendTotals, trendOrders);
+      } else {
+        lineWrapInner.append(h('p', { class: 'report-chart-empty', text: 'No trend data for this period.' }));
+      }
+      if (hasItems) {
+        var barCanvas = h('canvas', { 'aria-label': 'Top sellers chart' });
+        barWrapInner.append(barCanvas);
+        barWrapInner.style.height = Math.max(180, r.top_items.length * 36) + 'px';
+        (function(c, lbs, qs) {
+          requestAnimationFrame(function() { _reportBarChart = renderBarChart(c, { labels: lbs, qtys: qs }); });
+        })(barCanvas, r.top_items.map(function(t) { return t.name; }), r.top_items.map(function(t) { return t.qty; }));
+      } else {
+        barWrapInner.append(h('p', { class: 'report-chart-empty', text: 'No item sales recorded in this period.' }));
+      }
+    }
+    // ---- End Manager Chart Section ----
 
     // Top items
     const maxQty = Math.max(1, ...r.top_items.map(t => t.qty));
@@ -2704,29 +2997,76 @@
       // 1. Load accounts overview
       const accData = await api('accounts_api.php');
       if ($('#mgrCardUserCount')) {
-        $('#mgrCardUserCount').textContent = `${(accData.overview && accData.overview.total) || 0} accounts`;
+        $('#mgrCardUserCount').textContent = (accData.overview && accData.overview.total ? accData.overview.total : 0) + ' accounts';
       }
 
       // 2. Load inventory items count
       const invData = await api('inventory_api.php');
       if ($('#mgrCardSupplyCount')) {
         const totalItems = (invData.items || []).length;
-        const lowCount = (invData.items || []).filter(i => i.low).length;
-        $('#mgrCardSupplyCount').textContent = `${totalItems} items` + (lowCount > 0 ? ` (${lowCount} low)` : '');
+        const lowCount = (invData.items || []).filter(function(i) { return i.low; }).length;
+        $('#mgrCardSupplyCount').textContent = totalItems + ' items' + (lowCount > 0 ? ' (' + lowCount + ' low)' : '');
       }
 
-      // 3. Load today's sales
+      // 3. Load today's sales + render dashboard charts (Option B)
       const todayIso = toIsoDate(new Date());
-      const repData = await api(`report.php?range=date&date=${todayIso}`);
+      const repData = await api('report.php?range=date&date=' + encodeURIComponent(todayIso));
       if ($('#mgrCardSalesToday')) {
-        const totalSales = (repData.summary && repData.summary.total_sales) || 0;
+        const totalSales = (repData.summary && repData.summary.total) || 0;
         $('#mgrCardSalesToday').textContent = money(totalSales);
       }
+
+      // Update dashboard chart subtitle
+      const periodLabel = $('#mgrChartsPeriodLabel');
+      if (periodLabel) periodLabel.textContent = repData.label || todayIso;
+
+      // ---- Dashboard Line Chart: Hourly Sales Trend ----
+      const lineCanvasEl = $('#mgrLineChart');
+      const lineEmptyEl  = $('#mgrLineChartEmpty');
+      if (lineCanvasEl) {
+        _mgrLineChart = destroyChart(_mgrLineChart);
+        const byHour = repData.by_hour || [];
+        if (byHour.length > 0) {
+          lineCanvasEl.hidden = false;
+          if (lineEmptyEl) lineEmptyEl.hidden = true;
+          const ds = buildHourlyDataset(byHour);
+          const lastActive = Math.max.apply(null, byHour.map(function(x) { return x.hour; }));
+          const sliceEnd   = Math.max(lastActive + 1, 12);
+          const labels  = Array.from({ length: sliceEnd - 6 }, function(_, i) { return formatHour(i + 6); });
+          const totals  = ds.totals.slice(6, sliceEnd);
+          const orders  = ds.orders.slice(6, sliceEnd);
+          _mgrLineChart = renderLineChart(lineCanvasEl, { labels: labels, totals: totals, orders: orders });
+        } else {
+          lineCanvasEl.hidden = true;
+          if (lineEmptyEl) lineEmptyEl.hidden = false;
+        }
+      }
+
+      // ---- Dashboard Bar Chart: Top Sellers ----
+      const barCanvasEl = $('#mgrBarChart');
+      const barEmptyEl  = $('#mgrBarChartEmpty');
+      if (barCanvasEl) {
+        _mgrBarChart = destroyChart(_mgrBarChart);
+        const topItems = repData.top_items || [];
+        if (topItems.length > 0) {
+          barCanvasEl.hidden = false;
+          if (barEmptyEl) barEmptyEl.hidden = true;
+          const barWrap = barCanvasEl.closest('.mgr-chart-wrap');
+          if (barWrap) barWrap.style.height = Math.max(180, topItems.length * 36) + 'px';
+          _mgrBarChart = renderBarChart(barCanvasEl, {
+            labels: topItems.map(function(t) { return t.name; }),
+            qtys:   topItems.map(function(t) { return t.qty; })
+          });
+        } else {
+          barCanvasEl.hidden = true;
+          if (barEmptyEl) barEmptyEl.hidden = false;
+        }
+      }
+
     } catch (_) {
       // Ignore background stats refresh errors
     }
   }
-
   /* ------------------------------------------------------------------ *
    *  Wire Everything Up
    * ------------------------------------------------------------------ */
