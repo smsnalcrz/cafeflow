@@ -95,6 +95,55 @@ if (!function_exists('ensure_schema')) {
             if (!in_array('discount', $txCols, true)) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN discount DECIMAL(10,2) NULL DEFAULT 0.00 AFTER tax");
             }
+            if (!in_array('reference_number', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN reference_number VARCHAR(100) NULL DEFAULT NULL AFTER payment_method");
+                try { $pdo->exec("ALTER TABLE transactions ADD INDEX idx_tx_ref (reference_number)"); } catch (Throwable $e) {}
+            }
+            if (!in_array('discount_type', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN discount_type VARCHAR(50) NOT NULL DEFAULT 'none' AFTER discount");
+            }
+            if (!in_array('discount_rate', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN discount_rate DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER discount_type");
+            }
+            if (!in_array('discount_id_no', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN discount_id_no VARCHAR(100) NULL DEFAULT NULL AFTER discount_rate");
+            }
+            if (!in_array('discount_reason', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN discount_reason VARCHAR(255) NULL DEFAULT NULL AFTER discount_id_no");
+            }
+            if (!in_array('cancelled_by_user_id', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN cancelled_by_user_id INT UNSIGNED NULL DEFAULT NULL AFTER status");
+            }
+            if (!in_array('cancelled_at', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN cancelled_at DATETIME NULL DEFAULT NULL AFTER cancelled_by_user_id");
+            }
+            if (!in_array('cancellation_reason', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN cancellation_reason VARCHAR(255) NULL DEFAULT NULL AFTER cancelled_at");
+            }
+            // Ensure status ENUM supports 'Cancelled' and 'Voided'
+            try {
+                $pdo->exec("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending','Completed','Cancelled','Voided') NOT NULL DEFAULT 'Pending'");
+            } catch (Throwable $e) {}
+
+            $invCols = $pdo->query("SHOW COLUMNS FROM inventory")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('is_active', $invCols, true)) {
+                $pdo->exec("ALTER TABLE inventory ADD COLUMN is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER restock_threshold");
+                try { $pdo->exec("ALTER TABLE inventory ADD INDEX idx_inv_active (is_active)"); } catch (Throwable $e) {}
+            }
+
+            // Harden product_ingredients foreign key from dangerous CASCADE to RESTRICT
+            try {
+                $fkRule = $pdo->query("
+                    SELECT DELETE_RULE 
+                      FROM information_schema.REFERENTIAL_CONSTRAINTS 
+                     WHERE CONSTRAINT_SCHEMA = 'cafeflow' 
+                       AND CONSTRAINT_NAME = 'fk_pi_item'
+                ")->fetchColumn();
+                if ($fkRule && strtoupper($fkRule) === 'CASCADE') {
+                    $pdo->exec("ALTER TABLE product_ingredients DROP FOREIGN KEY fk_pi_item");
+                    $pdo->exec("ALTER TABLE product_ingredients ADD CONSTRAINT fk_pi_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT");
+                }
+            } catch (Throwable $e) {}
 
             $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
             if (!in_array('product_ingredients', $tables, true)) {

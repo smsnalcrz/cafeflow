@@ -16,6 +16,7 @@ if (is_authenticated()) {
 
 $redirectParam = $_GET['redirect'] ?? '';
 $loggedOut = !empty($_GET['logged_out']);
+$timeoutParam = !empty($_GET['timeout']);
 $errorParam = $_GET['error'] ?? '';
 $csrfToken = get_csrf_token();
 ?>
@@ -357,6 +358,12 @@ $csrfToken = get_csrf_token();
             <button type="button" class="alert-dismiss-btn" aria-label="Dismiss">&times;</button>
           </div>
         <?php endif; ?>
+        <?php if ($timeoutParam): ?>
+          <div class="auth-alert info auto-dismiss" id="timeoutAlert">
+            <span>⏱️ Your session has expired due to 30 minutes of inactivity. Please sign in again.</span>
+            <button type="button" class="alert-dismiss-btn" aria-label="Dismiss">&times;</button>
+          </div>
+        <?php endif; ?>
         <?php if ($errorParam === 'forbidden'): ?>
           <div class="auth-alert error auto-dismiss">
             <span>✕ Access denied. Your role is not authorized for that page.</span>
@@ -444,9 +451,10 @@ $csrfToken = get_csrf_token();
           // Clean URL params (e.g. ?logged_out=1) so banner won't persist on page refresh
           try {
             const url = new URL(window.location);
-            if (url.searchParams.has('logged_out') || url.searchParams.has('error')) {
+            if (url.searchParams.has('logged_out') || url.searchParams.has('error') || url.searchParams.has('timeout')) {
               url.searchParams.delete('logged_out');
               url.searchParams.delete('error');
+              url.searchParams.delete('timeout');
               window.history.replaceState({}, document.title, url.pathname + (url.search ? url.search : ''));
             }
           } catch (e) {}

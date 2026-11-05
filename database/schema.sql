@@ -21,8 +21,10 @@ CREATE TABLE IF NOT EXISTS inventory (
   current_stock     DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   unit_measure      VARCHAR(20)   NOT NULL,              -- g, ml, pcs ...
   restock_threshold DECIMAL(10,2) NOT NULL DEFAULT 0.00,    -- alert threshold
+  is_active         TINYINT(1)    NOT NULL DEFAULT 1,
   PRIMARY KEY (item_id),
-  UNIQUE KEY uq_inventory_name (name)
+  UNIQUE KEY uq_inventory_name (name),
+  KEY idx_inv_active (is_active)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -76,26 +78,37 @@ CREATE TABLE IF NOT EXISTS product_ingredients (
   KEY idx_pi_product (product_id),
   KEY idx_pi_item (item_id),
   CONSTRAINT fk_pi_product FOREIGN KEY (product_id) REFERENCES menu_products (product_id) ON DELETE CASCADE,
-  CONSTRAINT fk_pi_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE CASCADE
+  CONSTRAINT fk_pi_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
 --  5. Order transactions header
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS transactions (
-  transaction_id INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-  total_amount   DECIMAL(10,2) NOT NULL,
-  amount_paid    DECIMAL(10,2) NULL DEFAULT NULL,
-  change_due     DECIMAL(10,2) NULL DEFAULT 0.00,
-  subtotal       DECIMAL(10,2) NULL DEFAULT NULL,
-  tax            DECIMAL(10,2) NULL DEFAULT 0.00,
-  discount       DECIMAL(10,2) NULL DEFAULT 0.00,
-  status         ENUM('Pending','Completed') NOT NULL DEFAULT 'Pending',
-  payment_method ENUM('Cash','GCash')        NOT NULL DEFAULT 'Cash',
-  `timestamp`    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  transaction_id        INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  cashier_user_id       INT UNSIGNED  NULL DEFAULT NULL,
+  total_amount          DECIMAL(10,2) NOT NULL,
+  amount_paid           DECIMAL(10,2) NULL DEFAULT NULL,
+  change_due            DECIMAL(10,2) NULL DEFAULT 0.00,
+  subtotal              DECIMAL(10,2) NULL DEFAULT NULL,
+  tax                   DECIMAL(10,2) NULL DEFAULT 0.00,
+  discount              DECIMAL(10,2) NULL DEFAULT 0.00,
+  discount_type         VARCHAR(50)   NOT NULL DEFAULT 'none',
+  discount_rate         DECIMAL(5,2)  NOT NULL DEFAULT 0.00,
+  discount_id_no        VARCHAR(100)  NULL DEFAULT NULL,
+  discount_reason       VARCHAR(255)  NULL DEFAULT NULL,
+  status                ENUM('Pending','Completed','Cancelled','Voided') NOT NULL DEFAULT 'Pending',
+  cancelled_by_user_id  INT UNSIGNED  NULL DEFAULT NULL,
+  cancelled_at          DATETIME      NULL DEFAULT NULL,
+  cancellation_reason   VARCHAR(255)  NULL DEFAULT NULL,
+  payment_method        ENUM('Cash','GCash') NOT NULL DEFAULT 'Cash',
+  reference_number      VARCHAR(100)  NULL DEFAULT NULL,
+  `timestamp`           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (transaction_id),
   KEY idx_status_time (status, `timestamp`),
-  KEY idx_time (`timestamp`)
+  KEY idx_time (`timestamp`),
+  KEY idx_cashier (cashier_user_id),
+  KEY idx_tx_ref (reference_number)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

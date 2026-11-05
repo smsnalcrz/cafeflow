@@ -11,6 +11,10 @@ if (!defined('AUTH_SESSION_NAME')) {
     define('AUTH_SESSION_NAME', 'cafeflow_session');
 }
 
+if (!defined('SESSION_IDLE_TIMEOUT')) {
+    define('SESSION_IDLE_TIMEOUT', 1800); // 30 minutes idle inactivity threshold
+}
+
 /**
  * Initializes secure PHP session with hardened cookie settings.
  */
@@ -42,6 +46,23 @@ function current_user(): ?array
     if (empty($_SESSION['user_id'])) {
         return null;
     }
+
+    // Server-enforced idle session inactivity timeout
+    $now = time();
+    if (!empty($_SESSION['last_activity']) && ($now - (int)$_SESSION['last_activity']) > SESSION_IDLE_TIMEOUT) {
+        logout_user();
+        if (is_api_request()) {
+            send_json([
+                'success' => false,
+                'error'   => 'Your session has expired due to 30 minutes of inactivity. Please sign in again.',
+                'code'    => 'SESSION_EXPIRED'
+            ], 401);
+        } else {
+            header('Location: login.php?timeout=1');
+            exit;
+        }
+    }
+    $_SESSION['last_activity'] = $now;
 
     static $cachedUser = null;
     if ($cachedUser !== null && $cachedUser['user_id'] === $_SESSION['user_id']) {
@@ -180,8 +201,9 @@ function login_user(array $user): void
     $_SESSION['user_name']  = $user['full_name'];
     $_SESSION['username']   = $user['username'];
     $_SESSION['user_email'] = $user['email'] ?? '';
-    $_SESSION['logged_at']  = time();
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    $_SESSION['logged_at']     = time();
+    $_SESSION['last_activity'] = time();
+    $_SESSION['csrf_token']    = bin2hex(random_bytes(32));
 
     try {
         $pdo = db();
