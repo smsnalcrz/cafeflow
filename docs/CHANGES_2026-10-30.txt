@@ -1,0 +1,82 @@
+================================================================================
+CafeFlow System Update - October 30, 2026
+Commit: 82b6e46 | Author: smsnalcrz
+Modular CSS Architecture (13 Modules), Mobile Sticky Order Dock & Cash Tender UX
+================================================================================
+
+SUMMARY OF CHANGES:
+This release executes a complete architectural overhaul of the frontend design
+system (16 files changed, 3,048 insertions, 2,623 deletions). It dissolves the
+monolithic 2,600+ line `style.css` into 13 cleanly scoped, cache-busted CSS
+modules, introduces a dedicated Mobile Sticky Order Dock for tablets and small
+screens, and optimizes the cash tender and checkout UI experience.
+
+--------------------------------------------------------------------------------
+1. MODULAR CSS ARCHITECTURE (DISSOLUTION OF MONOLITHIC STYLE.CSS)
+--------------------------------------------------------------------------------
+- Exploded `assets/css/style.css` into 13 specialized stylesheets:
+  * `variables.css`: Centralized CSS variables (OK Café color palette, ink, typography,
+    surface elevations, easing curves, and border radiuses).
+  * `base.css`: CSS reset, typography, base button primitives (`.btn`, `.btn.primary`),
+    and floating system toasts (`.toast`).
+  * `layout.css`: Main app shell, split-screen POS viewport, and flexible panel heights.
+  * `topbar.css`: Brand header lockup, navigation pills, active view states, and live clock.
+  * `pos.css`: Horizontal category scrollbar, product card grid, and popover size pickers.
+  * `cart.css`: Active order drawer, cart lines, quantity steppers, and tender modal.
+  * `queue.css`: Live Barista order queue, elapsed time badges, and completion buttons.
+  * `modals.css`: Shared modal windows, sheet slide-outs, backdrops, and card animations.
+  * `inventory.css`: Supplies table, low-stock warning chips, search inputs, and restock drawer.
+  * `products.css`: Product management table, image upload drops, and multi-cup builder.
+  * `reports.css`: Revenue summary cards, sales tables, date filter toolbar, and export buttons.
+  * `responsive.css`: Media queries for tablets, vertical POS monitors, and mobile displays.
+  * `print.css`: Dedicated print-media stylesheet for standard 58mm/80mm thermal receipt printers.
+
+- Automatic Cache-Busting Pipeline (`index.php`):
+  * Replaced static stylesheet link with dynamic `$cssModules` array in PHP:
+    `$ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);`
+  * Guarantees tablets and browsers never execute stale cached styles following deployments.
+
+--------------------------------------------------------------------------------
+2. MOBILE STICKY ORDER DOCK (`.mobile-order-bar`)
+--------------------------------------------------------------------------------
+- Small-Screen Order Drawer & Quick Actions (`index.php` & `assets/css/cart.css`):
+  * Added floating sticky dock at the bottom of the screen on mobile and small tablet viewports.
+  * Displays:
+    - Current item quantity counter badge (`#mobOrderBadge`).
+    - Real-time order total formatted in Philippine Pesos (`#mobOrderTotal`).
+    - Smooth-scroll trigger button to instantly reveal the cart details (`#mobOrderViewBtn`).
+    - One-touch checkout actions:
+      * `💵 Cash` (`#mobPayCashBtn`) -> Directly opens cash tender calculator.
+      * `📱 GCash` (`#mobPayGcashBtn`) -> Directly initiates GCash transaction processing.
+  * Automatically syncs visibility via `syncMobOrderBar()` based on active view and cart item count.
+
+--------------------------------------------------------------------------------
+3. CASH TENDER CALCULATOR & PRESETS UX (`assets/js/script.js`)
+--------------------------------------------------------------------------------
+- Interactive Preset Buttons:
+  * Tender amount preset buttons (`.quick-amt-btn`) now dynamically toggle an `.active`
+    highlight state when selected or when an exact match is entered.
+  * Real-Time Keyboard Input Detection:
+    - Typing an amount into the tender input field dynamically evaluates matching presets
+      and highlights the active chip automatically.
+
+================================================================================
+FILES MODIFIED IN COMMIT 82b6e46:
+- `assets/css/base.css`       (101 lines added)
+- `assets/css/cart.css`       (242 lines added)
+- `assets/css/inventory.css`  (149 lines added)
+- `assets/css/layout.css`     (77 lines added)
+- `assets/css/modals.css`     (66 lines added)
+- `assets/css/pos.css`        (482 lines added)
+- `assets/css/print.css`      (16 lines added)
+- `assets/css/products.css`   (473 lines added)
+- `assets/css/queue.css`      (161 lines added)
+- `assets/css/reports.css`    (617 lines added)
+- `assets/css/responsive.css` (282 lines added)
+- `assets/css/style.css`      (2,633 lines deleted)
+- `assets/css/topbar.css`     (180 lines added)
+- `assets/css/variables.css`  (60 lines added)
+- `assets/js/script.js`       (94 lines modified)
+- `index.php`                 (38 lines modified)
+Total: 16 files changed, 3,048 insertions(+), 2,623 deletions(-)
+================================================================================

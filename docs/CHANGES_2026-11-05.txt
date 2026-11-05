@@ -1,0 +1,165 @@
+================================================================================
+CafeFlow System Update & Security Audit - November 05, 2026
+Permanent Removal of Public Registration, Secure Account Provisioning,
+RBAC Enforcement, Full Application Logic Audit & Regression Test Report
+================================================================================
+
+SUMMARY OF IMPLEMENTATION:
+This update permanently disables and eliminates public self-registration from both
+the client-side user interface and the backend API architecture. CafeFlow is now
+strictly configured as an enterprise closed-system POS application where account
+provisioning is restricted exclusively to authenticated Managers via the in-app
+Account Management module or authorized system administrators via a secure CLI tool.
+A comprehensive 54-suite automated security, logic, and regression audit was
+executed with a 100% pass rate.
+
+--------------------------------------------------------------------------------
+1. PERMANENT REMOVAL OF PUBLIC REGISTRATION
+--------------------------------------------------------------------------------
+- Frontend Modifications (`login.php`):
+  * Removed the "Create Account" tab completely from the header navigation.
+  * Removed the "Don't have an account? Create an Account" switch link from the footer.
+  * Removed all public registration HTML elements (`<form id="registerForm">`),
+    including full name, username, email, role dropdown, password, and confirmation fields.
+  * Stripped all client-side JavaScript registration handlers, validation loops,
+    and tab switching logic.
+  * Redesigned the card header into a clean, dedicated "Sign In" layout with
+    "Authorized personnel only · Managed POS system" branding notes.
+  * Added 15-Second Auto-Dismissal Timer for Signed-Out & System Alert Banners:
+    - Alerts smoothly fade out after 15 seconds via CSS transitions and are removed from the DOM.
+    - Added an instant manual dismissal button (`&times;`).
+    - Uses `window.history.replaceState()` to clean `?logged_out=1` from the URL, preventing
+      the notification from re-appearing upon subsequent page refreshes.
+  * Maintained password visibility toggles (`👁️` / `🙈`) and CSRF defense tokens.
+
+- Backend API Hardening (`api/auth_api.php`):
+  * Permanently removed self-registration processing logic.
+  * Enforced server-side rejection for any incoming POST request specifying `action: 'register'`.
+    Direct API requests (via cURL, Postman, or forged fetch scripts) immediately
+    receive `HTTP 403 Forbidden` with the error message:
+    "Public account registration is permanently disabled. Employee accounts must be provisioned by an authorized Manager."
+  * Removed `action=check_setup` endpoint to prevent leaking system account counts
+    or database initialization states to unauthenticated visitors.
+
+--------------------------------------------------------------------------------
+2. AUTHORIZED ACCOUNT PROVISIONING SYSTEM
+--------------------------------------------------------------------------------
+- Manager In-App Account Administration (`api/accounts_api.php`):
+  * Strict Server-Side Authorization: Access is guarded by `require_role('manager')`.
+    Ordinary Baristas and unauthenticated visitors receive HTTP 403 / 401 respectively.
+  * Required CSRF Token: All mutating operations (create, update, toggle status, reset
+    password, delete) require a valid 256-bit session CSRF token.
+  * Input Validation: Server enforces length constraints, regex validation on usernames
+    (`^[a-zA-Z0-9_.-]{3,50}$`), email format verification, and minimum password lengths.
+  * Password Security: Plaintext passwords are never stored; hashing uses native
+    BCRYPT via `password_hash($pass, PASSWORD_DEFAULT)` with cost factor 12.
+  * Self-Protection Rules:
+    - A Manager cannot alter their own role to Barista (`403 Forbidden`).
+    - A Manager cannot deactivate or suspend their own account (`403 Forbidden`).
+    - A Manager cannot delete their own account (`403 Forbidden`).
+    - The system strictly prohibits deactivating or deleting the last active Manager (`422`).
+  * Account Deletion Action: Added a safe `delete` action that unlinks historical
+    transactions (`cashier_user_id = NULL`) to preserve financial audit logs before
+    removing employee records.
+
+- Offline CLI Account Provisioning Script (`tools/provision_user.php`):
+  * Created a dedicated, administrator-only command-line utility for out-of-band account
+    creation and disaster recovery.
+  * Supports parameterized execution:
+    `php tools/provision_user.php --username=<user> --role=<barista|manager> --password=<pass> --name="<Name>" [--email=<email>] [--status=<active|inactive>]`
+  * Supports interactive prompt mode:
+    `php tools/provision_user.php --interactive`
+  * Strictly restricts execution to `php_sapi_name() === 'cli'`, blocking any HTTP/web invocation.
+
+--------------------------------------------------------------------------------
+3. AUTHENTICATION & SESSION MANAGEMENT AUDIT
+--------------------------------------------------------------------------------
+- Credentials Verification:
+  * Username and email sign-ins validated against `users` table.
+  * Incorrect passwords and non-existent usernames return generic "Invalid username/email or password"
+    errors to prevent account enumeration.
+  * SQL injection (`' OR '1'='1' --`) and XSS payloads are neutralized via PDO prepared statements.
+  * Fuzz testing with 10,000-character inputs handled safely without server errors or memory exhaustion.
+- Session Hardening:
+  * `session_regenerate_id(true)` executed upon authentication to prevent session fixation.
+  * Cookies configured with `HttpOnly = true`, `SameSite = 'Lax'`, and `Secure = true` (over HTTPS).
+  * Logout completely wipes `$_SESSION = []`, clears session cookies with past expiration timestamps,
+    and invokes `session_destroy()`.
+  * Real-Time Session Invalidation: If an account status is updated to `inactive` or deleted in the DB,
+    `current_user()` immediately detects the change on the subsequent request and terminates the session.
+
+--------------------------------------------------------------------------------
+4. ROLE-BASED ACCESS CONTROL (RBAC) MATRIX AUDIT
+--------------------------------------------------------------------------------
+The complete matrix of endpoints was tested against Unauthenticated, Barista, and Manager contexts:
+
++----------------------------+--------+------------------+------------------+------------------+
+| API / Route                | Method | Unauthenticated  | Barista Role     | Manager Role     |
++----------------------------+--------+------------------+------------------+------------------+
+| `login.php`                | GET    | 200 (Form)       | Redirect (POS)   | Redirect (POS)   |
+| `index.php`                | GET    | 302 (-> login)   | 200 (POS View)   | 200 (Mgr Portal) |
+| `api/auth_api.php?action=me`| GET   | 200 (auth=false) | 200 (role=barista)| 200 (role=manager)|
+| `api/auth_api.php (reg)`   | POST   | 403 Forbidden    | 403 Forbidden    | 403 Forbidden    |
+| `api/fetch_menu.php`       | GET    | 401 Unauthorized | 200 OK           | 403 Forbidden    |
+| `api/fetch_queue.php`      | GET    | 401 Unauthorized | 200 OK           | 403 Forbidden    |
+| `api/checkout.php`         | POST   | 401 Unauthorized | 200 OK           | 403 Forbidden    |
+| `api/complete_order.php`   | POST   | 401 Unauthorized | 200 OK           | 403 Forbidden    |
+| `api/products_api.php`     | GET/POST 401 Unauthorized| 200 OK           | 403 Forbidden    |
+| `api/inventory_api.php`    | GET/POST 401 Unauthorized| 200 OK           | 200 OK           |
+| `api/report.php`           | GET    | 401 Unauthorized | 200 OK           | 200 OK           |
+| `api/export_excel.php`     | GET    | 401 Unauthorized | 200 OK           | 200 OK           |
+| `api/transactions_api.php` | GET    | 401 Unauthorized | 200 OK           | 200 OK           |
+| `api/accounts_api.php`     | GET/POST 401 Unauthorized| 403 Forbidden    | 200 OK           |
++----------------------------+--------+------------------+------------------+------------------+
+
+--------------------------------------------------------------------------------
+5. APPLICATION MODULE LOGIC AUDIT
+--------------------------------------------------------------------------------
+- Point of Sale & Checkout (`api/checkout.php`):
+  * Rejects negative and zero quantities with HTTP 422.
+  * Rejects unsupported payment methods (only 'Cash' and 'GCash' accepted).
+  * Automatically records cashier identification (`cashier_user_id`) linking the logged-in Barista.
+  * Calculates subtotal, tax, change due, and total in integer centavos to prevent rounding errors.
+
+- Inventory Deduction & Recipe Engine (`api/complete_order.php`):
+  * Implements `SELECT ... FOR UPDATE` row locks to prevent race conditions during simultaneous orders.
+  * Accurately aggregates consumption of raw items (16oz cups, 22oz cups, lids, straws, milk, syrups).
+  * Evaluates stock sufficiency prior to applying deductions; returns clear HTTP 422 error if short.
+  * Rejects double completion attempts with HTTP 409 Conflict.
+
+- Reports & Data Export (`api/report.php`, `api/export_excel.php`):
+  * Strictly parses date formats (`YYYY-MM-DD` and `YYYY-MM`) with regex and `DateTimeImmutable`.
+  * Generates clean XML-based `.xlsx` spreadsheets for historical records.
+
+--------------------------------------------------------------------------------
+6. AUTOMATED TEST SUITE EXECUTION RESULTS
+--------------------------------------------------------------------------------
+A dedicated regression runner (`scratch/full_system_security_regression_audit.php`) was executed:
+- Total Test Suites: 54
+- Passed Test Suites: 54
+- Failed Test Suites: 0
+- Success Rate: 100.0%
+- Stress Testing: 50 sequential rapid login/logout operations executed across roles with zero state leakage.
+- Database Integrity: All test-generated entities were automatically purged; only legitimate accounts remain.
+
+Active Legitimate Accounts in System:
+1. `barista`   (DK Cafe Barista, Active, Role: Barista)
+2. `manager`   (Manager, Active, Role: Manager)
+3. `tan_smsn`  (Tristan Alcaraz, Active, Role: Barista)
+
+--------------------------------------------------------------------------------
+7. PRODUCT IMAGE STORAGE UNIFICATION
+--------------------------------------------------------------------------------
+- Consolidated Image Directories:
+  * Resolved historical directory separation between `product images/` and `uploads/products/`.
+  * The legacy `product images/` directory was originally created during early development
+    with category subdirectories (Coffee, Croffle, Milk Tea, etc.) and contained a single
+    sample vector graphic.
+  * When the dynamic product image upload architecture was built, `uploads/products/`
+    became the authoritative active storage directory referenced by all database records
+    and `api/products_api.php`.
+  * Moved the legacy croffle vector image into `uploads/products/`.
+  * Removed the empty and redundant `product images/` folder and its empty subfolders.
+  * All 41 menu product photographs and assets are now unified under `uploads/products/`.
+  * Updated `README.md` directory tree to reflect the single consolidated image location.
+================================================================================

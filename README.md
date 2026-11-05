@@ -114,18 +114,9 @@ cafeflow_v5-1/
 │   ├── ADDED_FEATURES.txt         # Initial features changelog
 │   ├── ADDED_FEATURES_RAW_INVENTORY_LINK.txt # Raw inventory mapping documentation
 │   └── CHANGES_2026-10-26.txt     # Technical changes log
-├── product images/                # Menu Product Images Organized by Category
-│   ├── Coffee/                    # Coffee beverage product images
-│   ├── Non-Coffee/                # Non-coffee beverage product images
-│   ├── Milk Tea/                  # Milk tea beverage product images
-│   ├── Fruit Tea - Lemonade/      # Fruit tea and lemonade product images
-│   ├── Croffle/                   # Croffle pastry product images
-│   ├── Sandwich/                  # Sandwich product images
-│   ├── Pastry/                    # Bakery & pastry product images
-│   └── Snacks/                    # Cafe snacks product images
 ├── ref_materials/                 # Official DK Cafe Menu & Inventory Reference Sheets
-├── uploads/                       # User-Uploaded Media
-│   └── products/                  # Dynamically uploaded product thumbnails
+├── uploads/                       # Product Imagery & Uploads
+│   └── products/                  # Consolidated product photography & menu image assets
 ├── index.php                      # Application Entry Point & Single-Screen Interface
 └── README.md                      # Comprehensive System Guide & Documentation
 ```
@@ -337,12 +328,16 @@ CafeFlow enforces strict role-based access control across all frontend UI module
 | **Manager** | `manager` | `manager123` | **Manager Dashboard** | **Full Inventory Management**, **Sales Reports** (Historical analysis & export), **Account Management** (Create, approve pending users, activate/deactivate, role assignment). Strictly blocked from POS & Products. |
 | **Active Barista** | `tan_smsn` | `alcaraz030303` | **POS** (`index.php`) | Barista operations (Tristan Alcaraz). |
 
-### Account Registration & Approval Workflow
-1. **Self-Registration**: New staff members register via the **Create Account** tab on the login screen (`login.php`).
-2. **Pending Approval**: Newly registered accounts default to `status = 'pending'`. The system prevents sign-in with the alert:
-   > *"✕ Your account registration is currently pending approval by a Manager."*
-3. **Manager Authorization**: A Manager logs in, navigates to **Account Management** -> **Pending Approval** tab, and approves or activates the staff account.
-4. **Immediate Access**: Once activated, the user can immediately sign in with their registered credentials and access the modules granted to their role.
+### Authorized Account Provisioning (No Public Registration)
+Public self-registration is permanently disabled. CafeFlow operates strictly as an enterprise, closed-system POS where accounts are provisioned exclusively through authorized channels:
+1. **In-App Manager Provisioning**: An authenticated Manager signs in (`manager` / `manager123`), opens the **Profile Menu** -> **Account Management**, clicks **"+ Add Employee"**, and provisions new Barista or Manager credentials with immediate active status.
+2. **CLI Account Provisioning Tool**: Authorized system administrators can provision or reset accounts out-of-band using the secure CLI utility:
+   ```bash
+   php tools/provision_user.php --username=new_user --role=barista --password=secret123 --name="New Employee"
+   # Or run interactively:
+   php tools/provision_user.php --interactive
+   ```
+3. **Backend Restriction**: All unauthorized registration attempts via direct API calls (`action=register`) or forged HTTP requests are strictly rejected with `HTTP 403 Forbidden`.
 
 ---
 

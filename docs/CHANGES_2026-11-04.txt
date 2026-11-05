@@ -1,0 +1,136 @@
+================================================================================
+CafeFlow System Update - November 04, 2026
+Commits: 5c6f118 (synxxx-ctrl) & a42793a (Krizpydonut)
+Chart.js Integration, Category Breakdown Analytics, Interactive Chart Selector,
+Dynamic Donut Canvas Plugin, Manager Dashboard KPIs & Z-Index Layering
+================================================================================
+
+SUMMARY OF IMPLEMENTATION:
+November 4, 2026 introduced the complete graphical reporting and analytics suite
+to CafeFlow across two complementary commits:
+1. Commit 5c6f118 (synxxx-ctrl): Integrated the local, offline-capable Chart.js
+   engine (`assets/js/vendor/chart.umd.min.js`), expanded `api/report.php` to compute
+   product category breakdowns, and embedded the initial charts into the Manager
+   Dashboard and Sales Report modal.
+2. Commit a42793a (Krizpydonut): Enhanced the user experience by adding an
+   interactive 4-tab chart selector (`trend`, `products`, `payment`, `all`), building a
+   dynamic HTML5 canvas donut center plugin with real-time hover calculations, color-coding
+   payment methods (Cash vs. GCash), resolving Chart.js canvas memory leaks, and fixing
+   z-index layering across toasts, topbar, and profile menus.
+
+--------------------------------------------------------------------------------
+1. LOCAL CHART.JS INTEGRATION & OFFLINE RELIABILITY (Commit 5c6f118)
+--------------------------------------------------------------------------------
+- Zero External CDN Dependencies:
+  * Bundled complete, production-minified Universal Module Definition (UMD) Chart.js library:
+    `assets/js/vendor/chart.umd.min.js` (230KB).
+  * Injected directly before `script.js` in `index.php`.
+  * Guarantees 100% offline reporting operation on cafe POS tablets without internet access.
+
+- Category Breakdown Backend Aggregation (`api/report.php`):
+  * Added SQL aggregation query grouping sales by product category across all report timeframes:
+    ```sql
+    SELECT COALESCE(p.category, 'Other') AS category,
+           SUM(ti.quantity) AS qty,
+           COALESCE(SUM(ti.unit_price * ti.quantity), 0) AS revenue
+      FROM transaction_items ti
+      JOIN transactions t ON t.transaction_id = ti.transaction_id
+      LEFT JOIN menu_products p ON p.product_id = ti.product_id
+     WHERE t.`timestamp` >= :start AND t.`timestamp` < :end
+     GROUP BY category
+     ORDER BY revenue DESC
+    ```
+  * Returned in the JSON response under `by_category`, containing `category`, `qty`, and `revenue`.
+
+--------------------------------------------------------------------------------
+2. SALES REPORT INTERACTIVE CHART SELECTOR TABS (Commit a42793a)
+--------------------------------------------------------------------------------
+- Interactive Chart View Switcher:
+  * Replaced static stacked charts with a modular tabbed selector in the Sales Report:
+    - 📈 "Sales Trend" (`trend`): Renders the primary hourly/daily revenue trend line chart.
+    - 🏆 "Top Products" (`products`): Renders the horizontal bar chart showing top-selling items.
+    - 💳 "Payment Breakdown" (`payment`): Renders the high-visibility payment distribution donut.
+    - ⊞ "Compare All" (`all`): Renders a 3-panel executive overview grid comparing all metrics simultaneously.
+  * Active Tab Persistence:
+    - Maintained active view state in `_activeChartTab` across date range switches.
+  * Lazy Chart Rendering:
+    - Mini charts within the "Compare All" grid are constructed lazily on-demand (`_chartBuilt` flag),
+      reducing DOM thrashing and speeding up modal display.
+
+--------------------------------------------------------------------------------
+3. ENHANCED DONUT CHART & DYNAMIC CANVAS HOVER PLUGIN (Commit a42793a)
+--------------------------------------------------------------------------------
+- Dynamic Center Text Plugin (`donutCenterDynamicText`):
+  * Draws revenue totals and category descriptions directly onto the HTML5 Canvas
+    inside the donut hole, eliminating fragile absolute-positioned HTML overlays.
+  * Responsive Typography:
+    - Center font sizes (`amountSize` and `subSize`) dynamically scale based on the
+      arc's `innerRadius` and viewport dimensions.
+  * Interactive Hover State:
+    - Hovering over a slice dynamically updates the center text with that slice's
+      exact formatted revenue (e.g., `₱1,250`) and percentage share (e.g., `GCASH (62%)`).
+    - Moving the mouse away immediately restores the default `TOTAL SALES` display.
+
+- Brand-Aligned Payment Color Palette:
+  * **Cash**: Rendered in CafeFlow Forest Green (`#2a9b52`).
+  * **GCash**: Rendered in official digital wallet blue (`#007DFE`).
+  * Seamless fallback palette for additional payment methods.
+
+--------------------------------------------------------------------------------
+4. CHART LIFECYCLE & MEMORY LEAK PREVENTION (Commit a42793a)
+--------------------------------------------------------------------------------
+- Safe Teardown Before Recreation:
+  * Resolved the "Canvas is already in use" Chart.js runtime exception.
+  * Added global tracking and explicit destruction handlers for all active charts:
+    - `_reportLineChart`
+    - `_reportBarChart`
+    - `_reportDonutChart`
+    - `_reportAllLineChart`
+    - `_reportAllBarChart`
+    - `_reportAllDonutChart`
+    - `_mgrLineChart`
+    - `_mgrBarChart`
+  * Centralized `destroyChart(ref)` utility safely unwinds event listeners and
+    destroys previous chart instances prior to rendering new datasets.
+
+--------------------------------------------------------------------------------
+5. MANAGER DASHBOARD ANALYTICS & QUICK METRICS (Commits 5c6f118 & a42793a)
+--------------------------------------------------------------------------------
+- Live KPI Metric Cards:
+  * **Raw Supplies Inventory** (`#mgrCardSupplyCount`): Displays total stock items
+    with real-time low-stock alert counts (e.g., `18 items (2 low)`).
+  * **Today's Sales Revenue** (`#mgrCardSalesToday`): Real-time daily gross sales
+    formatted in Philippine Pesos (`money(totalSales)`).
+  * **Account Administration** (`#mgrCardUserCount`): Live count of registered
+    employee accounts in the directory.
+- Dashboard Trend Visualizations:
+  * Integrated hourly sales trend curve and top product rankings directly into the
+    Manager Workspace landing page.
+
+--------------------------------------------------------------------------------
+6. CSS & Z-INDEX LAYERING HARDENING (Commit a42793a)
+--------------------------------------------------------------------------------
+- Topbar Layering (`assets/css/topbar.css`):
+  * Raised `.topbar` `z-index` from `10` to `100`, ensuring top navigation buttons,
+    time display, and brand emblems remain interactive above background canvas elements.
+
+- System Toast Alerts (`assets/css/base.css`):
+  * Raised `.toast` `z-index` from `50` to `1500`, guaranteeing notifications and
+    error alerts display above modals, sheets, and backdrops.
+
+- Profile Menu Dropdown (`assets/css/auth.css`):
+  * Assigned `z-index: 10;` to `.user-profile-wrap` to ensure the user profile card
+    and sign-out controls reliably overlay report headers and table elements.
+
+- Donut Canvas Sizing & Overflow Protection (`assets/css/reports.css`):
+  * Constrained `.chart-panel.chart-donut .donut-wrap` to `width: min(440px, 100%); height: 280px;`,
+    preventing chart canvas stretching on wide displays.
+  * Added `.chart-panels-all-grid[hidden] { display: none !important; }` to prevent
+    hidden multi-grid elements from capturing pointer events.
+  * Standardized 3-panel mini donut dimensions (`min(360px, 100%)` x `200px`).
+
+================================================================================
+COMMITS INCORPORATED:
+- `5c6f118` (2026-11-04): sales report ( charts ) [synxxx-ctrl]
+- `a42793a` (2026-11-04): Fixed sales report issue and added new features to the dashboard. [Krizpydonut]
+================================================================================

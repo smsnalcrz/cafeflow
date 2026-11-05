@@ -1,0 +1,71 @@
+================================================================================
+CafeFlow System Update - October 29, 2026
+Commit: 2668470 | Author: smsnalcrz
+Database Schema Architecture, Cup-Size Pricing Table & Complete Recipe Mapping
+================================================================================
+
+SUMMARY OF CHANGES:
+This release establishes the modern relational schema architecture for CafeFlow
+in `database/schema.sql`. It introduces dedicated tables for cup-size-specific
+pricing (`product_size_prices`) and multi-ingredient consumption mapping
+(`product_ingredients`), while expanding the inventory and recipe catalogs with
+complete reference seed data for 45 menu items and 60+ raw supplies.
+
+--------------------------------------------------------------------------------
+1. DATABASE SCHEMA REFACTORING (`database/schema.sql`)
+--------------------------------------------------------------------------------
+- Idempotent Database Initialization:
+  * Upgraded database creation and table definitions with `IF NOT EXISTS` and
+    `INSERT IGNORE` clauses, allowing safe re-execution without overwriting existing data.
+  * Standardized all tables to `ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`.
+
+- Menu Products Enhancements (`menu_products`):
+  * Added column `has_sizes TINYINT(1) NOT NULL DEFAULT 1` to distinguish multi-sized
+    beverages from fixed-price food items.
+  * Added columns `price_12oz`, `price_16oz`, and `price_22oz` (`DECIMAL(8,2) NULL`)
+    for quick reference sizing.
+  * Standardized `stock_quantity` and `deduction_amount` to `DECIMAL(10,2)`.
+
+- Cup Size Specific Pricing (`product_size_prices`):
+  * Added new table to store flexible cup size pricing variations:
+    - `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    - `product_id` INT UNSIGNED NOT NULL
+    - `size_code` VARCHAR(30) NOT NULL (e.g., '12oz', '16oz', '22oz')
+    - `size_label` VARCHAR(50) NOT NULL (e.g., '12oz Hot', '16oz Cold')
+    - `size_oz` INT UNSIGNED NOT NULL DEFAULT 16
+    - `price` DECIMAL(8,2) NOT NULL
+    - `UNIQUE KEY uq_prod_size (product_id, size_code)`
+    - Foreign key references `menu_products(product_id)` ON DELETE CASCADE.
+
+- Multi-Ingredient Recipe Engine Linkage (`product_ingredients`):
+  * Added new table to connect menu products to multiple raw supplies and packaging:
+    - `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY
+    - `product_id` INT UNSIGNED NOT NULL
+    - `item_id` INT UNSIGNED NOT NULL
+    - `deduction_amount` DECIMAL(10,2) NOT NULL DEFAULT 1.00
+    - `UNIQUE KEY uq_prod_item (product_id, item_id)`
+    - Foreign keys to `menu_products(product_id)` and `inventory(item_id)` ON DELETE CASCADE.
+
+--------------------------------------------------------------------------------
+2. COMPREHENSIVE RECIPE & INVENTORY SEED DATA
+--------------------------------------------------------------------------------
+- 60+ Raw Supplies and Packaging Items:
+  * Cups & Lids: 12oz Hot cup & lid (item 23), 16oz cup (18), 22oz cup (19), Flat lid (20).
+  * Straws: Bendable straw (16), Boba straw (17).
+  * Dairy & Bases: Espresso shot / beans (13508), Full Cream Milk (61), Condensed Milk (4).
+  * Syrups & Sauces: Caramel syrup (6), Vanilla syrup (8), Hazelnut syrup (9),
+    Chocolate sauce (10), Salted Caramel (12), Biscoff spread (14), Nutella (15).
+  * Bakery & Kitchen: Butter Croissant dough (21), French Fries (22), Bacon (53),
+    Egg (55), Bread (50), Sliced Cheese (58), Mayonnaise (57).
+
+- 254 Recipe & Packaging Linkages:
+  * Fully mapped consumption for all 45 products sold at DK Cafe.
+  * Each beverage sale automatically links consumption of the corresponding cup, lid,
+    straw, milk amount, and flavored syrup.
+  * Food items automatically deduct pre-portioned raw ingredients (e.g., French Fries
+    deduct 150g fries, Croffles deduct 1pc croissant dough).
+
+================================================================================
+FILES MODIFIED IN COMMIT 2668470:
+- `database/schema.sql` (158 insertions, 48 deletions)
+================================================================================

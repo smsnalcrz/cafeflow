@@ -331,4 +331,50 @@ if ($action === 'reset_password') {
     ]);
 }
 
+// -----------------------------------------------------------------------------
+// 5. Action: Delete Account (Manager Authorization Required)
+// -----------------------------------------------------------------------------
+if ($action === 'delete') {
+    $targetId = as_int($data['user_id'] ?? null, 1, 4294967295);
+    if ($targetId === null) {
+        fail(422, 'Invalid user ID.');
+    }
+
+    $stmt = $pdo->prepare('SELECT user_id, username, role, status FROM users WHERE user_id = ?');
+    $stmt->execute([$targetId]);
+    $target = $stmt->fetch();
+    if (!$target) {
+        fail(404, 'User account not found.');
+    }
+
+    // Manager self-deletion guard
+    if ($targetId === $currentUserId) {
+        fail(403, 'Security Rule: You cannot delete your own Manager account.');
+    }
+
+    // Last active manager protection
+    if ($target['role'] === 'manager') {
+        $activeManagers = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'manager' AND status = 'active'")->fetchColumn();
+        if ($activeManagers <= 1) {
+            fail(422, 'Security Rule: Cannot delete the last active Manager account.');
+        }
+    }
+
+    // Unlink transaction history references to preserve audit records
+    try {
+        $unlink = $pdo->prepare('UPDATE transactions SET cashier_user_id = NULL WHERE cashier_user_id = ?');
+        $unlink->execute([$targetId]);
+    } catch (Throwable $e) {
+        // Continue
+    }
+
+    $delStmt = $pdo->prepare('DELETE FROM users WHERE user_id = ?');
+    $delStmt->execute([$targetId]);
+
+    send_json([
+        'success' => true,
+        'message' => "Account '{$target['username']}' deleted successfully."
+    ]);
+}
+
 fail(400, 'Unknown account management action.');
