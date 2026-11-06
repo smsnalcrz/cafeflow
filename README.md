@@ -68,7 +68,7 @@ Built with vanilla PHP 8, modern JavaScript (ES6+), and MySQL/MariaDB, it runs e
 - **Overview Metrics**: Total gross revenue, completed orders count, average order value, and cash vs. GCash breakdown.
 - **Top-Selling Products**: Ranking of top beverage and food items by volume and revenue generated.
 - **Date Range Filters**: Filter sales reports by Today, Yesterday, This Week, This Month, or custom date ranges.
-- **Excel / CSV Export**: Download detailed `.csv` files formatted for Microsoft Excel, itemizing cup sizes, unit prices, and payment methods.
+- **Excel (.xlsx) Export**: Download detailed `.csv` files formatted for Microsoft Excel, itemizing cup sizes, unit prices, and payment methods.
 
 ### 9. Co-Branded Dual Logo Lockup (CafeFlow & DK Cafe)
 - **Header Lockup**: Features a co-branded header lockup pairing the circular **CafeFlow** vector emblem on the left with the official **DK Cafe** logo on the right, joined by a sleek `CAFEFLOW & DK CAFE` pill badge matching professional corporate lockup guidelines.
@@ -87,7 +87,7 @@ cafeflow_v5-1/
 ├── api/                           # Backend REST API Endpoints
 │   ├── checkout.php               # Validates cart, verifies raw inventory, creates orders
 │   ├── complete_order.php         # Completes orders & atomically deducts raw ingredients
-│   ├── export_excel.php           # Streams downloadable Excel (.xlsx/.csv) reports
+│   ├── export_excel.php           # Streams downloadable Excel (.xlsx) reports
 │   ├── fetch_menu.php             # Serves menu cards with size pricing & stock status
 │   ├── fetch_queue.php            # Serves pending barista queue items & alerts
 │   ├── inventory_api.php          # Raw supplies CRUD, stock counts, restock actions

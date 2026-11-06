@@ -1471,30 +1471,15 @@
 
 
     const summaryBox = $('#cartDiscountSummary');
-
     if (summaryBox) {
-
       if (calc.discType !== 'none') {
-
         summaryBox.hidden = false;
-
         $('#cartSubtotalDisplay').textContent = money(calc.gross);
-
         $('#cartDiscountDisplay').textContent = '-' + money(calc.discount);
-
-        $('#cartTaxDisplay').textContent = money(calc.tax);
-
-        $('#cartTaxLabel').textContent = (calc.discType === 'senior_pwd') ? 'VAT (Exempt):' : '12% VAT:';
-
       } else {
-
         summaryBox.hidden = true;
-
       }
-
     }
-
-
 
     $('#cartTotal').textContent = money(calc.payable);
 
@@ -1537,35 +1522,18 @@
 
 
     if (discType === 'senior_pwd') {
-
-      const vatExempt = Math.round((gross / 1.12) * 100) / 100;
-
-      discount = Math.round((vatExempt * 0.20) * 100) / 100;
-
+      discount = Math.round((gross * 0.20) * 100) / 100;
       tax = 0.00;
-
-      payable = Math.round((vatExempt - discount) * 100) / 100;
-
+      payable = Math.round((gross - discount) * 100) / 100;
     } else if (discType === 'custom_percent') {
-
       const rate = parseFloat($('#cartDiscountRate')?.value) || 0;
-
       discount = Math.round((gross * (rate / 100)) * 100) / 100;
-
-      const base = Math.max(0, gross - discount);
-
-      tax = Math.round((base - (base / 1.12)) * 100) / 100;
-
-      payable = base;
-
+      tax = 0.00;
+      payable = Math.max(0, Math.round((gross - discount) * 100) / 100);
     } else {
-
-      discount = 0;
-
-      tax = Math.round((gross - (gross / 1.12)) * 100) / 100;
-
+      discount = 0.00;
+      tax = 0.00;
       payable = gross;
-
     }
 
 
@@ -5910,16 +5878,22 @@
 
 
 
+    const isMultiDayRange = Boolean(r && r.start_date && r.end_date && r.start_date !== r.end_date);
+    let txUrl = 'transactions_api.php';
+    if (isMultiDayRange) {
+      txUrl += `?start=${encodeURIComponent(r.start_date)}&end=${encodeURIComponent(r.end_date)}`;
+    } else if (r && r.start_date) {
+      txUrl += `?date=${encodeURIComponent(r.start_date)}`;
+    } else if (r && r.range) {
+      txUrl += `?range=${encodeURIComponent(r.range)}`;
+    }
+
     try {
-
-      const txData = await api(`transactions_api.php?date=${encodeURIComponent(r.start_date)}`);
-
+      const txData = await api(txUrl);
       renderTransactionRecords(txSection, txData, r);
-
     } catch (_) {
-
+      txSection.textContent = '';
       txSection.append(h('p', { class: 'muted', text: 'Could not load individual transaction records.' }));
-
     }
 
   }
@@ -5933,123 +5907,203 @@
    * ------------------------------------------------------------------ */
 
   function renderTransactionRecords(container, txData, r) {
-
     container.textContent = '';
-
     const records = txData.transactions || [];
+    const isMultiDay = r && r.start_date && r.end_date && r.start_date !== r.end_date;
 
-
-
+    const headTitle = h('h3', { text: `📋 Transaction History (${records.length} order${records.length === 1 ? '' : 's'})` });
     const head = h('div', { class: 'tx-section-head' },
-
-      h('h3', { text: `📋 Transaction History (${records.length} order${records.length === 1 ? '' : 's'})` }),
-
-      h('button', {
-
-        type: 'button',
-
-        class: 'btn small primary',
-
-        text: '📥 Export to Excel (.xlsx)',
-
-        onclick: () => exportTransactions(r.start_date, r.end_date)
-
-      })
-
+      headTitle,
+      h('div', { style: 'display: flex; gap: 8px;' },
+        h('button', {
+          type: 'button',
+          class: 'btn small primary',
+          text: '📥 Export Excel (.xlsx)',
+          title: 'Export executive multi-sheet presentation report to Excel (.xlsx)',
+          onclick: () => exportTransactions(r.start_date, r.end_date)
+        })
+      )
     );
-
     container.append(head);
 
-
-
     if (!records.length) {
-
-      container.append(h('p', { class: 'report-empty', text: 'No transaction records found for this date.' }));
-
+      const periodDesc = isMultiDay ? 'this period' : 'this date';
+      container.append(h('p', {
+        class: 'report-empty',
+        text: `No transaction records found for ${periodDesc}.`
+      }));
       return;
-
     }
 
+    // Filter toolbar (Search input + Filter count badge)
+    let currentQuery = '';
+    const filterBadge = h('span', { class: 'tx-filter-meta', text: `${records.length} order${records.length === 1 ? '' : 's'} total` });
 
+    const searchInput = h('input', {
+      type: 'text',
+      class: 'tx-search-input',
+      placeholder: '🔍 Search receipt #, item, payment, status, reference...',
+      value: '',
+      autocomplete: 'off',
+      'aria-label': 'Search transaction history'
+    });
 
-    const table = h('table', { class: 'tx-table' },
+    const clearBtn = h('button', {
+      type: 'button',
+      class: 'tx-search-clear',
+      text: '✕',
+      title: 'Clear search',
+      onclick: () => {
+        searchInput.value = '';
+        currentQuery = '';
+        clearBtn.hidden = true;
+        applyFilter('');
+        searchInput.focus();
+      }
+    });
+    clearBtn.hidden = true;
 
-      h('thead', {}, h('tr', {},
+    searchInput.addEventListener('input', e => {
+      currentQuery = e.target.value.trim().toLowerCase();
+      clearBtn.hidden = !currentQuery;
+      applyFilter(currentQuery);
+    });
 
-        h('th', { text: 'Receipt #' }),
+    searchInput.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        searchInput.value = '';
+        currentQuery = '';
+        clearBtn.hidden = true;
+        applyFilter('');
+      }
+    });
 
-        h('th', { text: 'Time' }),
-
-        h('th', { text: 'Items Ordered' }),
-
-        h('th', { text: 'Payment' }),
-
-        h('th', { text: 'Status' }),
-
-        h('th', { class: 'num', text: 'Total' }),
-
-        h('th', { class: 'act', text: 'Receipt' })
-
-      )),
-
-      h('tbody', {},
-
-        records.map(tx => {
-
-          const statusClass = tx.status.toLowerCase();
-
-          return h('tr', {},
-
-            h('td', { class: 'tx-no', text: tx.receipt_no }),
-
-            h('td', { text: tx.formatted_time }),
-
-            h('td', { class: 'tx-items-summary', title: tx.items_summary, text: tx.items_summary || 'No items' }),
-
-            h('td', {}, h('span', { class: 'pill-pay ' + tx.payment_method.toLowerCase(), text: tx.payment_method })),
-
-            h('td', {}, h('span', { class: 'status-tag ' + statusClass, text: tx.status })),
-
-            h('td', { class: 'num', style: 'font-weight:700;', text: money(tx.total_amount) }),
-
-            h('td', { class: 'act' },
-
-              h('button', {
-
-                type: 'button',
-
-                class: 'tx-view-btn',
-
-                text: '🧾 View Receipt',
-
-                onclick: () => viewReceipt(tx.transaction_id)
-
-              })
-
-            )
-
-          );
-
-        })
-
-      )
-
+    const searchBox = h('div', { class: 'tx-search-box' },
+      h('span', { class: 'tx-search-icon', text: '🔍' }),
+      searchInput,
+      clearBtn
     );
 
+    const toolbar = h('div', { class: 'tx-toolbar' },
+      searchBox,
+      filterBadge
+    );
+    container.append(toolbar);
 
+    // Scrollable Table Container
+    const tableContainer = h('div', { class: 'tx-table-container' });
 
-    container.append(table);
+    const tbody = h('tbody');
+    const table = h('table', { class: 'tx-table' },
+      h('thead', {}, h('tr', {},
+        h('th', { text: 'Receipt #' }),
+        h('th', { text: isMultiDay ? 'Date & Time' : 'Time' }),
+        h('th', { text: 'Items Ordered' }),
+        h('th', { text: 'Payment' }),
+        h('th', { text: 'Status' }),
+        h('th', { class: 'num', text: 'Total' }),
+        h('th', { class: 'act', text: 'Receipt' })
+      )),
+      tbody
+    );
+    tableContainer.append(table);
 
+    // No Results Message
+    const noResults = h('div', { class: 'tx-no-results' });
+    noResults.hidden = true;
+    tableContainer.append(noResults);
+
+    container.append(tableContainer);
+
+    function renderRow(tx) {
+      const statusClass = tx.status.toLowerCase();
+      const displayTime = isMultiDay ? (tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time}`.trim()) : tx.formatted_time;
+      return h('tr', {},
+        h('td', { class: 'tx-no', text: tx.receipt_no }),
+        h('td', { text: displayTime, style: isMultiDay ? 'white-space: nowrap;' : '' }),
+        h('td', { class: 'tx-items-summary', title: tx.items_summary, text: tx.items_summary || 'No items' }),
+        h('td', {}, h('span', { class: 'pill-pay ' + tx.payment_method.toLowerCase(), text: tx.payment_method })),
+        h('td', {}, h('span', { class: 'status-tag ' + statusClass, text: tx.status })),
+        h('td', { class: 'num', style: 'font-weight:700;', text: money(tx.total_amount) }),
+        h('td', { class: 'act' },
+          h('button', {
+            type: 'button',
+            class: 'tx-view-btn',
+            text: '🧾 View Receipt',
+            onclick: () => viewReceipt(tx.transaction_id)
+          })
+        )
+      );
+    }
+
+    function applyFilter(q) {
+      const filtered = records.filter(tx => {
+        if (!q) return true;
+        const receiptNo = (tx.receipt_no || '').toLowerCase();
+        const txId = String(tx.transaction_id || '');
+        const items = (tx.items_summary || '').toLowerCase();
+        const pay = (tx.payment_method || '').toLowerCase();
+        const status = (tx.status || '').toLowerCase();
+        const ref = (tx.reference_number || '').toLowerCase();
+        const dt = (tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time}`).toLowerCase();
+        const total = String(tx.total_amount || '');
+
+        return receiptNo.includes(q) ||
+               txId.includes(q) ||
+               items.includes(q) ||
+               pay.includes(q) ||
+               status.includes(q) ||
+               ref.includes(q) ||
+               dt.includes(q) ||
+               total.includes(q);
+      });
+
+      tbody.textContent = '';
+      if (filtered.length > 0) {
+        table.hidden = false;
+        noResults.hidden = true;
+        filtered.forEach(tx => tbody.append(renderRow(tx)));
+      } else {
+        table.hidden = true;
+        noResults.textContent = '';
+        noResults.append(
+          h('p', {},
+            'No transactions matching "',
+            h('strong', { text: searchInput.value.trim() }),
+            '".'
+          ),
+          h('button', {
+            type: 'button',
+            class: 'tx-reset-link',
+            text: 'Clear search filter',
+            onclick: () => {
+              searchInput.value = '';
+              currentQuery = '';
+              clearBtn.hidden = true;
+              applyFilter('');
+              searchInput.focus();
+            }
+          })
+        );
+        noResults.hidden = false;
+      }
+
+      if (q) {
+        filterBadge.textContent = `Showing ${filtered.length} of ${records.length} order${records.length === 1 ? '' : 's'}`;
+        headTitle.textContent = `📋 Transaction History (${filtered.length} found)`;
+      } else {
+        filterBadge.textContent = `${records.length} order${records.length === 1 ? '' : 's'} total`;
+        headTitle.textContent = `📋 Transaction History (${records.length} order${records.length === 1 ? '' : 's'})`;
+      }
+    }
+
+    // Initial render
+    applyFilter('');
   }
 
-
-
   /* ------------------------------------------------------------------ *
-
    *  E-Receipt Modal
-
    * ------------------------------------------------------------------ */
-
   async function viewReceipt(transactionId) {
 
     try {
@@ -6179,14 +6233,6 @@
           h('strong', { text: '-' + money(receipt.discount) })
 
         ) : null,
-
-        h('div', { class: 'receipt-total-row' },
-
-          h('span', { text: '12% VAT (Included):' }),
-
-          h('strong', { text: money(receipt.total_amount * 0.12 / 1.12) })
-
-        ),
 
         h('div', { class: 'receipt-total-row grand' },
 
@@ -7564,19 +7610,7 @@
 
   }
 
-  const mobGcashBtn = $('#mobPayGcashBtn');
 
-  if (mobGcashBtn) {
-
-    mobGcashBtn.addEventListener('click', () => {
-
-      const total = Array.from(cart.values()).reduce((sum, l) => sum + lineCents(l), 0) / 100;
-
-      checkout('GCash', total);
-
-    });
-
-  }
 
 
 

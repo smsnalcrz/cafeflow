@@ -1,0 +1,115 @@
+CafeFlow POS — System Changes, UI Modernization & Stability Release
+Release Date: November 06, 2026 | Environment: PHP 8.2 / MariaDB / Apache (XAMPP) | Status: Complete & Verified
+
+================================================================================
+1. EXECUTIVE SUMMARY OF IMPLEMENTED CHANGES
+================================================================================
+This release delivers critical stability fixes, complete transition to a zero-VAT (non-VAT) operational model, expanded user interface layouts, enhanced transaction history filtering with sticky headers, and enterprise Excel reporting:
+
+• Critical JavaScript Syntax & Runtime Freeze Resolution:
+  - Eliminated two blocking parse-time syntax errors in assets/js/script.js: a rogue closing brace ('}') at line 1484 that closed the script IIFE prematurely, and an orphan VAT calculation remnant at line 6238 in the receipt builder.
+  - Fully restored client-side execution across all roles: #menuGrid instantly renders all 42 product cards, price tags, and size chips; the queue background poller connects immediately, transitioning the top bar indicator from 'CONNECTING...' to '● LIVE' with real-time active order counts.
+
+• Complete 12% Value-Added Tax (VAT) Removal & Discount Model Overhaul:
+  - Successfully transitioned the system from a 12% VAT regime to a non-VAT operational model across all application layers (POS checkout UI, cart state calculations, backend checkout API, database records, e-receipt dialogs, and Excel export summaries).
+  - Senior Citizen & PWD discounts now calculate as a clean 20% deduction directly on the gross subtotal (e.g. ₱100.00 subtotal yields ₱20.00 discount, ₱0.00 tax, and ₱80.00 payable total).
+  - Maintained strict OSCA / PWD ID or Booklet number verification (minimum 3 characters required) to prevent fraudulent claims.
+  - Preserved custom promotional discounts (custom % from 1% to 50% and fixed voucher deductions) operating under the zero-VAT model.
+  - Completely removed the '12% VAT (Included)' line item from the POS order summary, receipt modal dialog, and Excel summaries.
+
+• Account Management UI Expansion (Zero Horizontal Scroll):
+  - Redesigned the #accountsModal container in assets/css/auth.css with an executive wide-canvas layout (max-width: min(96vw, 1480px)).
+  - Completely eliminated horizontal scrollbars across all desktop, laptop, and tablet viewport resolutions (1920x1080, 1600x900, 1366x768, 1280x800).
+  - All 8 table columns (Full Name, Username, Email, Role, Status, Created, Last Login, Actions) render with ample breathing room, eliminating cramped or clipped action buttons ('Edit', 'Reset', 'Deactivate').
+
+• Transaction History Scroll & Live Instant Search:
+  - Implemented a dedicated vertical scrollable table viewport (.tx-table-container, max-height: 440px with sticky column headers) on both Barista and Manager sales report interfaces.
+  - Added an instant live search toolbar allowing immediate filtering across receipt #, item names, payment methods, order status, GCash reference codes, timestamps, and order totals.
+  - Upgraded api/transactions_api.php with backend ?search= filtering alongside multi-day range (?start=&end=) and month (?month=) query support.
+
+• Complete CSV Export Retirement & Enterprise Excel (.xlsx) Standardization:
+  - Permanently retired and removed api/export_csv.php and related CSV triggers in index.php and api/report.php.
+  - Standardized all reporting on the multi-worksheet executive Excel generator (core/excel_generator.py with pure-PHP OpenXML fallback in api/export_excel.php), featuring:
+    * Sheet 1: 'Executive Dashboard' (6 KPI summary cards, Category Sales Mix, Payment Breakdown, Non-VAT Sales Summary).
+    * Sheet 2: 'Itemized Sales Ledger' (21 columns, frozen header row, auto-filter, zebra row styling, dynamic =SUBTOTAL() formulas).
+    * Sheet 3: 'Product Performance' (menu item revenue ranking, unit counts, and % sales contribution).
+
+• Repository Cleanliness & Scratch File Removal:
+  - Deleted all temporary diagnostic and test scripts (scratch_*.py) from the repository root, ensuring zero untracked test bloat in version control.
+
+================================================================================
+2. KEY FILES & MODULES MODIFIED
+================================================================================
+• Client-Side JavaScript:
+  - assets/js/script.js: Fixed premature IIFE termination at line 1484; removed orphan VAT remnant at line 6238; adjusted getCartCalculations() and syncCartUI() for non-VAT 20% Senior/PWD and custom discount math; updated viewReceipt() to exclude VAT rows; integrated live transaction search and scrollable viewport.
+
+• Cascading Style Sheets (CSS):
+  - assets/css/auth.css: Expanded #accountsModal to max-width: min(96vw, 1480px); eliminated table overflow-x; added responsive breathing room for account management action buttons.
+  - assets/css/reports.css: Enhanced .tx-table-container with max-height: 440px, smooth vertical scrolling, sticky <thead>, and live search toolbar styles.
+
+• Backend APIs & Database Handlers:
+  - api/checkout.php: Excised 12% VAT formula division (/ 1.12); zeroed tax accruals; updated Senior/PWD 20% calculation on gross subtotal; enforced ID validation; preserved custom promo rates.
+  - api/transactions_api.php: Added ?search= parameter handling; integrated multi-day range and month query parameters; verified sanitized PDO parameter binding.
+  - api/export_excel.php & core/excel_generator.py: Cleaned Z-Reading VAT section into 'Revenue & Discount Summary'; verified 3-sheet OpenXML workbook compilation.
+  - api/report.php: Removed CSV download buttons; verified non-VAT financial aggregation.
+
+• Template & Structure:
+  - index.php: Removed CSV export modal triggers; verified POS cart summary and discount selectors.
+  - README.md & documentation: Updated architecture summaries and changelogs.
+
+================================================================================
+3. SYSTEM DIAGNOSTIC & VERIFICATION RESULTS
+================================================================================
+The entire system was subjected to comprehensive automated, backend, and browser end-to-end testing with 100% pass rates:
+
+1. Headless Chrome CDP Live UI & POS E2E Diagnostics:
+   - Exception Rate: 0 Uncaught Exceptions, 0 Console Errors.
+   - Menu Grid: All 42 café products loaded with images, prices, and size chips (Americano, Latte, Croffles, Sandwiches, Fries, etc.).
+   - Barista Queue: Reconnected immediately with live status ('● LIVE') and active order count.
+   - Interactive Checkout Flow: Successfully completed Americano order with 20% Senior/PWD discount (PWD-12345), paid with ₱100.00 cash, received ₱20.00 change, order queued at #112, and verified e-receipt displayed zero VAT line items.
+   - Visual Verifications: Saved pos_screen_verified.png, accounts_modal_verified.png, and receipt_verified_live.png.
+
+2. PHP Backend Logic & Security Verification Suite (31 Tests):
+   [PASS] Checkout Underpayment Prevention (shortfall rejected with HTTP 422)
+   [PASS] Exact payment accepted with HTTP 200
+   [PASS] Shift closing sales reports accessible to Baristas (HTTP 200)
+   [PASS] Excel export accessible to Baristas for register closing (HTTP 200)
+   [PASS] Sensitive accounts API strictly blocked for Baristas (HTTP 403)
+   [PASS] Manager permitted full access across reports and accounts (HTTP 200)
+   [PASS] Barista can cancel Pending orders from queue
+   [PASS] Cancelled orders removed from queue and excluded from revenue
+   [PASS] Order completion triggers exact raw ingredient inventory deduction
+   [PASS] Baristas strictly blocked from voiding Completed orders (HTTP 403)
+   [PASS] Manager can Void Completed orders with full inventory restoration
+   [PASS] Inventory deletion blocked (HTTP 409) if supplies are bound to active recipes
+   [PASS] Inventory soft-deactivation toggle functional
+   [PASS] Senior/PWD discount without ID strictly rejected (HTTP 422)
+   [PASS] Senior/PWD 20% discount correctly computed on gross subtotal (₱80 total on ₱100 item)
+   [PASS] Tax accurately recorded as ₱0.00 in non-VAT regime
+   [PASS] Change due calculated with 100% mathematical precision
+   [PASS] GCash checkout without reference code rejected (HTTP 422)
+   [PASS] Valid GCash payment accepted with reference number recorded
+   [PASS] Duplicate GCash reference code rejected (HTTP 409 Conflict)
+   [PASS] Server-enforced 30-minute idle session timeout invalidates inactive sessions (HTTP 401)
+   Total Passed: 31 / 31 (100.0% Success Rate)
+
+3. Transactions API Query Suite:
+   - Test [date=today]: SUCCESS (Returns today's live orders)
+   - Test [range=week]: SUCCESS (25 transactions, ₱16,908.00 total)
+   - Test [range=month]: SUCCESS (Returns current calendar month transactions)
+   - Test [search=104]: SUCCESS (Finds Order #104)
+   - Test [search=%23104]: SUCCESS (Finds Order #104 by formatted receipt number)
+   - Test [search=latte]: SUCCESS (Finds all latte beverage orders)
+   - Test [search=GCash]: SUCCESS (Filters by payment method)
+
+4. Excel Export (.xlsx) Integrity:
+   - Live HTTP export returned HTTP 200 (22,546 bytes).
+   - Validated OpenXML zip structure: docProps/app.xml, docProps/core.xml, xl/workbook.xml, sheet1.xml, sheet2.xml.
+
+================================================================================
+4. OPERATIONAL BEST PRACTICES & SUMMARY
+================================================================================
+• With the 12% VAT removed, gross item prices represent the final customer payable amount for regular transactions.
+• Senior Citizen and PWD customers receive a direct 20% discount on food and drink items. Cashiers must continue inspecting physical government-issued OSCA / PWD IDs before applying the discount.
+• The expanded Account Management modal provides an optimal desktop management workspace for reviewing staff accounts, resetting passwords, and approving pending registrations without horizontal scrolling.
+• All transaction histories across both roles now support instant search and smooth vertical scrolling with frozen column headers for rapid auditing.

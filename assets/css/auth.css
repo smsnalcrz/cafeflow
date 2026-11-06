@@ -234,8 +234,61 @@
 }
 
 /* ------------------------------------------------------------------ *
- *  Account Management Modal & Statistics Cards
+ *  Account Management Modal & Statistics Cards (Expanded Layout)
  * ------------------------------------------------------------------ */
+#accountsModal .modal-card {
+  width: 100%;
+  max-width: min(96vw, 1480px);
+  max-height: 94vh;
+}
+
+#accountsModal .modal-body {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#accountsModal .accounts-table-container {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: auto;
+  padding: 0 24px 24px;
+}
+
+#accountsModal .table {
+  width: 100%;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+#accountsModal .table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--line);
+  padding: 14px 16px;
+  white-space: nowrap;
+}
+
+#accountsModal .table td {
+  padding: 14px 16px;
+  vertical-align: middle;
+}
+
+#accountsModal .table th.act,
+#accountsModal .table td.act {
+  text-align: right;
+  white-space: nowrap;
+}
+
+#accountsModal .table td:nth-child(6),
+#accountsModal .table td:nth-child(7) {
+  white-space: nowrap;
+}
+
 .accounts-overview-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);

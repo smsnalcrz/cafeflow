@@ -1,0 +1,61 @@
+CafeFlow POS — System Changes & Security Hardening (Part 3)
+Release Date: November 05, 2026 | Environment: PHP 8.2 / MariaDB / Apache (XAMPP) | Status: Complete
+
+1. Executive Summary of Implemented Changes
+This release delivers comprehensive system hardening, financial calculation integrity, export enrichment, and operational access alignment across the CafeFlow point-of-sale platform:
+• Checkout Underpayment Prevention: Removed silent payment overrides in api/checkout.php. Tendered amounts below the order total are strictly rejected (HTTP 422) with exact shortfall calculation and server-side validation.
+• Operational Sales Reports & Exports Access: Configured server-side RBAC on api/report.php, api/export_excel.php, to permit both Baristas and Managers (require_role(['barista', 'manager'])). This allows on-duty baristas to perform register closing, shift handovers, and Z-Reading exports when a Manager is off-duty or not present in the store. Sensitive Account Administration (api/accounts_api.php) remains strictly restricted to Managers.
+• Comprehensive Sales Audit CSV Exporter: Engineered api/export_csv.php with UTF-8 BOM, executive sales overview, cash drawer tender/change reconciliation, BIR tax classification (12% Vatable, 12% Output VAT, VAT-Exempt), product sales mix ranking, and a 21-column itemized transaction audit ledger.
+• Order Cancellation & Void Workflow: Implemented api/cancel_order.php. Baristas can cancel Pending orders from the queue; Managers can Void Completed orders with automatic raw inventory restoration. Cancelled and Voided orders are excluded from active sales totals and revenue reports.
+• Inventory Recipe Cascade Protection: Hardened api/inventory_api.php and database foreign key (ON DELETE RESTRICT). Deleting in-use supplies is blocked (HTTP 409 Conflict) with a detailed list of dependent menu recipes.
+• Statutory Discount & VAT Engine: Implemented server-side computation for Philippine Republic Act 9994 / RA 10754 (20% discount on VAT-exempt sales + 0% VAT) requiring valid OSCA/PWD ID or Booklet number, alongside custom percentage promo discounts.
+• GCash Reference Number Enforcement: Mandated 6–30 character reference codes for GCash payments, blocked duplicate reference codes (HTTP 409 Conflict), and embedded references across transaction records, e-receipts, and export files.
+• Server-Enforced Inactivity Timeout: Implemented a 30-minute idle session expiration in core/auth.php with HTTP 401 SESSION_EXPIRED API handling and 15-second auto-dismissing notice banners on login.php.
+• Frontend Script Resolution: Resolved a compile-time duplicate identifier ('mobGcashBtn') in assets/js/script.js, restoring JavaScript initialization and transitioning the connection indicator to 'Live' across both Barista and Manager interfaces. Added DOM null guards for seamless multi-role operation.
+• Multi-Period Transaction History Resolution: Resolved inconsistent transaction history rendering across Sales Report tabs (Today, Specific Date, 7-Day Report, Specific Month). Upgraded api/transactions_api.php to accept multi-day ranges (?start=YYYY-MM-DD&end=YYYY-MM-DD) and month queries (?month=YYYY-MM). Updated assets/js/script.js to query exact date spans rather than only day 1 of the period, dynamically display 'Date & Time' in table headers for multi-day spans, and prevent race conditions during rapid tab switching via active request sequence tracking.
+• Transaction History Dedicated Scroll & Search Engine: Implemented a dedicated scrollable table viewport (.tx-table-container, max-height 440px with sticky column headers) and an instant live search toolbar across Transaction Histories for both Barista and Manager roles. Users can instantly filter records by receipt #, item name, payment method, order status, GCash reference code, date/time, and order totals. Supported on both frontend (live keystroke filtering with dynamic count badge and empty-state reset links) and backend (api/transactions_api.php with ?search= parameter support).
+• Enterprise-Grade Enterprise Multi-Sheet Excel (.xlsx) Architecture: Fully upgraded the export engine into an executive-grade multi-worksheet business workbook and companion documentation. Features include: Worksheet 1 ('📊 Executive Dashboard' with 6 KPI cards, Category Sales Mix, Payment Breakdown, and BIR Tax Z-Reading summary); Worksheet 2 ('🧾 Itemized Sales Ledger' with 21 columns, frozen header row, auto-filter, zebra row shading, pastel status badges, and dynamic =SUBTOTAL formulas); Worksheet 3 ('📦 Product Performance' with menu item revenue ranking, unit counts, and % contribution shares). Powered by core/excel_generator.py with seamless pure-PHP OpenXML fallback in api/export_excel.php.
+
+2. Key Files & Modules Modified
+• Backend APIs: api/checkout.php, api/cancel_order.php (new), api/report.php, api/export_excel.php, api/export_csv.php (new), api/inventory_api.php, api/transactions_api.php, api/accounts_api.php, core/excel_generator.py (new)
+• Core Engine & Auth: core/auth.php (idle session timeout & RBAC), core/db.php (ensure_schema migrations & DDL lock prevention), login.php (dismissible system alerts)
+• Client-Side & UI: index.php (discount selector, GCash modal, cancel dialog, CSV export button), assets/js/script.js (dynamic cart, queue actions, voiding, null safety guards, payment button handlers, transaction history search and scroll), assets/css/reports.css (scrollable transaction viewport, sticky headers, search toolbar)
+
+3. Database Schema Enhancements
+• Table transactions: Modified status to ENUM('Pending','Completed','Cancelled','Voided'); added reference_number (indexed), discount_type, discount_rate, discount_id_no, discount_reason, cancelled_by_user_id, cancelled_at, cancellation_reason.
+• Table inventory: Added is_active TINYINT(1) DEFAULT 1 for soft-deactivation.
+• Foreign Keys: Altered fk_pi_item on product_ingredients to ON DELETE RESTRICT, preventing accidental recipe wipeouts.
+
+4. Testing Performed & Actual Verification Results
+• Enhanced Sales CSV Audit Suite: 34 / 34 PASSED (100.0% verification of Z-Reading, Net Sales, Output VAT, Exempt totals, cash reconciliation, and itemized ledger columns).
+• Core Target Verification Suite: 31 / 31 PASSED (100.0% success rate across underpayment rejection, shift sales access, order cancellation, inventory reversal, SC/PWD formula accuracy, GCash duplicates, and session expiration).
+• Full Security & Regression Audit Suite: 54 / 54 PASSED (100.0% success rate across closed-system auth, CSRF defense, SQLi resistance, rate limiting, and 50 sequential rapid login/logout stress cycles).
+• Headless Chrome E2E Suite: Verified both Barista POS (all 42 products rendered, Live status badge, functional sales report modal) and Manager Portal (accounts, supplies, revenue cards) with zero console errors.
+• Multi-Period Sales Report & E-Receipt E2E Suite: PASSED across all 4 report periods (Today, Specific Date, 7-Day, Specific Month) in live Headless Chrome. Confirmed accurate rendering of 22 orders in 7-day reports and 19 orders in monthly reports (previously showing 0 due to day-1 isolation), with individual e-receipt inspections verified.
+• Transaction History Scroll & Search Suite: PASSED across both Barista and Manager roles in headless browser testing. Confirmed sticky table headers during vertical scrolling (max-height 440px), instant live search across receipts (#00034), ordered items (French Fries), payment methods, order status, empty search states, and instant query resets.
+• Enterprise Multi-Sheet Excel (.xlsx) Verification: PASSED live HTTP export verification (22,050 bytes). Validated all 3 worksheets ('Executive Dashboard', 'Itemized Sales Ledger', 'Product Performance'), frozen header panes, auto-filters, custom column widths, formula calculations, and currency formats with zero OpenXML errors.
+
+5. Operational Notes & Best Practices
+• Baristas are granted sales reporting and export access strictly for operational continuity during shift closing when a manager is not present. Staff account administration remains exclusively reserved for Managers.
+• Senior/PWD discounts apply to food/drink totals per Philippine law. Cashiers must visually inspect physical OSCA/PWD cards prior to submission.
+• GCash payments require online cellular or merchant terminal confirmation before recording reference numbers. Zero regressions detected.
+
+5. Complete Removal of CSV Export Functionality
+• Permanently retired and deleted api/export_csv.php and exports/DK_Cafe_Sales_Audit_Report.csv.
+• Cleanly excised all UI export CSV triggers (including modal buttons in index.php and HTML report links in api/report.php).
+• Streamlined all sales and transaction export workflows exclusively to the professional, multi-worksheet Excel (.xlsx) generator (Executive Dashboard, Itemized Sales Ledger, Product Performance).
+• Strictly verified zero breaking changes to database queries, POS checkout, recipe deductions, or user authentication.
+
+6. Account Management UI Expansion
+• Expanded #accountsModal dialog width from 980px to an executive dashboard layout (max-width: min(96vw, 1480px)).
+• Completely eliminated horizontal scrollbars across all standard desktop and laptop resolutions (1920x1080, 1366x768, 1280x800).
+• All 8 table columns (Full Name, Username, Email, Role, Status, Created, Last Login, Actions) now render with comfortable breathing room, preventing text clipping on action buttons (Edit, Reset, Deactivate).
+• Sticky header styling applied to table columns with unified border alignment and zero double-scrollbar nesting.
+
+7. Complete Removal of 12% Value-Added Tax (VAT)
+• Excised all 12% VAT calculations (/ 1.12 division and tax accruals) from api/checkout.php and assets/js/script.js.
+• Senior Citizen & PWD discounts now calculate as a direct 20% deduction on gross subtotal (e.g. ₱100.00 subtotal yields ₱20.00 discount and ₱80.00 payable total).
+• Preserved mandatory OSCA / PWD ID number validation (minimum 3 characters) to protect against fraudulent claims.
+• Retained custom promotional discounts (custom % from 1% to 50% and fixed voucher deductions) operating under the zero-VAT model.
+• Removed 12% VAT line items from the POS cart breakdown, e-receipt modal dialog, and report summaries.
+• Updated core/excel_generator.py Z-Reading summary block to 'Revenue & Discount Summary' reflecting non-VAT operational status.

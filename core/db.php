@@ -71,9 +71,12 @@ if (!function_exists('ensure_schema')) {
                 $pdo->exec("ALTER TABLE transaction_items ADD COLUMN size_oz INT UNSIGNED NULL DEFAULT NULL AFTER size_label");
             }
             try {
-                $pdo->exec("ALTER TABLE transaction_items MODIFY COLUMN product_id INT UNSIGNED NULL DEFAULT NULL");
+                $prodIdCol = $pdo->query("SHOW COLUMNS FROM transaction_items LIKE 'product_id'")->fetch(PDO::FETCH_ASSOC);
+                if ($prodIdCol && ($prodIdCol['Null'] ?? 'NO') === 'NO') {
+                    $pdo->exec("ALTER TABLE transaction_items MODIFY COLUMN product_id INT UNSIGNED NULL DEFAULT NULL");
+                }
             } catch (Throwable $e) {
-                // Ignore if already nullable
+                // Ignore if check fails
             }
 
             $txCols = $pdo->query("SHOW COLUMNS FROM transactions")->fetchAll(PDO::FETCH_COLUMN);
@@ -122,7 +125,10 @@ if (!function_exists('ensure_schema')) {
             }
             // Ensure status ENUM supports 'Cancelled' and 'Voided'
             try {
-                $pdo->exec("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending','Completed','Cancelled','Voided') NOT NULL DEFAULT 'Pending'");
+                $statusCol = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'status'")->fetch(PDO::FETCH_ASSOC);
+                if ($statusCol && !str_contains($statusCol['Type'] ?? '', 'Voided')) {
+                    $pdo->exec("ALTER TABLE transactions MODIFY COLUMN status ENUM('Pending','Completed','Cancelled','Voided') NOT NULL DEFAULT 'Pending'");
+                }
             } catch (Throwable $e) {}
 
             $invCols = $pdo->query("SHOW COLUMNS FROM inventory")->fetchAll(PDO::FETCH_COLUMN);

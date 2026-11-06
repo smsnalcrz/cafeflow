@@ -443,13 +443,148 @@
   color: var(--espresso);
   text-transform: uppercase;
   letter-spacing: .5px;
+  margin: 0;
 }
+
+/* Transaction History Search & Filter Toolbar */
+.tx-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.tx-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 240px;
+  max-width: 440px;
+}
+.tx-search-icon {
+  position: absolute;
+  left: 12px;
+  pointer-events: none;
+  font-size: 13px;
+  color: var(--muted);
+  user-select: none;
+}
+.tx-search-input {
+  width: 100%;
+  height: 36px;
+  padding: 0 32px 0 34px;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--cream);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  transition: border-color var(--dur-fast), background var(--dur-fast), box-shadow var(--dur-fast);
+}
+.tx-search-input:focus {
+  outline: none;
+  background: #ffffff;
+  border-color: var(--caramel);
+  box-shadow: 0 0 0 3px rgba(192, 124, 46, 0.15);
+}
+.tx-search-clear {
+  position: absolute;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--parchment);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--dur-fast);
+}
+.tx-search-clear:hover {
+  background: var(--caramel-soft);
+  color: var(--espresso);
+}
+.tx-filter-meta {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--parchment);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+.tx-no-results {
+  padding: 36px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+.tx-no-results p {
+  margin: 0 0 8px;
+}
+.tx-no-results strong {
+  color: var(--espresso);
+}
+.tx-reset-link {
+  background: none;
+  border: none;
+  color: var(--caramel);
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-size: 13px;
+}
+.tx-reset-link:hover {
+  color: var(--espresso);
+}
+
+/* Dedicated Scroll Container with Sticky Header */
+.tx-table-container {
+  max-height: 440px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-md, 8px);
+  background: var(--surface, #ffffff);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.03);
+  scrollbar-width: thin;
+  scrollbar-color: var(--caramel-soft) transparent;
+  position: relative;
+}
+.tx-table-container::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.tx-table-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tx-table-container::-webkit-scrollbar-thumb {
+  background-color: var(--caramel-soft);
+  border-radius: 999px;
+}
+.tx-table-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--caramel);
+}
+
 .tx-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
 }
+.tx-table-container thead th,
 .tx-table th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
   padding: 9px 10px;
   background: var(--parchment);
   color: var(--muted);
@@ -458,6 +593,7 @@
   text-transform: uppercase;
   letter-spacing: .5px;
   border-bottom: 2px solid var(--line);
+  box-shadow: 0 1px 0 var(--line);
 }
 .tx-table td {
   padding: 10px;
