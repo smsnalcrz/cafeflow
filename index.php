@@ -911,6 +911,21 @@ $cssModules = [
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
   </script>
   <script src="assets/js/vendor/chart.umd.min.js"></script>
-  <script src="assets/js/script.js?v=<?= $ver('assets/js/script.js') ?>" defer></script>
+  <script src="assets/js/core/config.js?v=<?= $ver('assets/js/core/config.js') ?>" defer></script>
+  <script src="assets/js/core/utils.js?v=<?= $ver('assets/js/core/utils.js') ?>" defer></script>
+  <script src="assets/js/core/state.js?v=<?= $ver('assets/js/core/state.js') ?>" defer></script>
+  <script src="assets/js/core/api.js?v=<?= $ver('assets/js/core/api.js') ?>" defer></script>
+  <script src="assets/js/modules/icons.js?v=<?= $ver('assets/js/modules/icons.js') ?>" defer></script>
+  <script src="assets/js/modules/receipt.js?v=<?= $ver('assets/js/modules/receipt.js') ?>" defer></script>
+  <script src="assets/js/modules/pos-menu.js?v=<?= $ver('assets/js/modules/pos-menu.js') ?>" defer></script>
+  <script src="assets/js/modules/pos-cart.js?v=<?= $ver('assets/js/modules/pos-cart.js') ?>" defer></script>
+  <script src="assets/js/modules/pos-queue.js?v=<?= $ver('assets/js/modules/pos-queue.js') ?>" defer></script>
+  <script src="assets/js/modules/navigation.js?v=<?= $ver('assets/js/modules/navigation.js') ?>" defer></script>
+  <script src="assets/js/modules/products.js?v=<?= $ver('assets/js/modules/products.js') ?>" defer></script>
+  <script src="assets/js/modules/inventory.js?v=<?= $ver('assets/js/modules/inventory.js') ?>" defer></script>
+  <script src="assets/js/modules/reports.js?v=<?= $ver('assets/js/modules/reports.js') ?>" defer></script>
+  <script src="assets/js/modules/accounts.js?v=<?= $ver('assets/js/modules/accounts.js') ?>" defer></script>
+  <script src="assets/js/modules/dashboard.js?v=<?= $ver('assets/js/modules/dashboard.js') ?>" defer></script>
+  <script src="assets/js/app.js?v=<?= $ver('assets/js/app.js') ?>" defer></script>
 </body>
 </html>
