@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, money, h, toast } = window.CafeFlow.utils;
+  const { $, $$, money, h, toast, emptyState } = window.CafeFlow.utils;
   const { MAX_QTY } = window.CafeFlow.config;
   const api = window.CafeFlow.api;
   const state = window.CafeFlow.state;
@@ -104,7 +104,13 @@ window.CafeFlow = window.CafeFlow || {};
     list.textContent = '';
 
     if (!lines.length) {
-      list.append(h('p', { class: 'empty', text: '👆 Tap a menu item to start an order.' }));
+      list.append(emptyState({
+        icon: '🛒',
+        title: 'Order is Empty',
+        desc: 'Tap any beverage or pastry from the menu to begin.',
+        tip: '💡 20% Senior & PWD discount available below.',
+        compact: true
+      }));
     }
 
     for (const l of lines) {

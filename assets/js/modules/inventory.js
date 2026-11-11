@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, qtyFmt, h, toast } = window.CafeFlow.utils;
+  const { $, $$, qtyFmt, h, toast, emptyState } = window.CafeFlow.utils;
   const api = window.CafeFlow.api;
   const state = window.CafeFlow.state;
 
@@ -45,7 +45,18 @@ window.CafeFlow = window.CafeFlow || {};
     }
 
     if (!state.inventory.length) {
-      body.append(h('tr', {}, h('td', { colspan: '5', class: 'empty', text: 'No raw supplies yet. Click "+ Add Supply" to add your first raw material.' })));
+      body.append(h('tr', {},
+        h('td', { colspan: '5' },
+          emptyState({
+            icon: '📦',
+            title: 'No Raw Supplies Registered',
+            desc: 'Track ingredients, cups, lids, and packaging to enable automatic recipe deductions.',
+            tip: '💡 Tip: Set restock thresholds to trigger low-stock alerts automatically.',
+            actionText: '+ Add First Supply Item',
+            onAction: () => openSheet('add')
+          })
+        )
+      ));
       return;
     }
 
@@ -60,14 +71,13 @@ window.CafeFlow = window.CafeFlow || {};
 
     if (!filtered.length) {
       body.append(h('tr', {},
-        h('td', { colspan: '5', class: 'empty' },
-          h('p', { text: `No raw supplies match "${state.inventorySearch}".` }),
-          h('button', {
-            type: 'button',
-            class: 'btn ghost small',
-            style: 'margin-top: 8px;',
-            text: 'Clear Search',
-            onclick: () => {
+        h('td', { colspan: '5' },
+          emptyState({
+            icon: '🔍',
+            title: `No supplies match "${state.inventorySearch}"`,
+            desc: 'Check your spelling or search by unit (e.g. g, ml, pcs) or status (low, out, ok).',
+            actionText: '✕ Clear Search Filter',
+            onAction: () => {
               state.inventorySearch = '';
               if (searchInput) {
                 searchInput.value = '';

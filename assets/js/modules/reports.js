@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, money, escapeHtml, h, toast, pad2, toIsoDate, toIsoMonth, parseIsoDate, addDays, addMonths, formatHour, dayLabel } = window.CafeFlow.utils;
+  const { $, $$, money, escapeHtml, h, toast, emptyState, pad2, toIsoDate, toIsoMonth, parseIsoDate, addDays, addMonths, formatHour, dayLabel } = window.CafeFlow.utils;
   const currentUser = (window.CafeFlow.config && window.CafeFlow.config.currentUser) || window.currentUser || window.CafeFlowUser || { role: 'barista' };
   const api = window.CafeFlow.api;
   const state = window.CafeFlow.state;
@@ -1580,7 +1580,12 @@ window.CafeFlow = window.CafeFlow || {};
 
           h('div', { class: 'bar' }, h('span', { style: `width:${Math.round(t.qty / maxQty * 100)}%` }))))
 
-      : [h('p', { class: 'report-empty', text: '☕ No item sales recorded in this period.' })];
+      : [emptyState({
+          icon: '🏆',
+          title: 'No Items Sold',
+          desc: 'No beverage or food orders were recorded in this period.',
+          compact: true
+        })];
 
 
 
@@ -1716,7 +1721,12 @@ window.CafeFlow = window.CafeFlow || {};
 
         h('h3', { text: 'Sales Breakdown' }),
 
-        h('p', { class: 'report-empty', text: 'No order activity during this period.' })
+        emptyState({
+          icon: '📊',
+          title: 'No Breakdown Data',
+          desc: 'No order activity recorded to compute hourly or daily trends.',
+          compact: true
+        })
 
       );
 
@@ -1791,10 +1801,12 @@ window.CafeFlow = window.CafeFlow || {};
     container.append(head);
 
     if (!records.length) {
-      const periodDesc = isMultiDay ? 'this period' : 'this date';
-      container.append(h('p', {
-        class: 'report-empty',
-        text: `No transaction records found for ${periodDesc}.`
+      const periodDesc = isMultiDay ? 'this date range' : 'this date';
+      container.append(emptyState({
+        icon: '📋',
+        title: 'No Transaction Records',
+        desc: `No completed or pending transactions were recorded for ${periodDesc}.`,
+        tip: '💡 Tip: Select another date or choose "7-Day Report" / "Specific Month" above.'
       }));
       return;
     }
@@ -1931,16 +1943,13 @@ window.CafeFlow = window.CafeFlow || {};
         table.hidden = true;
         noResults.textContent = '';
         noResults.append(
-          h('p', {},
-            'No transactions matching "',
-            h('strong', { text: searchInput.value.trim() }),
-            '".'
-          ),
-          h('button', {
-            type: 'button',
-            class: 'tx-reset-link',
-            text: 'Clear search filter',
-            onclick: () => {
+          emptyState({
+            icon: '🔍',
+            title: `No transactions match "${searchInput.value.trim()}"`,
+            desc: 'Search matches receipt #, drink names, payment method, or reference #.',
+            actionText: '✕ Clear Search Filter',
+            compact: true,
+            onAction: () => {
               searchInput.value = '';
               currentQuery = '';
               clearBtn.hidden = true;

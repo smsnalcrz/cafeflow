@@ -107,6 +107,34 @@ window.CafeFlow = window.CafeFlow || {};
     return new Date(y, m - 1, d).toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
+  /**
+   * Generates a contextual, user-friendly empty state component with guidance & tips.
+   * @param {object} opts
+   * @param {string} [opts.icon='☕'] - Icon or emoji
+   * @param {string} [opts.title='No Data'] - Primary heading
+   * @param {string} [opts.desc=''] - Descriptive guidance
+   * @param {string} [opts.tip=''] - Pro-tip or hint badge text
+   * @param {string} [opts.actionText=''] - Action button text
+   * @param {Function} [opts.onAction=null] - Action button click handler
+   * @param {boolean} [opts.compact=false] - Whether to use compact padding
+   * @returns {HTMLElement}
+   */
+  const emptyState = ({ icon = '☕', title = 'No Data', desc = '', tip = '', actionText = '', onAction = null, compact = false }) => {
+    const root = h('div', { class: 'cf-empty-state' + (compact ? ' compact' : '') },
+      h('div', { class: 'cf-empty-icon-wrap' }, h('span', { text: icon })),
+      h('h4', { class: 'cf-empty-title', text: title }),
+      desc ? h('p', { class: 'cf-empty-desc', text: desc }) : null,
+      tip ? h('div', { class: 'cf-empty-tip', text: tip }) : null,
+      (actionText && typeof onAction === 'function') ? h('button', {
+        type: 'button',
+        class: 'btn ghost small cf-empty-action',
+        text: actionText,
+        onclick: onAction
+      }) : null
+    );
+    return root;
+  };
+
   /* ------------------------------------------------------------------ *
    *  Export to CafeFlow Namespace
    * ------------------------------------------------------------------ */
@@ -117,6 +145,7 @@ window.CafeFlow = window.CafeFlow || {};
     qtyFmt,
     escapeHtml,
     h,
+    emptyState,
     toast,
     tickClock,
     pad2,

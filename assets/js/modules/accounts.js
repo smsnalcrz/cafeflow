@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, h, toast } = window.CafeFlow.utils;
+  const { $, $$, h, toast, emptyState } = window.CafeFlow.utils;
   const { currentUser } = window.CafeFlow.config;
   const api = window.CafeFlow.api;
   const state = window.CafeFlow.state;
@@ -126,21 +126,30 @@ window.CafeFlow = window.CafeFlow || {};
 
 
     if (filtered.length === 0) {
-
+      const isSearch = Boolean(q);
       const tr = h('tr', {},
-
-        h('td', { colspan: '8', style: 'text-align: center; padding: 32px; color: var(--muted);' },
-
-          h('p', { style: 'font-size: 15px; margin: 0;' }, 'No accounts match your current filter.')
-
+        h('td', { colspan: '8' },
+          emptyState({
+            icon: '👥',
+            title: isSearch ? `No accounts match "${q}"` : `No ${accountFilter !== 'all' ? accountFilter + ' ' : ''}accounts found`,
+            desc: isSearch
+              ? `No user records match your search query under the "${accountFilter}" filter.`
+              : `There are currently no staff accounts matching the "${accountFilter}" filter.`,
+            tip: '🛡️ Role Access: Managers control business operations; Baristas operate the POS terminal.',
+            actionText: isSearch ? '✕ Clear Account Search' : '+ Add New Account',
+            onAction: isSearch ? () => {
+              const inp = $('#accountSearch');
+              if (inp) inp.value = '';
+              const clr = $('#accountSearchClearBtn');
+              if (clr) clr.hidden = true;
+              accountSearchQuery = '';
+              renderAccountsTable();
+            } : () => openCreateAccountSheet()
+          })
         )
-
       );
-
       tbody.append(tr);
-
       return;
-
     }
 
 

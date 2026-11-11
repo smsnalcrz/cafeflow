@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, h, toast } = window.CafeFlow.utils;
+  const { $, $$, h, toast, emptyState } = window.CafeFlow.utils;
   const api = window.CafeFlow.api;
 
   let polling = false;
@@ -88,10 +88,16 @@ window.CafeFlow = window.CafeFlow || {};
       if (!present.has(o.transaction_id)) list.append(buildTicket(o));
     }
 
-    const emptyEl = $('.empty', list);
+    const emptyEl = $('.cf-empty-state', list) || $('.empty', list);
     if (orders.length && emptyEl) emptyEl.remove();
     if (!orders.length && !emptyEl) {
-      list.append(h('p', { class: 'empty', text: '✅ No pending orders. New tickets appear here automatically.' }));
+      list.append(emptyState({
+        icon: '✨',
+        title: 'All Orders Served',
+        desc: 'Preparation queue is clear. New customer tickets sync automatically.',
+        tip: '⚡ Wait time: Green < 5m, Amber < 10m, Red > 10m.',
+        compact: true
+      }));
     }
 
     for (const o of orders) {

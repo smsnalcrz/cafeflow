@@ -58,6 +58,106 @@
 }
 
 /* ======================================================================
+   CONTEXTUAL EMPTY STATES & GUIDANCE SYSTEM
+   ====================================================================== */
+.cf-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 20px;
+  margin: auto;
+  max-width: 420px;
+  width: 100%;
+  box-sizing: border-box;
+  animation: cfFadeIn 0.22s ease-out;
+}
+.cf-empty-state::before {
+  content: none !important;
+}
+
+.cf-empty-state.compact {
+  padding: 24px 14px;
+  max-width: 320px;
+}
+
+.cf-empty-icon-wrap {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(22, 35, 24, 0.05);
+  transition: transform 0.2s ease;
+}
+.cf-empty-state:hover .cf-empty-icon-wrap {
+  transform: translateY(-2px);
+}
+
+.cf-empty-state.compact .cf-empty-icon-wrap {
+  width: 46px;
+  height: 46px;
+  font-size: 22px;
+  margin-bottom: 10px;
+}
+
+.cf-empty-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  color: var(--espresso);
+  margin: 0 0 6px 0;
+  letter-spacing: -0.2px;
+}
+
+.cf-empty-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0 0 12px 0;
+}
+
+.cf-empty-state.compact .cf-empty-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+
+.cf-empty-tip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(42, 155, 82, 0.08);
+  border: 1px solid rgba(42, 155, 82, 0.2);
+  border-radius: 999px;
+  font-size: 11.5px;
+  color: var(--espresso);
+  font-weight: 500;
+  margin-top: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.cf-empty-tip.warn {
+  background: rgba(232, 98, 58, 0.08);
+  border-color: rgba(232, 98, 58, 0.2);
+}
+
+.cf-empty-action {
+  margin-top: 8px;
+}
+
+@keyframes cfFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ======================================================================
    BARISTA QUEUE WRAPPER (UPPER RIGHT)
    ====================================================================== */
 .barista-queue-wrap {

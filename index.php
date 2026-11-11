@@ -133,7 +133,7 @@ $cssModules = [
       <div class="panel-head cashier-head">
         <h2>Menu</h2>
         <div class="menu-search-wrap">
-          <input type="search" id="productSearch" class="search-input" placeholder="🔍 Search product or category..." autocomplete="off">
+          <input type="search" id="productSearch" class="search-input" placeholder="🔍 Search beverages, pastries, meals, or category..." autocomplete="off">
           <button type="button" class="search-clear" id="searchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <button type="button" class="btn small primary" id="openAddProductBtn">+ Add Product</button>
@@ -299,7 +299,7 @@ $cssModules = [
       <div class="modal-head">
         <h2>🏷️ Manage Products</h2>
         <div class="modal-search-wrap">
-          <input type="search" id="manageProductSearch" class="search-input" placeholder="🔍 Filter products list...">
+          <input type="search" id="manageProductSearch" class="search-input" placeholder="🔍 Filter products by name or category (e.g. Espresso, Croffle)...">
           <button type="button" class="search-clear" id="manageProductSearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
@@ -484,7 +484,7 @@ $cssModules = [
       <div class="modal-head">
         <h2>📦 Raw Supplies Inventory</h2>
         <div class="modal-search-wrap">
-          <input type="search" id="inventorySearch" class="search-input" placeholder="🔍 Search supplies or status..." autocomplete="off">
+          <input type="search" id="inventorySearch" class="search-input" placeholder="🔍 Search supplies by name, unit (g, ml, pcs), or status (low, ok)..." autocomplete="off">
           <button type="button" class="search-clear" id="inventorySearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
@@ -665,7 +665,7 @@ $cssModules = [
         <strong id="gcashDueAmount">₱0.00</strong>
       </div>
       <label>GCash Reference Number (Required)
-        <input type="text" id="gcashRefInput" placeholder="e.g. 100234567891" maxlength="30" autocomplete="off" style="font-family: monospace; font-size: 15px; font-weight: 700; letter-spacing: 1px;">
+        <input type="text" id="gcashRefInput" placeholder="e.g. 100234567891 (min 6 digits from customer receipt)" maxlength="30" autocomplete="off" style="font-family: monospace; font-size: 15px; font-weight: 700; letter-spacing: 1px;">
       </label>
       <div style="font-size:12px; color:var(--muted); margin-top:-6px; margin-bottom:12px;">
         Enter the reference number from the customer's GCash receipt for merchant verification.
@@ -685,7 +685,7 @@ $cssModules = [
         Are you sure you want to cancel this order?
       </p>
       <label>Cancellation Reason (Required)
-        <input type="text" id="cancelReasonInput" placeholder="e.g. Customer changed mind, Out of stock, Entry error" maxlength="255">
+        <input type="text" id="cancelReasonInput" placeholder="e.g. Customer change of mind, incorrect drink size, duplicate order..." maxlength="255">
       </label>
       <div class="sheet-actions" style="margin-top:16px;">
         <button type="button" class="btn ghost" id="dismissCancelOrderBtn">Keep Order</button>

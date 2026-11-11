@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, money, qtyFmt, escapeHtml, h, toast } = window.CafeFlow.utils;
+  const { $, $$, money, qtyFmt, escapeHtml, h, toast, emptyState } = window.CafeFlow.utils;
   const api = window.CafeFlow.api;
   const state = window.CafeFlow.state;
   const loadMenu = () => window.CafeFlow.menu ? window.CafeFlow.menu.loadMenu() : null;
@@ -111,15 +111,23 @@ window.CafeFlow = window.CafeFlow || {};
 
 
     if (!list.length) {
-
       tbody.append(h('tr', {},
-
-        h('td', { colspan: '7', class: 'empty', text: manageProducts.length ? 'No products match your filter.' : 'No products registered yet. Click "+ Add Product".' })
-
+        h('td', { colspan: '7' },
+          emptyState({
+            icon: '☕',
+            title: filterText ? `No products match "${filterText}"` : 'No Products Registered',
+            desc: filterText ? 'Try adjusting your search query or clear the filter.' : 'Register beverages, pastries, and meals with cup sizes, prices, and recipe ingredients.',
+            tip: '💡 Tip: Products with multiple ingredients link to inventory for automated stock deductions.',
+            actionText: filterText ? '✕ Clear Search Filter' : '+ Add New Product',
+            onAction: filterText ? () => {
+              if (filterInput) filterInput.value = '';
+              if (filterClear) filterClear.hidden = true;
+              renderManageProducts();
+            } : () => openProductSheet('add')
+          })
+        )
       ));
-
       return;
-
     }
 
 

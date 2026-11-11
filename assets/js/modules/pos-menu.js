@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, money, h, toast } = window.CafeFlow.utils;
+  const { $, $$, money, h, toast, emptyState } = window.CafeFlow.utils;
   const api = window.CafeFlow.api;
   const { SVG_ICONS, getCategorySvg } = window.CafeFlow.icons;
   const state = window.CafeFlow.state;
@@ -151,20 +151,18 @@ window.CafeFlow = window.CafeFlow || {};
     state.cardBadges.clear();
 
     if (!state.menu.length) {
-      grid.append(h('div', { class: 'empty' },
-        h('p', { text: 'No products in the menu yet.' }),
-        h('button', {
-          type: 'button',
-          class: 'btn primary small',
-          style: 'margin-top: 8px;',
-          text: '+ Add Your First Product',
-          onclick: () => {
-            if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
-              window.CafeFlow.nav.showView('products');
-            }
+      grid.append(emptyState({
+        icon: '☕',
+        title: 'No Products in Menu',
+        desc: 'Get started by registering your first beverage, pastry, or food item.',
+        tip: '💡 Tip: You can set hot/iced options, cup sizes, and linked recipe ingredients.',
+        actionText: '+ Add Your First Product',
+        onAction: () => {
+          if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
+            window.CafeFlow.nav.showView('products');
           }
-        })
-      ));
+        }
+      }));
       return;
     }
 
@@ -178,23 +176,24 @@ window.CafeFlow = window.CafeFlow || {};
     });
 
     if (!filtered.length) {
-      grid.append(h('div', { class: 'empty' },
-        h('p', { text: `No products match "${state.searchQuery}".` }),
-        h('button', {
-          type: 'button',
-          class: 'btn ghost small',
-          style: 'margin-top: 8px;',
-          text: 'Clear Search',
-          onclick: () => {
-            state.searchQuery = '';
-            const ps = $('#productSearch');
-            if (ps) ps.value = '';
-            const sc = $('#searchClearBtn');
-            if (sc) sc.hidden = true;
-            renderMenu();
-          }
-        })
-      ));
+      const isSearch = Boolean(state.searchQuery);
+      grid.append(emptyState({
+        icon: isSearch ? '🔍' : '☕',
+        title: isSearch ? `No products match "${state.searchQuery}"` : `No items in "${state.activeCategory}"`,
+        desc: isSearch ? 'Check your spelling or browse using the category chips above.' : 'No products have been assigned to this category yet.',
+        tip: isSearch ? '💡 Tip: You can search by product name (e.g. Latte) or category (e.g. Croffle).' : null,
+        actionText: isSearch ? '✕ Clear Search Filter' : 'Show All Products',
+        onAction: () => {
+          state.searchQuery = '';
+          state.activeCategory = 'all';
+          const ps = $('#productSearch');
+          if (ps) ps.value = '';
+          const sc = $('#searchClearBtn');
+          if (sc) sc.hidden = true;
+          renderCategoryBar();
+          renderMenu();
+        }
+      }));
       return;
     }
 
