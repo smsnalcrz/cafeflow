@@ -21,6 +21,34 @@ $dateParam  = $_GET['date']  ?? null;
 $startParam = $_GET['start'] ?? null;
 $endParam   = $_GET['end']   ?? null;
 $allParam   = !empty($_GET['all']);
+$typeParam  = strtolower($_GET['type'] ?? 'sales');
+
+// Handle Standalone Inventory Export
+if ($typeParam === 'inventory') {
+    $scriptPath = __DIR__ . '/../core/excel_generator.py';
+    if (file_exists($scriptPath)) {
+        $tempFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cf_inv_' . uniqid() . '.xlsx';
+        $cliArgs = escapeshellarg($scriptPath) . ' --output ' . escapeshellarg($tempFile) . ' --type inventory';
+        $cmd = "python $cliArgs 2>&1";
+        $cmdOutput = [];
+        $returnCode = 1;
+        @exec($cmd, $cmdOutput, $returnCode);
+
+        if ($returnCode === 0 && file_exists($tempFile) && filesize($tempFile) > 0) {
+            $filename = 'DK_Cafe_Inventory_Stock_Report_' . date('Ymd_His') . '.xlsx';
+            if (!headers_sent()) {
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Content-Length: ' . filesize($tempFile));
+                header('Cache-Control: max-age=0, no-cache, must-revalidate');
+                header('Pragma: public');
+            }
+            readfile($tempFile);
+            @unlink($tempFile);
+            exit;
+        }
+    }
+}
 
 $where = '';
 $params = [];
@@ -357,9 +385,15 @@ class ExcelWorkbookBuilder
             '</styleSheet>');
 
         // 6. xl/worksheets/sheet1.xml
+        $lastCol = self::colLetter(count($headers) - 1);
         $sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' .
             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' .
-            '<sheetData>';
+            '<sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' .
+            '<cols>';
+        for ($cIdx = 1; $cIdx <= count($headers); $cIdx++) {
+            $sheetXml .= '<col min="' . $cIdx . '" max="' . $cIdx . '" width="18" customWidth="1"/>';
+        }
+        $sheetXml .= '</cols><sheetData>';
 
         $rowIndex = 1;
         // Header Row
@@ -395,7 +429,9 @@ class ExcelWorkbookBuilder
             $rowIndex++;
         }
 
-        $sheetXml .= '</sheetData></worksheet>';
+        $sheetXml .= '</sheetData>';
+        $sheetXml .= '<autoFilter ref="A1:' . $lastCol . ($rowCount + 1) . '"/>';
+        $sheetXml .= '</worksheet>';
         $xlsx->addFile('xl/worksheets/sheet1.xml', $sheetXml);
 
         return $xlsx->build();

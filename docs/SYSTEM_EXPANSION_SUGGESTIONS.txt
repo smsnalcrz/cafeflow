@@ -1,0 +1,284 @@
+================================================================================
+                    CAFEFLOW POS & BUSINESS MANAGEMENT SYSTEM
+     STRATEGIC EXPANSION & ACADEMIC INTEGRATION SUGGESTIONS (WST, SAD, SIA, FBA)
+================================================================================
+Date: November 09, 2026
+Target System: CafeFlow v5.1 (DK Cafe, Matabungkay, Lian, Batangas)
+Environment: PHP 8.2 / MariaDB / Apache (XAMPP) / Vanilla JS / Python openpyxl
+Academic Scope: Web Systems and Technology (WST)
+                System Analysis and Design (SAD)
+                System Integration and Architecture (SIA)
+                Fundamentals of Business Analytics (FBA)
+
+================================================================================
+1. EXECUTIVE OVERVIEW & ARCHITECTURAL PHILOSOPHY
+================================================================================
+CafeFlow is designed for a real-world boutique coffee shop (DK Cafe) operated 
+by a compact front-of-house team (1 to 2 people: Owner/Manager + Barista).
+
+The core challenge and academic strength of this project is striking the perfect
+balance between:
+1. Operational Simplicity: A lean, ultra-fast counter POS interface with zero
+   bloat, enabling a solo barista to take orders, brew espresso, and dispense
+   change without being slowed down by excessive forms.
+2. Academic Rigor & Depth: Demonstrating advanced concepts across four major
+   IT/CS subject areas (WST, SAD, SIA, and FBA) through clean decoupling,
+   data-driven business insights, security hardening, and external service contracts.
+
+This document outlines strategic enhancements to implement across the front-end,
+operational workflows, external integration architecture, and business analytics.
+
+================================================================================
+2. WEB SYSTEMS & TECHNOLOGY (WST) — FRONTEND & UX ENHANCEMENTS
+================================================================================
+Before overhauling the backend sales analytics, the customer-facing and counter POS
+interfaces should be refined to deliver a fluid, native-app feel:
+
+[A] Real-Time Out-of-Stock & Low-Stock Menu Badges:
+    • Problem: Currently, ingredient stock availability is only surfaced after
+      clicking a menu item to open its cup-size modal.
+    • Enhancement: Evaluate raw inventory levels during menu rendering. If any
+      essential recipe ingredient (e.g., Arabica beans, 16oz cold cup, whole milk)
+      hits 0, automatically overlay a soft red "SOLD OUT" badge on the product
+      card in #menuGrid and disable pointer events.
+    • If stock is at or below the alert threshold, display a subtle warning
+      chip: "⚠️ Low Stock".
+    • Academic Value (WST): Real-time DOM state synchronization reflecting backend
+      relational stock tables without requiring full-page reloads.
+
+[B] Keyboard Accelerators / Hotkeys for Fast Counter Service:
+    • Cashiers in fast counter environments operate significantly faster with
+      keyboard shortcuts than with mouse clicks:
+      - "/" or "F2": Instantly focus the menu search bar.
+      - "Escape": Close any open modal (Receipt, Size Selector, Cash Modal).
+      - "Enter": Trigger "Confirm & Pay" inside cash tendered inputs.
+      - "F1": Jump directly to POS view.
+      - "F3": Open Raw Supplies Inventory.
+      - "F4": Open Barista Queue / Shift Sales Report.
+    • Academic Value (WST): Accessible Web Applications (WAI-ARIA) and power-user
+      ergonomics.
+
+[C] Progressive Offline / Network Disconnection Resiliency:
+    • Add native browser event listeners:
+      window.addEventListener('online', updateOnlineStatus);
+      window.addEventListener('offline', updateOnlineStatus);
+    • When internet/local network drops, surface a non-intrusive floating amber
+      status pill: "⚠️ Offline Mode — Running on Local Cache".
+    • When restored, show: "✓ Connected (● LIVE)".
+    • Academic Value (WST): Demonstrates resilient client-side state handling and
+      graceful degradation under network volatility.
+
+[D] Tablet & Touch Target Optimization (Android POS):
+    • With Android tablet deployments, ensure all touch targets meet Google
+      Material Design guidelines (minimum 48x48px clickable area).
+    • Provide subtle CSS active-state tactile feedback (:active { transform: scale(0.98); })
+      on product cards, quick cash denomination buttons (Exact, ₱100, ₱200, ₱500, ₱1000),
+      and queue fulfillment actions.
+
+================================================================================
+3. SYSTEM ANALYSIS & DESIGN (SAD) — OPERATIONAL WORKFLOWS & AUDIT TRAILS
+================================================================================
+In commercial point-of-sale systems, accurate sales reports cannot exist in a vacuum;
+they rely on structured cash handling and transaction lifecycle management:
+
+[A] Shift Lifecycle Management & Cash Drawer Reconciliation (Panukli Float):
+    • The Problem: Sales reports currently tally transactions, but do not record
+      how much physical cash was placed in the drawer at the start of the day
+      (Opening Panukli Float) versus counted at closing.
+    • Enhancement: Implement a "Shift Register" modal:
+      - Start of Shift: Cashier enters Opening Float (e.g., ₱1,000.00).
+      - End of Shift: Cashier enters Actual Counted Cash (e.g., ₱5,450.00).
+      - System compares:
+        Opening Float + Cash Sales = Expected Cash
+        Expected Cash vs. Actual Cash = Over/Short (Kulang or Sobra).
+    • Academic Value (SAD): Enforces formal accounting controls, internal separation
+      of cash float vs. sales revenue, and anti-theft reconciliation.
+
+[B] Structured Order Voiding with Manager Authorization & Reason Audit:
+    • When a completed order is voided by the Manager, require selecting a formal
+      audit reason from a dropdown:
+      - "Customer Cancelled / Walk-Out"
+      - "Spilled / Damaged Drink (Waste)"
+      - "Cashier Punching Error (Re-order)"
+      - "Payment Discrepancy"
+    • Saves the audit reason, timestamp, and manager user_id in the database,
+      while automatically restoring deducted ingredient inventory.
+    • Academic Value (SAD): Internal control matrices, tamper-evident audit trails,
+      and data integrity enforcement.
+
+[C] Two-Role RBAC Model for 1–2 Person Establishments:
+    • Role 'barista': Front-counter sales, queue fulfillment, shift-closing X-Reading.
+      Restricted from voiding finalized sales, deleting recipes, or modifying users.
+    • Role 'manager': Full administrative, inventory restocking, account management,
+      and voiding authority.
+    • Academic Value (SAD): Least-privilege principle and operational safety even
+      in micro-enterprise setups.
+
+================================================================================
+4. SYSTEM INTEGRATION & ARCHITECTURE (SIA) — EXTERNAL SYSTEM INTEGRATIONS
+================================================================================
+To satisfy System Integration & Architecture requirements without introducing
+expensive third-party merchant contracts, implement these three realistic,
+high-impact integrations:
+
+[A] Dynamic GCash / Maya QR Payment Gateway (API & Webhook Simulation):
+    • Architecture: REST API + Asynchronous Webhook Endpoint.
+    • How it works:
+      1. Cashier clicks "Checkout • GCash".
+      2. The system dynamically generates an EMVCo-compliant QR Code (or QRPh format)
+         containing the merchant name ("DK Cafe"), Order #, and exact payable amount.
+      3. A "Simulate Customer App Payment" test button sends a signed JSON webhook
+         payload to `api/webhook_payment.php`:
+         {
+           "event": "payment.succeeded",
+           "order_id": 112,
+           "amount": 80.00,
+           "reference_number": "GCASH-99881234",
+           "timestamp": "2026-11-09T10:30:00Z",
+           "signature": "hmac_sha256_hash"
+         }
+      4. The webhook verifies the signature, marks the transaction as 'Completed',
+         and notifies the front-end POS via polling.
+    • Academic Value (SIA): Webhook architecture, HMAC cryptographic signing,
+      idempotent transaction processing, and third-party payment reconciliation.
+
+[B] Matabungkay Beach Weather REST API Integration (OpenWeatherMap API):
+    • Architecture: Third-Party REST API Consumption (HTTP GET).
+    • How it works:
+      1. System connects to the free OpenWeatherMap REST API querying Matabungkay,
+         Lian, Batangas (Coordinates: 13.9631° N, 120.6319° E).
+      2. Fetches current weather parameters: Temperature (e.g. 33°C), Weather Condition
+         ("Clear / Sunny", "Heavy Rain / Typhoon"), and Humidity.
+      3. Tags each sales day summary with the local weather conditions.
+    • Direct Cross-Subject Link to Analytics (SIA -> FBA):
+      - In a coastal beach town like Matabungkay, weather directly drives consumer
+        beverage choices:
+        * 33°C Sunny Weather: Surges in Iced Americano, Fruit Tea, Lemonades, and Shakes.
+        * Rainy / Stormy Days: Higher sales of Hot Lattes, Croffles, and Sandwiches.
+    • Academic Value (SIA & FBA): Shows real-world external environmental factors
+      impacting business analytics.
+
+[C] Automated SMS E-Receipt Gateway (Semaphore API / Mock Provider):
+    • Architecture: Outbound REST API Integration (HTTP POST).
+    • How it works:
+      1. Upon transaction completion, receipt dialog includes: "📱 Send Receipt via SMS".
+      2. Cashier enters customer mobile number (+63 9xx xxx xxxx).
+      3. System calls Semaphore API (standard Philippine SMS gateway):
+         curl -X POST https://api.semaphore.co/api/v4/messages \
+              -d "apikey=YOUR_KEY" \
+              -d "number=09171234567" \
+              -d "message=DK Cafe: Thank you for your purchase! Order #00112 Total: P80.00. View receipt: https://cafeflow.ph/r/112"
+    • Academic Value (SIA): Outbound transactional SMS integration, carrier routing,
+      and headless notification protocols.
+
+================================================================================
+5. FUNDAMENTALS OF BUSINESS ANALYTICS (FBA) — ADVANCED METRICS & REPORTING
+================================================================================
+Transform raw sales numbers into actionable business intelligence for café owners:
+
+[A] Rush-Hour Traffic & Hourly Sales Histogram:
+    • Breakdown of revenue and order volume by time-of-day:
+      - 08:00 AM – 10:30 AM: Morning Breakfast & Coffee Rush
+      - 01:00 PM – 04:00 PM: Merienda, Croffle & Frappe Rush
+      - 06:00 PM – 09:00 PM: Evening Coastal Hangout
+    • Practical Value: Informs owner when to schedule 2 baristas versus when 1 person
+      can easily handle the counter alone.
+
+[B] Menu Engineering Matrix (BCG / Pareto 80/20 Analysis):
+    • Categorize all 42 products into 4 strategic quadrants:
+      1. ⭐ STARS (High Volume, High Profit):
+         - Items that drive the business (e.g., Biscoff Latte, Croffle Nutella).
+         - Action: Maintain high supply levels; promote prominently.
+      2. 🐎 WORKHORSES / PLOWHORSES (High Volume, Low Margin):
+         - Popular staple items (e.g., Regular Americano).
+         - Action: Slightly optimize portion costs or offer upsells (add shot, upsize).
+      3. ❓ PUZZLES (Low Volume, High Margin):
+         - Premium signature drinks that don't sell frequently (e.g., Matcha Cold Foam).
+         - Action: Feature as "Drink of the Week" or run social promos.
+      4. 🐕 DOGS (Low Volume, Low Margin):
+         - Slow-moving items holding perishable ingredients.
+         - Action: Consider retiring from the active menu to reduce ingredient spoilage.
+
+[C] Food Cost Percentage & Estimated Gross Profit Margin:
+    • Tying raw ingredient deductions to cost estimates:
+      $$\text{Food Cost \%} = \frac{\text{Ingredient Unit Costs}}{\text{Selling Price}} \times 100$$
+    • Target café industry benchmark: 25% – 32% food cost.
+    • System calculates True Gross Profit: Total Revenue minus Total Ingredient Costs.
+
+[D] Discount Impact Ratio:
+    • Comparing regular full-price revenue against statutory discounts (20% Senior Citizen /
+      PWD) and custom promotional discounts.
+    • Evaluates the exact revenue contribution subsidized under Philippine RA 9994 / RA 10754.
+
+================================================================================
+6. PROPOSED DATABASE EXPANSIONS (LEAN & TARGETED)
+================================================================================
+To support these enhancements without adding operational clutter, four targeted
+tables/columns are recommended:
+
+1. `inventory_logs` (Stock Movement & Waste Audit Trail):
+   CREATE TABLE inventory_logs (
+       log_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       item_id INT UNSIGNED NOT NULL,
+       user_id INT UNSIGNED NOT NULL,
+       change_type ENUM('sale_deduction', 'manual_restock', 'spoilage_waste', 'adjustment', 'void_return') NOT NULL,
+       quantity_change DECIMAL(10,2) NOT NULL,
+       stock_after DECIMAL(10,2) NOT NULL,
+       reason VARCHAR(255) NULL,
+       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (item_id) REFERENCES inventory(item_id) ON DELETE CASCADE,
+       FOREIGN KEY (user_id) REFERENCES users(user_id)
+   );
+
+2. `shift_registers` (Shift Cash Reconciliation & Z-Reading):
+   CREATE TABLE shift_registers (
+       shift_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       cashier_user_id INT UNSIGNED NOT NULL,
+       opened_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+       closed_at DATETIME NULL,
+       opening_float DECIMAL(10,2) NOT NULL DEFAULT 1000.00,
+       expected_cash DECIMAL(10,2) DEFAULT 0.00,
+       actual_cash_counted DECIMAL(10,2) DEFAULT NULL,
+       cash_discrepancy DECIMAL(10,2) DEFAULT NULL,
+       total_gcash DECIMAL(10,2) DEFAULT 0.00,
+       status ENUM('open', 'closed') DEFAULT 'open',
+       notes TEXT NULL,
+       FOREIGN KEY (cashier_user_id) REFERENCES users(user_id)
+   );
+
+3. `expenses` (Daily Petty Cash & Outflows):
+   CREATE TABLE expenses (
+       expense_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+       user_id INT UNSIGNED NOT NULL,
+       category ENUM('Emergency Supply', 'Ice/Water', 'Packaging', 'Store Maintenance', 'Miscellaneous') NOT NULL,
+       amount DECIMAL(10,2) NOT NULL,
+       description VARCHAR(255) NOT NULL,
+       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+       FOREIGN KEY (user_id) REFERENCES users(user_id)
+   );
+
+4. Cost Columns on `inventory` and `transaction_items`:
+   ALTER TABLE inventory ADD COLUMN unit_cost DECIMAL(10,2) NOT NULL DEFAULT 0.00;
+   ALTER TABLE transaction_items ADD COLUMN estimated_cost DECIMAL(8,2) DEFAULT 0.00;
+
+================================================================================
+7. RECOMMENDED IMPLEMENTATION ROADMAP
+================================================================================
+Step 1: Frontend POS Enhancements (WST)
+  - Real-time "SOLD OUT" and "Low Stock" indicators on POS menu cards.
+  - Keyboard shortcuts for high-speed counter ordering.
+  - Offline/online network status pill.
+
+Step 2: Operational Shift Lifecycle (SAD)
+  - Implement Shift Open / Shift Close (Opening Float vs. Counted Cash).
+  - Add Manager Void confirmation reason selector.
+
+Step 3: External System Integrations (SIA)
+  - Integrate OpenWeatherMap API for Matabungkay, Lian, Batangas.
+  - Implement Dynamic GCash QR generation with simulated payment webhook.
+
+Step 4: Advanced Business Analytics (FBA)
+  - Build Hourly Rush-Hour Histogram and BCG Menu Engineering Matrix into the
+    Manager Sales Report interface.
+  - Correlate Weather conditions with product sales mix in Excel and UI dashboards.
+================================================================================

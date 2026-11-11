@@ -489,6 +489,7 @@ $cssModules = [
         </div>
         <div class="modal-actions">
           <button type="button" class="btn primary" id="addNewSupplyBtn">+ Add Supply</button>
+          <a href="api/export_excel.php?type=inventory" class="btn small" id="exportInventoryExcelBtn" title="Export inventory & recipe audit to Excel (.xlsx)" style="background: var(--amber); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-weight: 600; border-radius: var(--radius-sm); font-size: 13px;">📥 Export Excel</a>
           <button type="button" class="btn ghost" data-close>✕ Close</button>
         </div>
       </div>

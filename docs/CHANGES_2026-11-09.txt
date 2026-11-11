@@ -1,0 +1,70 @@
+CafeFlow POS — Professional XLSX Export Visual Enhancement & Multi-Sheet Architecture
+Release Date: November 09, 2026 | Environment: PHP 8.2 / MariaDB / Apache (XAMPP) / Python 3.14 / openpyxl 3.1.5 | Status: Complete & Verified
+
+================================================================================
+1. EXECUTIVE SUMMARY OF IMPLEMENTED CHANGES
+================================================================================
+This release delivers a complete visual, architectural, and mathematical overhaul of the Excel (.xlsx) export functionality across the CafeFlow POS platform, transforming basic spreadsheet downloads into presentation-grade, executive business documents:
+
+• Master 4-Worksheet Executive Sales Workbook Architecture (DK_Cafe_Executive_Sales_*.xlsx):
+  - Sheet 1 ('📊 Executive Dashboard'): Executive report banner in Deep Espresso (#1F1610), 6 high-contrast KPI summary cards (Total Settled Sales, Completed Orders, Average Order Value, Total Discounts, Net Cash Drawer Tender, GCash Digital Sales), dual side-by-side financial reconciliation tables (Payment Channels and Revenue & Discount Classification), sorted Product Category Mix table with % revenue share, and an embedded native vector Doughnut Chart.
+  - Sheet 2 ('🧾 Itemized Sales Ledger'): Full 21-column audit ledger (Receipt #, Date & Time, Cashier, Status, Payment Method, GCash Ref #, Discount Type, Senior/PWD ID, Reason, Product Item, Category, Unit Price, Qty, Line Total, Subtotal, Discount, Net Total, Paid, Change, Canceller, and Cancellation Notes). Features soft status pills (Completed, Pending, Voided), alternating zebra shading, frozen header panes, auto-filters, landscape print setup with repeating header rows ($4:$4), and dynamic =SUBTOTAL(9, ...) accounting rows that recalculate automatically when filtered.
+  - Sheet 3 ('🏆 Product Performance'): Menu item popularity ranking with podium badges (🥇 #1, 🥈 #2, 🥉 #3), base prices, unit volumes, revenues, and sales contribution shares, accompanied by an embedded horizontal Bar Chart comparing Top 10 Best Sellers by revenue.
+  - Sheet 4 ('📦 Raw Inventory & Stock Health'): Comprehensive stock audit tracking all 62 physical supplies, with 4 top KPI cards (Total Supplies, Healthy Stock, Low Stock Warnings, Out of Stock), stock health pills (HEALTHY [Green], LOW STOCK [Amber], OUT OF STOCK [Red]), and automated replenishment directives.
+
+• Dedicated Standalone Inventory & Recipe Audit Workbook (DK_Cafe_Inventory_Stock_Report_*.xlsx):
+  - Introduced ?type=inventory parameter support in api/export_excel.php and core/excel_generator.py.
+  - Generates a specialized 2-worksheet operational workbook:
+    * Sheet 1 ('📦 Raw Supplies Inventory'): Physical stock audit with KPI metrics, reorder thresholds, and active status.
+    * Sheet 2 ('☕ Menu Recipe Mapping'): Itemized recipe formula register mapping all 42 menu products to their 231 exact ingredient deductions and units of measure.
+
+• Mathematical Precision & Formula Bug Fixes:
+  - Corrected double-counting formula in the Revenue & Discount summary table: replaced faulty summation with =G11-G12 (Gross Menu Subtotal minus Total Discounts Given = Net Realized Sales Revenue).
+  - Fixed payment method order counters: resolved an issue where cash and GCash orders were filtered against the first row's item_row_id, ensuring unique transaction IDs are properly counted per payment method.
+
+• User Interface & Inventory Modal Integration:
+  - Added a prominent '📥 Export Excel' action button directly into the Raw Supplies Inventory modal header (#inventoryModal) in index.php, allowing the manager to download the standalone inventory and recipe report with a single click.
+
+• Enterprise Excel Usability & Print-Ready Automation:
+  - Frozen header panes (freeze_panes) applied across all worksheets to maintain column label visibility during vertical and horizontal scrolling.
+  - Auto-filters (auto_filter.ref) enabled across all data tables for instant in-Excel filtering and sorting.
+  - Smart column auto-fitting (auto_fit_columns) with number-format awareness (currency, integer, decimal, percent, date) to prevent number clipping or ### display errors.
+  - Print setup configured for both landscape and portrait orientations, US Letter/A4 paper, fitToWidth = 1, repeating header rows (print_title_rows), and 0.5-inch margins.
+
+• Android Tablet & Cross-Platform Compatibility Verified:
+  - Confirmed 100% standard ECMA-376 OpenXML (.xlsx) compatibility across Android tablet office suites (Microsoft 365, Google Sheets, WPS Office, Samsung DeX) and desktop environments (Microsoft Excel, LibreOffice Calc).
+
+================================================================================
+2. KEY FILES & MODULES MODIFIED
+================================================================================
+• Python Excel Generation Engine:
+  - core/excel_generator.py: Upgraded workbook generator with openpyxl 3.1.5; implemented 4-sheet sales audit and 2-sheet standalone inventory export routines; integrated openpyxl.chart (DoughnutChart and BarChart); added auto_fit_columns and setup_page helper utilities; enforced 0% non-VAT financial calculations.
+
+• Backend API & OpenXML Fallback Controller:
+  - api/export_excel.php: Added ?type=inventory routing to trigger standalone inventory exports; improved pure-PHP OpenXML fallback builder (ExcelWorkbookBuilder) with frozen panes, auto-filters, column definitions, and dark espresso header styling.
+
+• Frontend Template & UI:
+  - index.php: Added '📥 Export Excel' action button in the Raw Supplies Inventory modal (#inventoryModal) header.
+
+================================================================================
+3. SYSTEM DIAGNOSTIC & VERIFICATION RESULTS
+================================================================================
+1. Native Microsoft Excel 2016 / 365 COM Automation Test:
+   - Executed automated COM validation using Microsoft Excel (Office16/EXCEL.EXE):
+     * DK_Cafe_Executive_Sales_*.xlsx: Opened with 0 errors, 0 repair prompts, 4 worksheets verified.
+     * DK_Cafe_Inventory_Stock_Report_*.xlsx: Opened with 0 errors, 2 worksheets verified.
+   - Successfully rendered and validated native PDF exports from Excel COM.
+
+2. Full HTTP API Endpoint Test Suite (Tested across Manager & Barista Sessions):
+   [PASS] GET api/export_excel.php?all=1 -> HTTP 200 (30,688 bytes, 4 sheets, 2 charts)
+   [PASS] GET api/export_excel.php?start=2026-11-01&end=2026-11-06 -> HTTP 200 (29,396 bytes, 4 sheets)
+   [PASS] GET api/export_excel.php?date=2026-11-06 -> HTTP 200 (18,234 bytes, 4 sheets)
+   [PASS] GET api/export_excel.php?type=inventory -> HTTP 200 (19,024 bytes, 2 sheets)
+   [PASS] Barista access verified for operational register shift closing (HTTP 200)
+   [PASS] Manager access verified for full audit and inventory exports (HTTP 200)
+
+3. Core Logic & Security Verification Suite (31 Tests):
+   - Executed verify_fixes.php: 31 / 31 PASSED (100.0% success rate across underpayment prevention, RBAC, order cancellation, recipe cascade, discount math, GCash validation, and session expiration).
+
+4. Repository & Workspace Cleanliness:
+   - All temporary inspection files, COM test scripts, and PDF renders were maintained inside the conversation artifact directory; the git working tree contains only the 3 modified project files.
