@@ -82,6 +82,7 @@ if (!function_exists('ensure_schema')) {
             $txCols = $pdo->query("SHOW COLUMNS FROM transactions")->fetchAll(PDO::FETCH_COLUMN);
             if (!in_array('cashier_user_id', $txCols, true)) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN cashier_user_id INT UNSIGNED NULL DEFAULT NULL AFTER transaction_id");
+                try { $pdo->exec("ALTER TABLE transactions ADD INDEX idx_cashier (cashier_user_id)"); } catch (Throwable $e) {}
             }
             if (!in_array('amount_paid', $txCols, true)) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN amount_paid DECIMAL(10,2) NULL DEFAULT NULL AFTER total_amount");

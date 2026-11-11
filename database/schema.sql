@@ -575,7 +575,9 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 -- Starter Accounts:
 -- barista / barista123
 -- manager / manager123
+-- tan_smsn / alcaraz030303
 INSERT IGNORE INTO users (user_id, full_name, username, email, password_hash, role, status) VALUES
   (1, 'DK Cafe Barista', 'barista', 'barista@cafeflow.com', '$2y$10$O03V3jV14p9gq4kF00k46.0oK72m82P8iU9l2Y8lD3B7S9tN.8eSm', 'barista', 'active'),
-  (2, 'Manager', 'manager', 'manager@cafeflow.com', '$2y$10$7vN3QG8L2p5N0P9Q1w2e3.9e6o5a4b3c2d1e0f9a8b7c6d5e4f3a2', 'manager', 'active');
+  (2, 'Manager', 'manager', 'manager@cafeflow.com', '$2y$10$7vN3QG8L2p5N0P9Q1w2e3.9e6o5a4b3c2d1e0f9a8b7c6d5e4f3a2', 'manager', 'active'),
+  (6, 'Tristan Alcaraz', 'tan_smsn', NULL, '$2y$10$BwIF9MnB2xcRg6hhEvada.j6V5fznErNPgXqCE00yRjFazKMBmEFK', 'barista', 'active');
 
