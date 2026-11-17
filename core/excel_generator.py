@@ -49,10 +49,23 @@ FMT_DECIMAL  = '#,##0.00'
 FMT_PERCENT  = '0.0%'
 
 def get_db_connection():
-    return pymysql.connect(
-        host='127.0.0.1', user='root', password='', database='cafeflow',
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    configured_port = int(os.environ.get('DB_PORT', 3307))
+    ports = [configured_port]
+    for fallback in [3307, 3306]:
+        if fallback not in ports:
+            ports.append(fallback)
+
+    last_err = None
+    for p in ports:
+        try:
+            return pymysql.connect(
+                host='127.0.0.1', port=p, user='root', password='', database='cafeflow',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err
 
 def setup_page(ws, orientation='portrait', title_rows=None):
     ws.views.sheetView[0].showGridLines = True

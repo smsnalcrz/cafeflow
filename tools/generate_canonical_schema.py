@@ -7,11 +7,27 @@ then validates synchronization against an isolated test database.
 import pymysql
 import os
 
+def get_db_connection():
+    configured_port = int(os.environ.get('DB_PORT', 3307))
+    ports = [configured_port]
+    for fallback in [3307, 3306]:
+        if fallback not in ports:
+            ports.append(fallback)
+
+    last_err = None
+    for p in ports:
+        try:
+            return pymysql.connect(
+                host='127.0.0.1', port=p, user='root', password='', database='cafeflow',
+                cursorclass=pymysql.cursors.DictCursor
+            )
+        except Exception as e:
+            last_err = e
+            continue
+    raise last_err
+
 def generate_schema_file():
-    conn = pymysql.connect(
-        host='127.0.0.1', user='root', password='', database='cafeflow',
-        cursorclass=pymysql.cursors.DictCursor
-    )
+    conn = get_db_connection()
     
     with conn.cursor() as cur:
         # Fetch inventory

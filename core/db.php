@@ -4,10 +4,11 @@
  * Change the constants below only if your MySQL differs from the XAMPP defaults.
  */
 
-if (!defined('DB_HOST')) define('DB_HOST', '127.0.0.1');
-if (!defined('DB_NAME')) define('DB_NAME', 'cafeflow');
-if (!defined('DB_USER')) define('DB_USER', 'root');
-if (!defined('DB_PASS')) define('DB_PASS', '');              // XAMPP default: empty password
+if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
+if (!defined('DB_PORT')) define('DB_PORT', getenv('DB_PORT') ?: '3307');
+if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'cafeflow');
+if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');
+if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');              // XAMPP default: empty password
 
 date_default_timezone_set('Asia/Manila');
 ini_set('display_errors', '0');  // PHP warnings must never corrupt a JSON reply
@@ -288,16 +289,35 @@ if (!function_exists('db')) {
     {
         static $pdo = null;
         if ($pdo === null) {
-            $pdo = new PDO(
-                'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
-                DB_USER,
-                DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                    PDO::ATTR_EMULATE_PREPARES   => false,
-                ]
-            );
+            $configuredPort = defined('DB_PORT') ? (int) DB_PORT : 3307;
+            $portsToTry = array_values(array_unique(array_filter([$configuredPort, 3307, 3306])));
+
+            $options = [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ];
+
+            $lastException = null;
+            foreach ($portsToTry as $port) {
+                try {
+                    $dsn = 'mysql:host=' . DB_HOST . ';port=' . $port . ';dbname=' . DB_NAME . ';charset=utf8mb4';
+                    $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                    break;
+                } catch (PDOException $e) {
+                    $lastException = $e;
+                    // If connection refused (code 2002 / wrong port), try next candidate port
+                    if ($e->getCode() === 2002 || str_contains($e->getMessage(), '2002')) {
+                        continue;
+                    }
+                    throw $e;
+                }
+            }
+
+            if ($pdo === null) {
+                throw $lastException;
+            }
+
             $pdo->exec("SET time_zone = '+08:00'");
             ensure_schema($pdo);
         }
