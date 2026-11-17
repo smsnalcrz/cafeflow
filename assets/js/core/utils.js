@@ -110,7 +110,7 @@ window.CafeFlow = window.CafeFlow || {};
   /**
    * Generates a contextual, user-friendly empty state component with guidance & tips.
    * @param {object} opts
-   * @param {string} [opts.icon='☕'] - Icon or emoji
+   * @param {string} [opts.icon=''] - Optional icon
    * @param {string} [opts.title='No Data'] - Primary heading
    * @param {string} [opts.desc=''] - Descriptive guidance
    * @param {string} [opts.tip=''] - Pro-tip or hint badge text
@@ -119,9 +119,10 @@ window.CafeFlow = window.CafeFlow || {};
    * @param {boolean} [opts.compact=false] - Whether to use compact padding
    * @returns {HTMLElement}
    */
-  const emptyState = ({ icon = '☕', title = 'No Data', desc = '', tip = '', actionText = '', onAction = null, compact = false }) => {
+  const emptyState = ({ icon = '', title = 'No Data', desc = '', tip = '', actionText = '', onAction = null, compact = false }) => {
+    const iconEl = icon ? h('div', { class: 'cf-empty-icon-wrap' }, h('span', { text: icon })) : null;
     const root = h('div', { class: 'cf-empty-state' + (compact ? ' compact' : '') },
-      h('div', { class: 'cf-empty-icon-wrap' }, h('span', { text: icon })),
+      iconEl,
       h('h4', { class: 'cf-empty-title', text: title }),
       desc ? h('p', { class: 'cf-empty-desc', text: desc }) : null,
       tip ? h('div', { class: 'cf-empty-tip', text: tip }) : null,

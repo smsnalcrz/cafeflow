@@ -214,8 +214,10 @@ $dateParam  = $_GET['date']  ?? null;
 $startParam = $_GET['start'] ?? null;
 $endParam   = $_GET['end']   ?? null;
 $monthParam = $_GET['month'] ?? null;
+$yearParam  = $_GET['year']  ?? null;
 $rangeParam = $_GET['range'] ?? null;
 $allParam   = !empty($_GET['all']);
+$limitParam = as_int($_GET['limit'] ?? null, 1, 10000);
 
 $where = '';
 $params = [];
@@ -226,6 +228,17 @@ $periodLabel  = '';
 if ($allParam) {
     $where = 'WHERE 1=1';
     $periodLabel = 'All Available Transactions';
+} elseif ($rangeParam === 'year' || ($yearParam && preg_match('/^\d{4}$/', (string)$yearParam) && !$monthParam && !$dateParam)) {
+    $rawYear = (int) ($yearParam ?? (new DateTimeImmutable('now', $tz))->format('Y'));
+    $dtStart = DateTimeImmutable::createFromFormat('!Y-m-d', sprintf('%04d-01-01', $rawYear), $tz);
+    $dtEnd   = $dtStart->modify('+1 year');
+    $lastDay = $dtEnd->modify('-1 day');
+    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $params[':start'] = $dtStart->format('Y-m-d 00:00:00');
+    $params[':end']   = $dtEnd->format('Y-m-d 00:00:00');
+    $startDateStr = $dtStart->format('Y-m-d');
+    $endDateStr   = $lastDay->format('Y-m-d');
+    $periodLabel  = sprintf('Year %04d', $rawYear);
 } elseif ($startParam && $endParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endParam)) {
     $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
     $params[':start'] = $startParam . ' 00:00:00';
@@ -313,7 +326,7 @@ $st = $pdo->prepare(
 
       $where
 
-      ORDER BY `timestamp` DESC, transaction_id DESC"
+      ORDER BY `timestamp` DESC, transaction_id DESC " . ($limitParam !== null ? "LIMIT " . (int)$limitParam : ($rangeParam === 'year' && empty($searchParam) ? "LIMIT 250" : ""))
 
 );
 

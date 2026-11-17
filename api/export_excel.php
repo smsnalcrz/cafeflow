@@ -50,6 +50,43 @@ if ($typeParam === 'inventory') {
     }
 }
 
+// Handle Predictive Machine Learning & Demand Forecast Export
+if ($typeParam === 'predictive') {
+    $scriptPath = __DIR__ . '/../core/excel_generator.py';
+    if (file_exists($scriptPath)) {
+        $tempFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cf_pred_' . uniqid() . '.xlsx';
+        $cliArgs = escapeshellarg($scriptPath) . ' --output ' . escapeshellarg($tempFile) . ' --type predictive';
+        if ($allParam) {
+            $cliArgs .= ' --all';
+        } elseif ($startParam && $endParam) {
+            $cliArgs .= ' --start ' . escapeshellarg($startParam) . ' --end ' . escapeshellarg($endParam);
+        } elseif ($dateParam) {
+            $cliArgs .= ' --date ' . escapeshellarg($dateParam);
+        } else {
+            $cliArgs .= ' --all';
+        }
+
+        $cmd = "python $cliArgs 2>&1";
+        $cmdOutput = [];
+        $returnCode = 1;
+        @exec($cmd, $cmdOutput, $returnCode);
+
+        if ($returnCode === 0 && file_exists($tempFile) && filesize($tempFile) > 0) {
+            $filename = 'DK_Cafe_Executive_Predictive_Forecast_' . date('Ymd_His') . '.xlsx';
+            if (!headers_sent()) {
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment; filename="' . $filename . '"');
+                header('Content-Length: ' . filesize($tempFile));
+                header('Cache-Control: max-age=0, no-cache, must-revalidate');
+                header('Pragma: public');
+            }
+            readfile($tempFile);
+            @unlink($tempFile);
+            exit;
+        }
+    }
+}
+
 $where = '';
 $params = [];
 $periodLabel = '';
@@ -132,6 +169,13 @@ if (file_exists($scriptPath)) {
     } elseif ($dateParam) {
         $cliArgs .= ' --date ' . escapeshellarg($dateParam);
     }
+
+    if ($typeParam === 'predictive') {
+        $cliArgs .= ' --type predictive';
+        $filename = 'DK_Cafe_Executive_Predictive_Forecast_' . $filenameSuffix . '.xlsx';
+    } else {
+        $filename = 'DK_Cafe_Executive_Sales_Audit_' . $filenameSuffix . '.xlsx';
+    }
     
     $cmd = "python $cliArgs 2>&1";
     $cmdOutput = [];
@@ -139,7 +183,6 @@ if (file_exists($scriptPath)) {
     @exec($cmd, $cmdOutput, $returnCode);
     
     if ($returnCode === 0 && file_exists($tempFile) && filesize($tempFile) > 0) {
-        $filename = 'DK_Cafe_Executive_Sales_' . $filenameSuffix . '.xlsx';
         if (!headers_sent()) {
             header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
             header('Content-Disposition: attachment; filename="' . $filename . '"');

@@ -1,0 +1,249 @@
+/* ======================================================================
+   CafeFlow POS — Predictive Machine Learning Analytics Styles
+   Follows CafeFlow design tokens: Espresso, Emerald, Gold, Parchment
+   ====================================================================== */
+
+/* ======================================================================
+   PREDICTIVE MACHINE LEARNING ANALYTICS — FULL WORKSPACE
+   (Edge-to-edge full page view, exactly mirroring #reportModal workspace)
+   ====================================================================== */
+#predictiveModal {
+  background: var(--bg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+  animation: none;
+  display: flex;
+  flex-direction: column;
+}
+#predictiveModal[hidden] { display: none; }
+
+#predictiveModal .modal-card,
+.predictive-modal-card {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+  border: none;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.modal-title-wrap h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.modal-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* Predictive Header Alert / Calibration Banner */
+.pred-alert-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  margin-bottom: 18px;
+  background: rgba(192, 124, 46, 0.08);
+  border: 1.5px solid rgba(192, 124, 46, 0.35);
+}
+.pred-alert-icon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.pred-alert-body {
+  flex: 1;
+}
+.pred-alert-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.pred-alert-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #8c5314;
+  letter-spacing: .3px;
+  text-transform: uppercase;
+}
+.pred-alert-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #c07c2e;
+  color: #fff;
+  letter-spacing: .4px;
+}
+.pred-alert-text {
+  margin: 0;
+  font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  text-align: justify;
+}
+
+/* 4-Card / 5-Card KPI Grid */
+.pred-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.pred-kpi-card {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+.pred-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.pred-kpi-card.hero {
+  background: linear-gradient(135deg, var(--espresso) 0%, #203424 100%);
+  border-color: var(--espresso);
+  color: #fff;
+}
+.pred-kpi-card.hero .kpi-label { color: rgba(255,255,255,0.7); }
+.pred-kpi-card.hero .kpi-val { color: #fff; font-size: 24px; }
+.pred-kpi-card.hero .kpi-sub { color: rgba(255,255,255,0.75); }
+
+.pred-kpi-card .kpi-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+}
+.pred-kpi-card .kpi-val {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.pred-kpi-card .kpi-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.pred-kpi-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+.pred-kpi-badge.up { background: rgba(42, 155, 82, 0.15); color: #1e7e3e; }
+.pred-kpi-badge.down { background: rgba(217, 74, 56, 0.15); color: #c0392b; }
+
+/* Forecast Chart Cards */
+.pred-chart-card {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20px;
+}
+.pred-chart-body {
+  height: 290px;
+  padding: 14px 18px 18px;
+  position: relative;
+}
+.pred-chart-body canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Dynamic Analytical Description Box */
+.pred-narrative-box {
+  border-top: 1px solid var(--line);
+  background: var(--parchment);
+  padding: 16px 20px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pred-narrative-tag {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #c07c2e;
+}
+.pred-narrative-body {
+  font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  text-align: justify;
+}
+.pred-narrative-body p {
+  margin: 0 0 8px;
+}
+.pred-narrative-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* Predictive Breakdown Tables */
+.pred-table-wrap {
+  margin-top: 16px;
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 20px;
+}
+.pred-table-wrap .table {
+  margin-bottom: 0;
+}
+.pred-tag-pill {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.pred-tag-pill.summer { background: #fff3cd; color: #856404; }
+.pred-tag-pill.monsoon { background: #d1ecf1; color: #0c5460; }
+.pred-tag-pill.holiday { background: #f8d7da; color: #721c24; }
+.pred-tag-pill.baseline { background: #e2e3e5; color: #383d41; }
+.pred-tag-pill.payday { background: #d4edda; color: #155724; font-weight: 800; }
+
+@media (max-width: 820px) {
+  .pred-kpi-grid { grid-template-columns: 1fr 1fr; }
+  .pred-chart-body { height: 240px; }
+}

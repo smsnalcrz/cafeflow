@@ -1,0 +1,15 @@
+# Environment & temporary files
+.DS_Store
+Thumbs.db
+__pycache__/
+*.pyc
+
+# Local scratch directory & temporary test artifacts
+scratch/
+tmp/
+temp/
+
+# User exports & Microsoft Excel lock files
+exports/
+*.xlsx
+~$*.xlsx

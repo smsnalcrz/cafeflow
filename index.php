@@ -23,6 +23,7 @@ $cssModules = [
   'assets/css/inventory.css',
   'assets/css/products.css',
   'assets/css/reports.css',
+  'assets/css/predictive.css',
   'assets/css/responsive.css',
   'assets/css/print.css',
 ];
@@ -64,18 +65,28 @@ $cssModules = [
     <nav class="nav" aria-label="Main">
       <?php if ($currentRole === 'barista'): ?>
       <button type="button" class="nav-btn active" data-view="pos">
-        🧾 POS <span class="badge" id="queueBadge" hidden>0</span>
+        <svg class="nav-icon" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+        <span>POS</span> <span class="badge" id="queueBadge" hidden>0</span>
       </button>
       <button type="button" class="nav-btn" data-view="products">
-        🏷️ Products
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+        <span>Products</span>
       </button>
       <?php endif; ?>
       <button type="button" class="nav-btn" data-view="inventory">
-        📦 Inventory <span class="badge warn" id="lowBadge" hidden>0</span>
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+        <span>Inventory</span> <span class="badge warn" id="lowBadge" hidden>0</span>
       </button>
       <button type="button" class="nav-btn" data-view="report">
-        📊 Sales Report
+        <svg class="nav-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Sales Report</span>
       </button>
+      <?php if ($currentRole === 'manager'): ?>
+      <button type="button" class="nav-btn" data-view="predictive" id="predictiveNavBtn">
+        <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+        <span>Predictive Analytics</span>
+      </button>
+      <?php endif; ?>
 
       <!-- Profile Button in Topbar (Positioned between Sales Report and Clock) -->
       <div class="user-profile-wrap" id="userProfileWrap">
@@ -109,12 +120,16 @@ $cssModules = [
           <div class="profile-dropdown-menu">
             <?php if ($currentRole === 'manager'): ?>
             <button type="button" class="dropdown-item" id="openAccountsBtn">
-              <span class="dropdown-item-icon">👥</span>
+              <span class="dropdown-item-icon">
+                <svg class="dropdown-svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+              </span>
               <span>Account Management</span>
             </button>
             <?php endif; ?>
             <a href="logout.php" class="dropdown-item danger" id="logoutLink" style="text-decoration: none;">
-              <span class="dropdown-item-icon">🚪</span>
+              <span class="dropdown-item-icon">
+                <svg class="dropdown-svg" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              </span>
               <span>Sign Out</span>
             </a>
           </div>
@@ -133,7 +148,7 @@ $cssModules = [
       <div class="panel-head cashier-head">
         <h2>Menu</h2>
         <div class="menu-search-wrap">
-          <input type="search" id="productSearch" class="search-input" placeholder="🔍 Search beverages, pastries, meals, or category..." autocomplete="off">
+          <input type="search" id="productSearch" class="search-input" placeholder="Search beverages, pastries, meals, or category..." autocomplete="off">
           <button type="button" class="search-clear" id="searchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <button type="button" class="btn small primary" id="openAddProductBtn">+ Add Product</button>
@@ -167,7 +182,7 @@ $cssModules = [
         <div class="cart-head">
           <h2>Current Order</h2>
           <span class="muted" id="cartCount">0 items</span>
-          <button type="button" class="btn ghost small" id="clearCart">✕ Clear</button>
+          <button type="button" class="btn ghost small" id="clearCart">Clear</button>
         </div>
         <div class="cart-lines" id="cartLines"></div>
         <div class="cart-foot">
@@ -194,8 +209,14 @@ $cssModules = [
             <strong id="cartTotal">₱0.00</strong>
           </div>
           <div class="pay-row">
-            <button type="button" class="pay cash"  data-method="Cash">💵 Checkout · Cash</button>
-            <button type="button" class="pay gcash" data-method="GCash">📱 Checkout · GCash</button>
+            <button type="button" class="pay cash" data-method="Cash">
+              <svg class="pay-btn-svg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle><path d="M6 12h.01M18 12h.01"></path></svg>
+              <span>Checkout · Cash</span>
+            </button>
+            <button type="button" class="pay gcash" data-method="GCash">
+              <svg class="pay-btn-svg" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+              <span>Checkout · GCash</span>
+            </button>
           </div>
         </div>
       </div>
@@ -215,8 +236,14 @@ $cssModules = [
       </div>
     </button>
     <div class="mob-order-actions">
-      <button type="button" class="mob-pay-btn mob-pay-cash" id="mobPayCashBtn">💵 Cash</button>
-      <button type="button" class="mob-pay-btn mob-pay-gcash" id="mobPayGcashBtn">📱 GCash</button>
+      <button type="button" class="mob-pay-btn mob-pay-cash" id="mobPayCashBtn">
+        <svg class="pay-btn-svg" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle></svg>
+        <span>Cash</span>
+      </button>
+      <button type="button" class="mob-pay-btn mob-pay-gcash" id="mobPayGcashBtn">
+        <svg class="pay-btn-svg" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+        <span>GCash</span>
+      </button>
     </div>
   </div>
   <?php else: ?>
@@ -234,7 +261,9 @@ $cssModules = [
       <div class="mgr-card">
         <div class="mgr-card-header">
           <span class="mgr-card-title">Raw Supplies Inventory</span>
-          <span class="mgr-card-icon">📦</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          </div>
         </div>
         <div class="mgr-card-value" id="mgrCardSupplyCount">--</div>
         <p class="muted" style="margin: 0 0 10px;">Monitor stock counts, restock raw materials, and inspect low-stock alerts.</p>
@@ -244,7 +273,9 @@ $cssModules = [
       <div class="mgr-card">
         <div class="mgr-card-header">
           <span class="mgr-card-title">Today's Sales Revenue</span>
-          <span class="mgr-card-icon">📊</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          </div>
         </div>
         <div class="mgr-card-value" id="mgrCardSalesToday">₱0.00</div>
         <p class="muted" style="margin: 0 0 10px;">Inspect historical transaction records, date spans, and export spreadsheets.</p>
@@ -254,18 +285,32 @@ $cssModules = [
       <div class="mgr-card">
         <div class="mgr-card-header">
           <span class="mgr-card-title">Account Administration</span>
-          <span class="mgr-card-icon">👥</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
         </div>
         <div class="mgr-card-value" id="mgrCardUserCount">--</div>
         <p class="muted" style="margin: 0 0 10px;">Create Barista/Manager accounts, approve registrations, and manage credentials.</p>
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAccountsBtn">Manage Accounts</button>
+      </div>
+
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Predictive Sales Analytics</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+          </div>
+        </div>
+        <div class="mgr-card-value" id="mgrCardPredictiveHighlight">Forecast Engine</div>
+        <p class="muted" style="margin: 0 0 10px;">Seasonality-aware ML demand forecasting for daily, 7-day, monthly, and yearly revenue.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenPredictiveBtn">Launch Predictive Engine</button>
       </div>
     </div>
 
     <!-- ===== Manager Dashboard Charts (Option B) ===== -->
     <div class="mgr-charts-section" id="mgrChartsSection">
       <div class="mgr-charts-header">
-        <h2 class="mgr-charts-title">📈 Today's Sales Overview</h2>
+        <h2 class="mgr-charts-title">Today's Sales Overview</h2>
         <span class="mgr-charts-subtitle" id="mgrChartsPeriodLabel">Loading...</span>
       </div>
       <div class="mgr-charts-grid">
@@ -275,7 +320,7 @@ $cssModules = [
           </div>
           <div class="mgr-chart-wrap">
             <canvas id="mgrLineChart" aria-label="Hourly sales trend chart"></canvas>
-            <p class="mgr-chart-empty" id="mgrLineChartEmpty" hidden>☕ No hourly data for today yet.</p>
+            <p class="mgr-chart-empty" id="mgrLineChartEmpty" hidden>No hourly data for today yet.</p>
           </div>
         </div>
         <div class="mgr-chart-card">
@@ -284,7 +329,7 @@ $cssModules = [
           </div>
           <div class="mgr-chart-wrap">
             <canvas id="mgrBarChart" aria-label="Top selling products chart"></canvas>
-            <p class="mgr-chart-empty" id="mgrBarChartEmpty" hidden>☕ No product sales recorded today.</p>
+            <p class="mgr-chart-empty" id="mgrBarChartEmpty" hidden>No product sales recorded today.</p>
           </div>
         </div>
       </div>
@@ -297,9 +342,9 @@ $cssModules = [
   <div class="modal" id="productModal" hidden>
     <div class="modal-card">
       <div class="modal-head">
-        <h2>🏷️ Manage Products</h2>
+        <h2>Manage Products</h2>
         <div class="modal-search-wrap">
-          <input type="search" id="manageProductSearch" class="search-input" placeholder="🔍 Filter products by name or category (e.g. Espresso, Croffle)...">
+          <input type="search" id="manageProductSearch" class="search-input" placeholder="Filter products by name or category (e.g. Espresso, Croffle)...">
           <button type="button" class="search-clear" id="manageProductSearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
@@ -362,9 +407,9 @@ $cssModules = [
             <div class="size-builder-toolbar">
               <span class="presets-label">Quick Presets:</span>
               <div class="presets-group">
-                <button type="button" class="btn-preset-pill" data-preset="coffee">☕ 12oz Hot + 16oz Cold</button>
-                <button type="button" class="btn-preset-pill" data-preset="cold">❄️ 16oz + 22oz Cold</button>
-                <button type="button" class="btn-preset-pill" data-preset="all">🥤 12oz Hot + 16oz + 22oz Cold</button>
+                <button type="button" class="btn-preset-pill" data-preset="coffee">12oz Hot + 16oz Cold</button>
+                <button type="button" class="btn-preset-pill" data-preset="cold">16oz + 22oz Cold</button>
+                <button type="button" class="btn-preset-pill" data-preset="all">12oz Hot + 16oz + 22oz Cold</button>
               </div>
             </div>
 
@@ -385,7 +430,7 @@ $cssModules = [
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                 Add Cup Size
               </button>
-              <span class="size-builder-hint">Configure custom cup sizes and Hot ♨️ / Cold ❄️</span>
+              <span class="size-builder-hint">Configure custom cup sizes and Hot / Cold temperature options</span>
             </div>
           </div>
 
@@ -421,7 +466,7 @@ $cssModules = [
             <!-- Quick Add Raw Supply Inline Card -->
             <div class="quick-add-supply-card" id="quickAddSupplyCard" hidden>
               <div class="quick-add-header">
-                <span>📦 Add New Inventory Item</span>
+                <span>Add New Inventory Item</span>
                 <button type="button" class="quick-add-close" id="quickAddSupplyClose" title="Cancel adding item">✕</button>
               </div>
               <div class="sheet-grid-2">
@@ -443,14 +488,16 @@ $cssModules = [
               <p class="form-error" id="quickSupplyError" hidden></p>
               <div class="quick-add-actions">
                 <button type="button" class="btn ghost small" id="quickSupplyCancel">Cancel</button>
-                <button type="button" class="btn primary small" id="quickSupplySaveBtn">✓ Add to Inventory</button>
+                <button type="button" class="btn primary small" id="quickSupplySaveBtn">Add to Inventory</button>
               </div>
             </div>
 
             <!-- Inventory Search Bar -->
             <div class="supply-search-wrap">
               <div class="supply-search-input-box">
-                <span class="supply-search-icon" aria-hidden="true">🔍</span>
+                <span class="supply-search-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </span>
                 <input type="search" id="supplySearchInput" class="search-input supply-search-field" placeholder="Search raw inventory supplies by name or unit..." autocomplete="off">
                 <button type="button" class="search-clear" id="supplySearchClearBtn" hidden title="Clear search">✕</button>
               </div>
@@ -482,14 +529,14 @@ $cssModules = [
   <div class="modal" id="inventoryModal" hidden>
     <div class="modal-card">
       <div class="modal-head">
-        <h2>📦 Raw Supplies Inventory</h2>
+        <h2>Raw Supplies Inventory</h2>
         <div class="modal-search-wrap">
-          <input type="search" id="inventorySearch" class="search-input" placeholder="🔍 Search supplies by name, unit (g, ml, pcs), or status (low, ok)..." autocomplete="off">
+          <input type="search" id="inventorySearch" class="search-input" placeholder="Search supplies by name, unit (g, ml, pcs), or status (low, ok)..." autocomplete="off">
           <button type="button" class="search-clear" id="inventorySearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn primary" id="addNewSupplyBtn">+ Add Supply</button>
-          <a href="api/export_excel.php?type=inventory" class="btn small" id="exportInventoryExcelBtn" title="Export inventory & recipe audit to Excel (.xlsx)" style="background: var(--amber); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-weight: 600; border-radius: var(--radius-sm); font-size: 13px;">📥 Export Excel</a>
+          <a href="api/export_excel.php?type=inventory" class="btn small" id="exportInventoryExcelBtn" title="Export inventory & recipe audit to Excel (.xlsx)" style="background: var(--amber); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-weight: 600; border-radius: var(--radius-sm); font-size: 13px;">Export Excel</a>
           <button type="button" class="btn ghost" data-close>✕ Close</button>
         </div>
       </div>
@@ -530,17 +577,20 @@ $cssModules = [
   <div class="modal" id="reportModal" hidden>
     <div class="modal-card">
       <div class="modal-head">
-        <h2>📊 Sales Report & Transactions</h2>
+        <h2>Sales Report & Transactions</h2>
         <div class="seg" id="rangeSeg" role="group" aria-label="Report period">
           <button type="button" class="on" data-range="today">Today</button>
-          <button type="button" data-range="date">📅 Specific Date</button>
-          <button type="button" data-range="7days">📆 7-Day Report</button>
-          <button type="button" data-range="month">🗓️ Specific Month</button>
+          <button type="button" data-range="date">Specific Date</button>
+          <button type="button" data-range="7days">7-Day Report</button>
+          <button type="button" data-range="month">Specific Month</button>
+          <?php if ($currentRole === 'manager'): ?>
+          <button type="button" data-range="year" id="yearlyRangeBtn">Yearly</button>
+          <?php endif; ?>
         </div>
         <div class="modal-actions">
-          <button type="button" class="btn small" id="toggleCalBtn" title="Open or close visual calendar">📅 Calendar</button>
-          <button type="button" class="btn small primary" id="exportExcelBtn" title="Export transactions to Excel spreadsheet">📥 Export Excel (.xlsx)</button>
-          <button type="button" class="btn ghost" data-close>✕ Close</button>
+          <button type="button" class="btn small" id="toggleCalBtn" title="Open or close visual calendar">Calendar</button>
+          <button type="button" class="btn small primary" id="exportExcelBtn" title="Export transactions to Excel spreadsheet">Export Excel (.xlsx)</button>
+          <button type="button" class="btn ghost" data-close>Close</button>
         </div>
       </div>
 
@@ -572,6 +622,12 @@ $cssModules = [
             <button type="button" class="btn ghost small" id="jumpThisMonthBtn">This Month</button>
           </div>
 
+          <div class="picker-group" id="yearPickerGroup" hidden>
+            <label for="reportYearPicker" class="picker-label">Year:</label>
+            <select id="reportYearPicker" class="year-select"></select>
+            <button type="button" class="btn ghost small" id="jumpThisYearBtn">This Year</button>
+          </div>
+
           <button type="button" class="btn-step" id="nextPeriodBtn" title="Next period">▶</button>
         </div>
 
@@ -591,7 +647,7 @@ $cssModules = [
             </div>
             <button type="button" class="cal-nav-btn" id="calNextMonth" title="Next month">▶</button>
             <span class="cal-tip" id="calModeTip">Tap a date to inspect report</span>
-            <button type="button" class="btn ghost small cal-close-btn" id="calCloseBtn">✕ Close Calendar</button>
+            <button type="button" class="btn ghost small cal-close-btn" id="calCloseBtn">Close Calendar</button>
           </div>
 
           <div class="cal-weekdays">
@@ -617,13 +673,81 @@ $cssModules = [
     </div>
   </div>
 
+  <?php if ($currentRole === 'manager'): ?>
+  <!-- ===== Dedicated Predictive Machine Learning Analytics Modal ===== -->
+  <div class="modal" id="predictiveModal" hidden>
+    <div class="modal-card predictive-modal-card">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <h2>Predictive Machine Learning Analytics</h2>
+          <p class="modal-subtitle">Seasonality-aware demand forecasting and revenue projections derived from historical transaction data.</p>
+        </div>
+        <div class="seg" id="predPeriodSeg" role="group" aria-label="Prediction period">
+          <button type="button" class="on" data-pred-period="daily">Daily Prediction</button>
+          <button type="button" data-pred-period="7days">7-Day Prediction</button>
+          <button type="button" data-pred-period="month">Specific Month Prediction</button>
+          <button type="button" data-pred-period="year">Yearly Prediction</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn small primary" id="predExportExcelBtn" title="Export AI Forecast &amp; Demand Models to Excel (.xlsx)">Export Forecast (.xlsx)</button>
+          <button type="button" class="btn small" id="predRecalculateBtn" title="Recalculate forecast from latest transactions">Recalculate</button>
+          <button type="button" class="btn ghost" data-close>Close</button>
+        </div>
+      </div>
+
+      <!-- Predictive Contextual Toolbar -->
+      <div class="report-toolbar" id="predToolbar">
+        <div class="toolbar-nav">
+          <button type="button" class="btn-step" id="predPrevPeriodBtn" title="Previous period">◀</button>
+
+          <div class="picker-group" id="predDailyPickerGroup">
+            <label for="predDatePicker" class="picker-label">Target Date:</label>
+            <input type="date" id="predDatePicker" class="date-input">
+            <span class="pill-range" id="predDailyBadge">Next Day Forecast</span>
+            <button type="button" class="btn ghost small" id="predJumpTomorrowBtn">Tomorrow</button>
+          </div>
+
+          <div class="picker-group" id="pred7DayPickerGroup" hidden>
+            <label for="pred7DayPicker" class="picker-label">Start Date:</label>
+            <input type="date" id="pred7DayPicker" class="date-input">
+            <span class="pill-range" id="pred7DayBadge">7-Day Horizon</span>
+            <button type="button" class="btn ghost small" id="predJumpNext7Btn">Upcoming 7 Days</button>
+          </div>
+
+          <div class="picker-group" id="predMonthPickerGroup" hidden>
+            <label for="predMonthPicker" class="picker-label">Target Month:</label>
+            <input type="month" id="predMonthPicker" class="date-input">
+            <span class="pill-range" id="predMonthBadge">Monthly Cycle</span>
+            <button type="button" class="btn ghost small" id="predJumpNextMonthBtn">Next Month</button>
+          </div>
+
+          <div class="picker-group" id="predYearPickerGroup" hidden>
+            <label for="predYearPicker" class="picker-label">Target Year:</label>
+            <select id="predYearPicker" class="year-select"></select>
+            <span class="pill-range" id="predYearBadge">Annual Horizon</span>
+            <button type="button" class="btn ghost small" id="predJumpNextYearBtn">Next Year</button>
+          </div>
+
+          <button type="button" class="btn-step" id="predNextPeriodBtn" title="Next period">▶</button>
+        </div>
+
+        <div class="toolbar-status">
+          <span class="status-period" id="predStatusPeriod">Loading predictive model...</span>
+        </div>
+      </div>
+
+      <div class="modal-body" id="predictiveBody"></div>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <!-- ===== E-Receipt modal ===== -->
   <div class="modal" id="receiptModal" hidden>
     <div class="modal-card receipt-card-wrap">
       <div class="modal-head receipt-head">
-        <h2>🧾 Official E-Receipt</h2>
+        <h2>Official E-Receipt</h2>
         <div class="modal-actions">
-          <button type="button" class="btn ghost" id="closeReceiptBtn">✕ Close</button>
+          <button type="button" class="btn ghost" id="closeReceiptBtn">Close</button>
         </div>
       </div>
       <div class="modal-body receipt-scroll" id="receiptModalBody"></div>
@@ -657,7 +781,7 @@ $cssModules = [
   <div class="sheet" id="gcashModal" hidden>
     <div class="sheet-card pay-dialog">
       <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-        <span style="font-size:24px;">📱</span>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#007dfe" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
         <h3 style="margin:0;">GCash Payment</h3>
       </div>
       <div class="pay-due">
@@ -734,9 +858,9 @@ $cssModules = [
   <div class="modal" id="accountsModal" hidden>
     <div class="modal-card">
       <div class="modal-head">
-        <h2>👥 Account Management</h2>
+        <h2>Account Management</h2>
         <div class="modal-search-wrap">
-          <input type="search" id="accountSearch" class="search-input" placeholder="🔍 Search accounts by name, username, email..." autocomplete="off">
+          <input type="search" id="accountSearch" class="search-input" placeholder="Search accounts by name, username, email..." autocomplete="off">
           <button type="button" class="search-clear" id="accountSearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
@@ -926,6 +1050,7 @@ $cssModules = [
   <script src="assets/js/modules/reports.js?v=<?= $ver('assets/js/modules/reports.js') ?>" defer></script>
   <script src="assets/js/modules/accounts.js?v=<?= $ver('assets/js/modules/accounts.js') ?>" defer></script>
   <script src="assets/js/modules/dashboard.js?v=<?= $ver('assets/js/modules/dashboard.js') ?>" defer></script>
+  <script src="assets/js/modules/predictive.js?v=<?= $ver('assets/js/modules/predictive.js') ?>" defer></script>
   <script src="assets/js/app.js?v=<?= $ver('assets/js/app.js') ?>" defer></script>
 </body>
 </html>

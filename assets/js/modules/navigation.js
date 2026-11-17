@@ -17,8 +17,8 @@ window.CafeFlow = window.CafeFlow || {};
       toast('Access restricted: Manager role does not have access to POS or Products.', 'error', 3500);
       return;
     }
-    if (currentUser.role !== 'manager' && view === 'accounts') {
-      toast('Access restricted: Only Managers have access to Account Management.', 'error', 3500);
+    if (currentUser.role !== 'manager' && (view === 'accounts' || view === 'predictive')) {
+      toast('Access restricted: Only Managers have access to ' + (view === 'predictive' ? 'Predictive Analytics.' : 'Account Management.'), 'error', 3500);
       return;
     }
 
@@ -36,6 +36,9 @@ window.CafeFlow = window.CafeFlow || {};
 
     const accModal = $('#accountsModal');
     if (accModal) accModal.hidden = view !== 'accounts';
+
+    const predModal = $('#predictiveModal');
+    if (predModal) predModal.hidden = view !== 'predictive';
 
     const recModal = $('#receiptModal');
     if (recModal) recModal.hidden = true;
@@ -77,6 +80,9 @@ window.CafeFlow = window.CafeFlow || {};
     }
     if (view === 'dashboard' && currentUser.role === 'manager' && window.CafeFlow.dashboard && window.CafeFlow.dashboard.loadManagerDashboard) {
       window.CafeFlow.dashboard.loadManagerDashboard();
+    }
+    if (view === 'predictive' && currentUser.role === 'manager' && window.CafeFlow.predictive && window.CafeFlow.predictive.loadPredictiveView) {
+      window.CafeFlow.predictive.loadPredictiveView();
     }
   }
 

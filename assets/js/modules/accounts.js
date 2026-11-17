@@ -130,13 +130,13 @@ window.CafeFlow = window.CafeFlow || {};
       const tr = h('tr', {},
         h('td', { colspan: '8' },
           emptyState({
-            icon: '👥',
+            icon: '',
             title: isSearch ? `No accounts match "${q}"` : `No ${accountFilter !== 'all' ? accountFilter + ' ' : ''}accounts found`,
             desc: isSearch
               ? `No user records match your search query under the "${accountFilter}" filter.`
               : `There are currently no staff accounts matching the "${accountFilter}" filter.`,
-            tip: '🛡️ Role Access: Managers control business operations; Baristas operate the POS terminal.',
-            actionText: isSearch ? '✕ Clear Account Search' : '+ Add New Account',
+            tip: 'Role Access: Managers control business operations; Baristas operate the POS terminal.',
+            actionText: isSearch ? 'Clear Account Search' : '+ Add New Account',
             onAction: isSearch ? () => {
               const inp = $('#accountSearch');
               if (inp) inp.value = '';
@@ -180,7 +180,7 @@ window.CafeFlow = window.CafeFlow || {};
 
       const roleBadge = h('span', { class: `role-badge role-${acc.role}` },
 
-        acc.role === 'barista' ? '☕ Barista' : '🛡️ Manager'
+        acc.role === 'barista' ? 'Barista' : 'Manager'
 
       );
 
@@ -204,7 +204,7 @@ window.CafeFlow = window.CafeFlow || {};
 
         onclick: () => openEditAccountSheet(acc)
 
-      }, '✏️ Edit');
+      }, 'Edit');
 
       actWrap.append(editBtn);
 
@@ -222,7 +222,7 @@ window.CafeFlow = window.CafeFlow || {};
 
         onclick: () => openResetPasswordSheet(acc)
 
-      }, '🔑 Reset');
+      }, 'Reset');
 
       actWrap.append(resetPassBtn);
 
@@ -242,7 +242,7 @@ window.CafeFlow = window.CafeFlow || {};
 
           onclick: () => toggleAccountStatus(acc.user_id, 'active', `Approve and activate account for @${acc.username}?`)
 
-        }, '✓ Approve');
+        }, 'Approve');
 
         actWrap.append(approveBtn);
 

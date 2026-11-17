@@ -143,10 +143,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 7px;
   border: none;
   padding: 0 6px;
   white-space: nowrap;
+}
+.pay .pay-btn-svg,
+.mob-pay-btn .pay-btn-svg {
+  width: 17px;
+  height: 17px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 .pay.cash {
   background: linear-gradient(135deg, var(--espresso-light), var(--espresso));

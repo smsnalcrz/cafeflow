@@ -103,6 +103,10 @@ if (!function_exists('ensure_schema')) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN reference_number VARCHAR(100) NULL DEFAULT NULL AFTER payment_method");
                 try { $pdo->exec("ALTER TABLE transactions ADD INDEX idx_tx_ref (reference_number)"); } catch (Throwable $e) {}
             }
+            if (!in_array('is_mock', $txCols, true)) {
+                $pdo->exec("ALTER TABLE transactions ADD COLUMN is_mock TINYINT(1) NOT NULL DEFAULT 0 AFTER reference_number");
+                try { $pdo->exec("ALTER TABLE transactions ADD INDEX idx_tx_is_mock (is_mock)"); } catch (Throwable $e) {}
+            }
             if (!in_array('discount_type', $txCols, true)) {
                 $pdo->exec("ALTER TABLE transactions ADD COLUMN discount_type VARCHAR(50) NOT NULL DEFAULT 'none' AFTER discount");
             }

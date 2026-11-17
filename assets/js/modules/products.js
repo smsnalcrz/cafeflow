@@ -114,11 +114,11 @@ window.CafeFlow = window.CafeFlow || {};
       tbody.append(h('tr', {},
         h('td', { colspan: '7' },
           emptyState({
-            icon: '☕',
+            icon: '',
             title: filterText ? `No products match "${filterText}"` : 'No Products Registered',
             desc: filterText ? 'Try adjusting your search query or clear the filter.' : 'Register beverages, pastries, and meals with cup sizes, prices, and recipe ingredients.',
-            tip: '💡 Tip: Products with multiple ingredients link to inventory for automated stock deductions.',
-            actionText: filterText ? '✕ Clear Search Filter' : '+ Add New Product',
+            tip: 'Tip: Products with multiple ingredients link to inventory for automated stock deductions.',
+            actionText: filterText ? 'Clear Search Filter' : '+ Add New Product',
             onAction: filterText ? () => {
               if (filterInput) filterInput.value = '';
               if (filterClear) filterClear.hidden = true;
@@ -145,14 +145,10 @@ window.CafeFlow = window.CafeFlow || {};
             alt: p.name,
 
             onerror: function () {
-
-              this.replaceWith(h('div', { class: 'table-thumb-ph', text: '☕' }));
-
+              this.replaceWith(h('div', { class: 'table-thumb-ph', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>' }));
             }
-
           })
-
-        : h('div', { class: 'table-thumb-ph', text: '☕' });
+        : h('div', { class: 'table-thumb-ph', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>' });
 
 
 
@@ -638,9 +634,9 @@ window.CafeFlow = window.CafeFlow || {};
 
         <select class="size-temp-select ${isHot ? 'temp-hot' : 'temp-cold'}" data-index="${index}" title="Select Hot or Cold">
 
-          <option value="Cold" ${!isHot ? 'selected' : ''}>❄️ Cold</option>
+          <option value="Cold" ${!isHot ? 'selected' : ''}>Cold</option>
 
-          <option value="Hot"  ${isHot ? 'selected' : ''}>♨️ Hot</option>
+          <option value="Hot"  ${isHot ? 'selected' : ''}>Hot</option>
 
         </select>
 
@@ -1278,7 +1274,7 @@ window.CafeFlow = window.CafeFlow || {};
 
       saveBtn.disabled = false;
 
-      saveBtn.textContent = '✓ Add to Inventory';
+      saveBtn.textContent = 'Add to Inventory';
 
     }
 

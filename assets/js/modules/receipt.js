@@ -38,7 +38,7 @@ window.CafeFlow = window.CafeFlow || {};
     const paper = h('div', { class: 'receipt-paper' },
       // Store Logo & Info
       h('div', { class: 'receipt-logo' },
-        h('h2', { text: `☕ ${business.name}` }),
+        h('h2', { text: business.name }),
         h('p', { text: business.system }),
         h('p', { text: business.address }),
         h('p', { text: business.contact }),

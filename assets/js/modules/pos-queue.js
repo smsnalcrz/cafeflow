@@ -92,10 +92,10 @@ window.CafeFlow = window.CafeFlow || {};
     if (orders.length && emptyEl) emptyEl.remove();
     if (!orders.length && !emptyEl) {
       list.append(emptyState({
-        icon: '✨',
+        icon: '',
         title: 'All Orders Served',
         desc: 'Preparation queue is clear. New customer tickets sync automatically.',
-        tip: '⚡ Wait time: Green < 5m, Amber < 10m, Red > 10m.',
+        tip: 'Wait time: Green < 5m, Amber < 10m, Red > 10m.',
         compact: true
       }));
     }

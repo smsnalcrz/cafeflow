@@ -69,8 +69,27 @@ Built with vanilla PHP 8, modern modular JavaScript (ES6+), and MySQL/MariaDB, i
 - **Restock & Adjustments**: Log delivery restocks, perform stock take adjustments, and set custom low-stock alert thresholds.
 - **Quick-Add Supply Actions**: Introduce new raw ingredients and packaging with a dedicated `+ Add Supply` button in the inventory modal or via the in-product recipe drawer.
 
-### 9. Executive Sales Analytics & Multi-Sheet Excel (.xlsx) Exports
-- **Interactive Sales Analytics**: 6 executive KPI cards (Total Settled Sales, Completed Orders, Average Order Value, Total Discounts, Net Cash Drawer Tender, GCash Digital Sales), 3 Chart.js graphs, visual calendar drawer with quick presets (Today, Yesterday, Last 7 Days, This Month, Last Month), and itemized transaction ledger with live instant search.
+### 9. Executive Sales Analytics, Operational Intelligence & Multi-Sheet Excel (.xlsx) Exports
+- **Role-Differentiated Sales Reporting Intelligence**:
+  * **Barista Operational & Shift-Focused Dashboard (Zero Whitespace & Streamlined Layout)**:
+    - **Dedicated Full-Width Sales Trend Graph**: Prominent, full-width hourly sales (₱) and order count area curve spanning 100% width, eliminating empty grid holes and segmented tabs.
+    - **Integrated Operational Description Box**: Strictly **2 to 3 concise sentences** with **relevant timestamps** (e.g., peak rush windows `7:00 PM – 8:00 PM`, midday order flow, and register closeouts) advising on station prep and ingredient stocks.
+    - **Vertical Bar Top Sellers Graph**: Compact vertical bar chart (`indexAxis: 'x'`, ~240px height) paired with a live, database-driven side-by-side narrative panel.
+    - **Interactive Category & Limit Filtering**: Quick-toggle pill buttons for **Drinks** (`Coffee`, `Milk Series`, `Milk Tea`, `Fruit Tea / Lemonade`), **Snacks** (`Croffles`, `Sandwiches`, `Pastries`, `Snacks`), and **All**, combined with **Top 5** and **Top 10** limits.
+    - **Side-by-Side Dynamic Description Panel**: Positioned directly beside the Top Sellers graph with real-time active scope badges (e.g., `☕ DRINKS SCOPE · TOP 5 RANKING`), #1 leader highlight chips, and category unit/revenue totals.
+    - **Daily / Hourly Breakdown Shift Handover**: Plain-language handover summary with timestamps and average ticket volume.
+  * **Manager Strategic & Analytical Dashboard (Balanced Grid & Multi-Chart Narratives)**:
+    - **Strategic Chart Selector**: Includes single tabs (`[📈 Sales Trend]`, `[🏆 Top Products]`, `[💳 Payment Breakdown]`) and the unified `[⊞ Compare All]` view.
+    - **Resized & Centered Payment Breakdown**: Scaled canvas height by **+20%** (~336px) with a centered donut chart and center hover percentage indicator.
+    - **Dedicated Analytical Narratives for Every Chart**: Every graph in single and multi-chart views renders a strategic business narrative detailing revenue velocity, product velocity distribution, margin implications, and cashless adoption (72% GCash vs. 28% Cash).
+    - **Balanced "Compare All" Grid Geometry (Zero Empty Gaps)**:
+      * **Top Row (2-Column Grid)**: Sales Trend (Col 1) and Top Products vertical bar graph (Col 2) with aligned heights and flexible narrative boxes.
+      * **Bottom Row (Full-Width Span)**: Payment Breakdown spanning both columns with donut chart on the left, side-by-side with tender distribution audit narrative on the right.
+    - **Executive Top Sellers Analytics**: Side-by-side dynamic narrative detailing category revenue share, product concentration ratios, and cross-selling recommendations.
+  * **Universal Typography & Anti-Crowding Paragraph Division**:
+    - **"Work Sans" Typography**: Clean modern sans-serif typography applied across all description boxes.
+    - **Justified Text Alignment**: `text-align: justify` with hyphenation for balanced publication-grade margins.
+    - **2-Section Structured Division**: All narratives are split into 2 scannable paragraphs (Data Insight + Action Directive) with `13.5px` font sizing and comfortable `1.58` line height.
 - **Master 4-Worksheet Executive Sales Workbook (`DK_Cafe_Executive_Sales_*.xlsx`)**:
   * **Sheet 1 ('Executive Dashboard')**: Executive report banner in Deep Espresso (`#1F1610`), 6 high-contrast KPI cards, payment channel reconciliation, product category mix table, and an embedded native vector Doughnut Chart.
   * **Sheet 2 ('Itemized Sales Ledger')**: 21-column audit ledger with frozen header rows, auto-filters, alternating zebra striping, and dynamic `=SUBTOTAL(9, ...)` accounting rows that recalculate automatically when filtered.
@@ -79,6 +98,32 @@ Built with vanilla PHP 8, modern modular JavaScript (ES6+), and MySQL/MariaDB, i
 - **Dedicated Standalone Inventory & Recipe Audit Workbook (`DK_Cafe_Inventory_Stock_Report_*.xlsx`)**:
   * **Sheet 1 ('Raw Supplies Inventory')**: Physical stock audit with KPI metrics, reorder thresholds, and active status.
   * **Sheet 2 ('Menu Recipe Mapping')**: Itemized recipe formula register mapping all 42 menu products to their 231 exact ingredient deductions and units of measure.
+
+### 10. Yearly Sales Analytics & Historical Machine Learning Integration (Philippine Retail Seasonality)
+- **Dedicated Manager Yearly Analytics Engine**:
+  * Seamlessly integrated into the Sales Report modal (`#reportModal`) via the `[🗓️ Yearly Analytics]` period button (strictly visible to Managers).
+  * Year Selector dropdown with stepping controls (◀ / ▶) and quick `Jump to This Year` action.
+- **Data Integrity & Synthetic Dataset Warning Badges**:
+  * Strict schema-level database separation via `is_mock TINYINT(1) NOT NULL DEFAULT 0` on `transactions` table.
+  * **🧪 Synthetic Dataset Alert Banner (`.alert-mock`)**: Prominently displayed when viewing 2025 simulated data (7,521 orders, ₱2,524,106.00 gross sales), explicitly informing management that records are calibrated for Machine Learning model training.
+  * **✅ Verified Production Sales Dataset Banner (`.alert-live`)**: Displayed when viewing 2026 actual sales, confirming live POS ledger reconciliation.
+- **Philippine Retail Seasonality Calibration**:
+  * **Tag-init Summer Beach Rush (March–May)**: Peak annual sales momentum (March: ₱276,671.00 across 837 orders), driven by cold beverage influx and extended evening foot traffic.
+  * **Habagat Rainy Season Stabilization (July–August)**: Monsoonal sales trough (August: ₱147,842.00) with hot coffee stability.
+  * **Quincena Paydays (15th & 30th)**: High-density semi-monthly spikes aligning with employee compensation cycles.
+  * **Q4 Ber-Months Holiday Surge (October–December)**: Resurgence fueled by 13th-month bonus spending, year-end gatherings, and gift card purchases.
+- **Annual Analytical Visualizations & Narrative Intelligence**:
+  * **8-Card KPI Summary Grid**: Annual Gross Sales (Hero Card), Completed Transactions, Average Order Value (AOV), Average Daily Pace, Peak Performing Month, Single Highest Day, Menu Units Sold (Cups vs Snacks), and Annual Data Coverage %.
+  * **12-Month Revenue & Month-over-Month Velocity Chart**: Dual-axis Chart.js bar and line graph with detailed tooltip metrics and Month-over-Month growth rates.
+  * **365-Day High-Density Daily Trend Line**: Continuous gradient curve mapping annual daily volatility and cyclical weekend rushes.
+  * **Product & Cup-Size Variant Demand Velocity Table**: Comprehensive catalog tracking demand across 12oz Hot, 16oz Cold, 22oz Grande, and standard pastry variants with revenue share % bars.
+  * **12-Month Financial Ledger**: Detailed tabular breakdown with conditional MoM growth coloring.
+  * **Work Sans 2-Paragraph Justified Narratives**: Structured analytical insights separating quantitative macroeconomic observations from strategic procurement and staffing directives.
+- **Machine Learning Data Pipeline & Streaming CSV Exports (`api/export_ml_data.php`)**:
+  * Dedicated streaming CSV endpoint with Manager RBAC enforcement, UTF-8 BOM, and CSV injection sanitization.
+  * **📈 Daily Aggregations (`?type=daily`)**: 365 daily rows with calendar features, weekend flags, revenues, AOV, drinks/snacks units, and synthetic flags for time-series forecasting.
+  * **☕ Product & Size Demand Matrix (`?type=product_daily`)**: Daily per-product and cup-size variant volumes for SKU-level demand prediction.
+  * **🧾 Transaction Line Items (`?type=transactions`)**: Raw transaction line items for basket analysis, customer expenditure clustering, and association rule mining.
 - **100% ECMA-376 OpenXML Compatibility**: Compatible with Microsoft Excel, Microsoft 365, Google Sheets, LibreOffice Calc, and mobile office suites (WPS Office, Samsung DeX) with frozen panes, print setup, and auto-fitted columns.
 
 ### 10. Modular Frontend JavaScript Architecture

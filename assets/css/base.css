@@ -73,29 +73,32 @@ h2, h3 { margin: 0; }
    ====================================================================== */
 .toast {
   position: fixed;
-  z-index: 1500;
+  z-index: 2000;
   left: 50%;
   top: calc(var(--topbar-h) + 18px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   max-width: 80vw;
-  min-width: 240px;
-  padding: 14px 28px;
-  border-radius: var(--radius);
+  min-width: 260px;
+  padding: 12px 24px;
+  border-radius: var(--radius-sm, 10px);
+  background: var(--espresso, #2c1a0e);
   color: #fff;
   text-align: center;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -18px) scale(.94);
   transition: opacity var(--dur) var(--ease-out),
               transform var(--dur) var(--ease-spring);
 }
-.toast strong { font-size: 18px; font-weight: 800; }
-.toast span   { font-size: 14px; opacity: .9; }
-.toast.show   { opacity: 1; transform: translate(-50%, 0) scale(1); }
-.toast.success { background: linear-gradient(135deg, #1e7e4a, #166638); }
-.toast.error   { background: linear-gradient(135deg, #b83226, #961f15); }
-.toast.warn    { background: linear-gradient(135deg, #c87d00, #a36600); }
+.toast strong { font-size: 14.5px; font-weight: 700; letter-spacing: 0.1px; line-height: 1.35; }
+.toast span   { font-size: 13px; opacity: .9; }
+.toast.show   { opacity: 1; transform: translate(-50%, 0) scale(1); pointer-events: auto; }
+.toast.success { background: linear-gradient(135deg, #1e7e4a, #166638); border-color: rgba(46, 204, 113, 0.3); }
+.toast.error   { background: linear-gradient(135deg, #b83226, #961f15); border-color: rgba(231, 76, 60, 0.3); }
+.toast.warn    { background: linear-gradient(135deg, #c87d00, #a36600); border-color: rgba(243, 156, 18, 0.3); }
+.toast.info    { background: linear-gradient(135deg, #1a3a5f, #0f243d); border-color: rgba(52, 152, 219, 0.35); box-shadow: 0 10px 30px rgba(15, 36, 61, 0.5); }

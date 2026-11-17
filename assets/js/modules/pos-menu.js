@@ -152,10 +152,10 @@ window.CafeFlow = window.CafeFlow || {};
 
     if (!state.menu.length) {
       grid.append(emptyState({
-        icon: '☕',
+        icon: '',
         title: 'No Products in Menu',
         desc: 'Get started by registering your first beverage, pastry, or food item.',
-        tip: '💡 Tip: You can set hot/iced options, cup sizes, and linked recipe ingredients.',
+        tip: 'Tip: You can set hot/iced options, cup sizes, and linked recipe ingredients.',
         actionText: '+ Add Your First Product',
         onAction: () => {
           if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
@@ -178,11 +178,11 @@ window.CafeFlow = window.CafeFlow || {};
     if (!filtered.length) {
       const isSearch = Boolean(state.searchQuery);
       grid.append(emptyState({
-        icon: isSearch ? '🔍' : '☕',
+        icon: '',
         title: isSearch ? `No products match "${state.searchQuery}"` : `No items in "${state.activeCategory}"`,
         desc: isSearch ? 'Check your spelling or browse using the category chips above.' : 'No products have been assigned to this category yet.',
-        tip: isSearch ? '💡 Tip: You can search by product name (e.g. Latte) or category (e.g. Croffle).' : null,
-        actionText: isSearch ? '✕ Clear Search Filter' : 'Show All Products',
+        tip: isSearch ? 'Tip: You can search by product name (e.g. Latte) or category (e.g. Croffle).' : null,
+        actionText: isSearch ? 'Clear Search Filter' : 'Show All Products',
         onAction: () => {
           state.searchQuery = '';
           state.activeCategory = 'all';

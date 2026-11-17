@@ -524,19 +524,19 @@
 
 .mgr-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
 }
 .mgr-card {
   background: #ffffff;
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 20px;
+  padding: 22px 24px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 160px;
+  min-height: 165px;
   transition: transform var(--dur-fast), box-shadow var(--dur-fast);
 }
 .mgr-card:hover {
@@ -558,6 +558,31 @@
 .mgr-card-icon {
   font-size: 24px;
 }
+.mgr-card-icon-badge {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(45, 106, 79, 0.08);
+  color: var(--forest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--dur-fast), transform var(--dur-fast);
+}
+.mgr-card:hover .mgr-card-icon-badge {
+  background: rgba(45, 106, 79, 0.14);
+  transform: scale(1.05);
+}
+.mgr-card-icon-badge svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .mgr-card-value {
   font-size: 32px;
   font-weight: 900;
@@ -574,10 +599,14 @@
   .accounts-overview-grid {
     grid-template-columns: repeat(3, 1fr);
   }
-  .mgr-cards-grid {
-    grid-template-columns: 1fr;
-  }
   .profile-name {
     display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .mgr-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
 }

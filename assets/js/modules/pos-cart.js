@@ -105,10 +105,10 @@ window.CafeFlow = window.CafeFlow || {};
 
     if (!lines.length) {
       list.append(emptyState({
-        icon: '🛒',
+        icon: '',
         title: 'Order is Empty',
         desc: 'Tap any beverage or pastry from the menu to begin.',
-        tip: '💡 20% Senior & PWD discount available below.',
+        tip: '20% Senior & PWD discount available below.',
         compact: true
       }));
     }
