@@ -1,13 +1,13 @@
 # CafeFlow – Point of Sale & Inventory Management System
-### Custom Built for DK Cafe ☕
+### Custom Built for DK Cafe
 
-**CafeFlow** is an offline-first, single-screen Point of Sale (POS), Barista Queue, Raw Inventory Management, Staff Administration, and Executive Sales Reporting system designed specifically for **DK Cafe**.
+**CafeFlow** is an offline-first, single-screen Point of Sale (POS), Barista Queue, Raw Inventory Management, Staff Administration, Executive Sales Reporting, and Predictive Machine Learning system designed specifically for **DK Cafe**.
 
-Built with vanilla PHP 8, modern modular JavaScript (ES6+), and MySQL/MariaDB, it runs entirely on a local network via XAMPP—requiring **no internet connection, no external cloud subscriptions, and no proprietary POS hardware**.
+Built with vanilla PHP 8, modern modular JavaScript (ES6+), Python 3 (OpenXML engine), and MySQL/MariaDB, it runs entirely on a local network via XAMPP—requiring **no internet connection, no external cloud subscriptions, and no proprietary POS hardware**.
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 ### 1. Dynamic Cup Size Pricing (12oz Hot, 16oz Cold / Tall & 22oz Grande)
 - **Coffee Cup Sizes**: In accordance with DK Cafe's official menu, all **Coffee** category beverages exclusively offer **12oz Hot** and **16oz Cold** (22oz is completely omitted from Coffee).
@@ -41,99 +41,86 @@ Built with vanilla PHP 8, modern modular JavaScript (ES6+), and MySQL/MariaDB, i
 
 ### 5. Live Barista Queue
 - **Real-Time Auto-Refresh**: Polls the server every 3 seconds for new orders with zero flicker.
-- **Visual Wait-Time SLA Badges**: Color-coded wait-time indicators (🟢 Green < 5 min, 🟡 Amber < 10 min, 🔴 Red > 10 min) to maintain quick service times.
+- **Visual Wait-Time SLA Badges**: Color-coded wait-time indicators (Green < 5 min, Amber < 10 min, Red > 10 min) to maintain quick service times.
 - **Size-Explicit Order Details**: Orders display clear brewing instructions (e.g., `Matcha (Tall - 16oz) x 2`) so baristas immediately know which cup size to prepare.
 - **Single-Tap Fulfillment**: Tapping **Mark Complete** changes status to Completed and atomically triggers ingredient and packaging deductions.
 - **Order Voiding & Cancellation**: Dedicated cancellation modal requiring a mandatory reason (e.g., customer change of mind, incorrect drink size), automatically reversing ingredient deductions if voided.
 
 ### 6. Standardized Contextual Empty State Architecture
-- **Universal Component (`.cf-empty-state`)**: Replaces blank screens and ambiguous states across all 7 core modules with clear, actionable UI guidance:
-  * **POS Cart**: 🛒 *Order is Empty* with Senior/PWD 20% discount reminder.
-  * **Barista Queue**: ✨ *All Orders Served* with SLA wait-time guidelines.
-  * **POS Menu**: ☕ *No items in category* / 🔍 *No products match query* with one-click filter clear button.
-  * **Supplies Inventory**: 📦 *No Supplies Found* / 🔍 search no-match with restock threshold tips.
-  * **Product Catalog**: 🏷️ *No Products Available* / 🔍 search no-match with recipe linking pro-tips.
-  * **Account Management**: 👥 *No Accounts Found* / 🔍 search no-match with role-based permission context.
-  * **Sales Reports**: 🏆 *No Items Sold*, 📊 *No Breakdown Data*, and 📋 *No Transaction Records* with calendar navigation tips.
+- **Universal Component (`.cf-empty-state`)**: Replaces blank screens and ambiguous states across all core modules with clear, actionable UI guidance:
+  * **POS Cart**: Order is Empty with Senior/PWD 20% discount reminder.
+  * **Barista Queue**: All Orders Served with SLA wait-time guidelines.
+  * **POS Menu**: No items in category / No products match query with one-click filter clear button.
+  * **Supplies Inventory**: No Supplies Found / search no-match with restock threshold tips.
+  * **Product Catalog**: No Products Available / search no-match with recipe linking pro-tips.
+  * **Account Management**: No Accounts Found / search no-match with role-based permission context.
+  * **Sales Reports**: No Items Sold, No Breakdown Data, and No Transaction Records with calendar navigation tips.
 - **Professional Input Placeholders & Microcopy**: Clear descriptive placeholder text across all search and tender inputs eliminating operational guesswork.
 
 ### 7. Product Catalog & Recipe Management Modal
 - **Reference-Aligned Category Dropdown**: Dedicated `<select>` dropdown populated with DK Cafe's official menu categories (`Coffee`, `Croffle Classic`, `Croffle Premium`, `Fruit Tea / Lemonade`, `Milk Series`, `Milk Tea`, `Pastry`, `Sandwich`, `Snacks`).
 - **Dynamic Form Intelligence**: Selecting a beverage category automatically enables the cup size and Hot/Cold pricing builder; selecting a food item automatically toggles to Single / Fixed Price.
 - **Custom Ingredient Linking**: Add, edit, or map specific raw inventory supplies and precise deduction amounts directly in the product sheet.
-- **Image Uploads**: Built-in image uploader with format validation, thumbnail generation, and fallback placeholder icons.
+- **Consolidated Product Imagery**: Built-in image uploader with format validation, thumbnail generation, and consolidated high-resolution product photography under `uploads/products/`.
 
 ### 8. Raw Supplies Inventory Management
-- **Instant Search & Status Filtering**: Real-time search bar (`🔍 Search supplies by name, unit (g, ml, pcs), or status (low, ok)...`) filtering across item names, units of measure, and stock status keywords (`out`, `low`, `ok`). Includes instant clear button (`✕`) and empty-state guidance.
+- **Instant Search & Status Filtering**: Real-time search bar filtering across item names, units of measure, and stock status keywords (`out`, `low`, `ok`). Includes instant clear button (`✕`) and empty-state guidance.
 - **Live Stock Table**: Monitor stock quantities, units of measure (`g`, `ml`, `pcs`), and real-time status pills (`OK`, `Low`, `Out`).
 - **Restock & Adjustments**: Log delivery restocks, perform stock take adjustments, and set custom low-stock alert thresholds.
 - **Quick-Add Supply Actions**: Introduce new raw ingredients and packaging with a dedicated `+ Add Supply` button in the inventory modal or via the in-product recipe drawer.
 
-### 9. Executive Sales Analytics, Operational Intelligence & Multi-Sheet Excel (.xlsx) Exports
+### 9. Executive Sales Analytics & Enterprise 7-Worksheet Excel Engine
 - **Role-Differentiated Sales Reporting Intelligence**:
-  * **Barista Operational & Shift-Focused Dashboard (Zero Whitespace & Streamlined Layout)**:
-    - **Dedicated Full-Width Sales Trend Graph**: Prominent, full-width hourly sales (₱) and order count area curve spanning 100% width, eliminating empty grid holes and segmented tabs.
-    - **Integrated Operational Description Box**: Strictly **2 to 3 concise sentences** with **relevant timestamps** (e.g., peak rush windows `7:00 PM – 8:00 PM`, midday order flow, and register closeouts) advising on station prep and ingredient stocks.
-    - **Vertical Bar Top Sellers Graph**: Compact vertical bar chart (`indexAxis: 'x'`, ~240px height) paired with a live, database-driven side-by-side narrative panel.
-    - **Interactive Category & Limit Filtering**: Quick-toggle pill buttons for **Drinks** (`Coffee`, `Milk Series`, `Milk Tea`, `Fruit Tea / Lemonade`), **Snacks** (`Croffles`, `Sandwiches`, `Pastries`, `Snacks`), and **All**, combined with **Top 5** and **Top 10** limits.
-    - **Side-by-Side Dynamic Description Panel**: Positioned directly beside the Top Sellers graph with real-time active scope badges (e.g., `☕ DRINKS SCOPE · TOP 5 RANKING`), #1 leader highlight chips, and category unit/revenue totals.
+  * **Barista Operational & Shift-Focused Dashboard**:
+    - **Dedicated Full-Width Sales Trend Graph**: Prominent hourly sales (₱) and order count area curve spanning 100% width, eliminating empty grid holes and segmented tabs.
+    - **Integrated Operational Description Box**: Concise timestamps (e.g., peak rush windows `7:00 PM – 8:00 PM`, midday order flow, and register closeouts) advising on station prep and ingredient stocks.
+    - **Vertical Bar Top Sellers Graph**: Compact vertical bar chart (`indexAxis: 'x'`) paired with a live, database-driven side-by-side narrative panel.
+    - **Interactive Category & Limit Filtering**: Quick-toggle pill buttons for Drinks, Snacks, and All, combined with Top 5 and Top 10 limits.
     - **Daily / Hourly Breakdown Shift Handover**: Plain-language handover summary with timestamps and average ticket volume.
-  * **Manager Strategic & Analytical Dashboard (Balanced Grid & Multi-Chart Narratives)**:
-    - **Strategic Chart Selector**: Includes single tabs (`[📈 Sales Trend]`, `[🏆 Top Products]`, `[💳 Payment Breakdown]`) and the unified `[⊞ Compare All]` view.
-    - **Resized & Centered Payment Breakdown**: Scaled canvas height by **+20%** (~336px) with a centered donut chart and center hover percentage indicator.
-    - **Dedicated Analytical Narratives for Every Chart**: Every graph in single and multi-chart views renders a strategic business narrative detailing revenue velocity, product velocity distribution, margin implications, and cashless adoption (72% GCash vs. 28% Cash).
-    - **Balanced "Compare All" Grid Geometry (Zero Empty Gaps)**:
-      * **Top Row (2-Column Grid)**: Sales Trend (Col 1) and Top Products vertical bar graph (Col 2) with aligned heights and flexible narrative boxes.
-      * **Bottom Row (Full-Width Span)**: Payment Breakdown spanning both columns with donut chart on the left, side-by-side with tender distribution audit narrative on the right.
-    - **Executive Top Sellers Analytics**: Side-by-side dynamic narrative detailing category revenue share, product concentration ratios, and cross-selling recommendations.
-  * **Universal Typography & Anti-Crowding Paragraph Division**:
-    - **"Work Sans" Typography**: Clean modern sans-serif typography applied across all description boxes.
-    - **Justified Text Alignment**: `text-align: justify` with hyphenation for balanced publication-grade margins.
-    - **2-Section Structured Division**: All narratives are split into 2 scannable paragraphs (Data Insight + Action Directive) with `13.5px` font sizing and comfortable `1.58` line height.
-- **Master 4-Worksheet Executive Sales Workbook (`DK_Cafe_Executive_Sales_*.xlsx`)**:
-  * **Sheet 1 ('Executive Dashboard')**: Executive report banner in Deep Espresso (`#1F1610`), 6 high-contrast KPI cards, payment channel reconciliation, product category mix table, and an embedded native vector Doughnut Chart.
-  * **Sheet 2 ('Itemized Sales Ledger')**: 21-column audit ledger with frozen header rows, auto-filters, alternating zebra striping, and dynamic `=SUBTOTAL(9, ...)` accounting rows that recalculate automatically when filtered.
-  * **Sheet 3 ('Product Performance')**: Menu item popularity ranking with podium badges (🥇 #1, 🥈 #2, 🥉 #3), volume counts, revenues, and an embedded horizontal Bar Chart comparing Top 10 Best Sellers.
-  * **Sheet 4 ('Raw Inventory & Stock Health')**: Complete stock audit tracking all 62 physical supplies with health pills (`HEALTHY`, `LOW STOCK`, `OUT OF STOCK`) and reorder directives.
-- **Dedicated Standalone Inventory & Recipe Audit Workbook (`DK_Cafe_Inventory_Stock_Report_*.xlsx`)**:
-  * **Sheet 1 ('Raw Supplies Inventory')**: Physical stock audit with KPI metrics, reorder thresholds, and active status.
-  * **Sheet 2 ('Menu Recipe Mapping')**: Itemized recipe formula register mapping all 42 menu products to their 231 exact ingredient deductions and units of measure.
+  * **Manager Strategic & Analytical Dashboard**:
+    - **Strategic Chart Selector**: Single tabs (`[Sales Trend]`, `[Top Products]`, `[Payment Breakdown]`) and the unified `[Compare All]` view.
+    - **Resized & Centered Payment Breakdown**: Donut chart with center hover percentage indicator and cash vs. GCash distribution analysis.
+    - **Dedicated Analytical Narratives for Every Chart**: Every graph renders a strategic business narrative detailing revenue velocity, margin implications, and cashless adoption.
+    - **Balanced "Compare All" Grid Geometry**: Top row dual-column grid (Sales Trend + Top Products) and full-width bottom row (Payment Breakdown + Tender Audit Narrative).
+- **Master 7-Worksheet Enterprise Sales Workbook (`DK_Cafe_Executive_Sales_*.xlsx`)**:
+  Generated dynamically via Python (`core/excel_generator.py`) and streamed via `api/export_excel.php`:
+  * **Sheet 1 ('Executive Dashboard')**: Executive Deep Espresso banner (`#1F1610`), 6 high-contrast KPI cards, payment channel reconciliation, product category mix, and an embedded native OpenXML vector **Doughnut Chart**.
+  * **Sheet 2 ('Predictive Demand Forecast')**: Holt-Winters time-series projection with 90% confidence bounds, day-of-week seasonality, and an embedded native vector **Line Chart**.
+  * **Sheet 3 ('Predictive Inventory Reorder')**: Raw ingredient consumption velocity, current stock vs. restock thresholds, projected runout dates, and prioritized replenishment directives (`CRITICAL`, `WARNING`, `STABLE`).
+  * **Sheet 4 ('Hourly Rush & Staffing Model')**: Shift-by-shift transaction density, peak rush identification, recommended barista staffing allocations, and an embedded native vector **Column Bar Chart**.
+  * **Sheet 5 ('Product Performance')**: Menu item ranking with podium badges (#1, #2, #3), units sold, gross sales, revenue share %, and an embedded native horizontal **Bar Chart** comparing Top 10 Best Sellers.
+  * **Sheet 6 ('Itemized Sales Ledger')**: 21-column granular audit ledger with frozen header rows, auto-filters, alternating zebra striping, and dynamic `=SUBTOTAL(9, ...)` accounting rows that recalculate automatically when filtered.
+  * **Sheet 7 ('Raw Inventory & Stock Health')**: Complete stock audit tracking all 62 physical supplies with health pills (`HEALTHY`, `LOW STOCK`, `OUT OF STOCK`) and reorder quantities.
+- **Decommissioned Legacy CSV Exports**: Retired fragmented streaming CSV endpoints in favor of presentation-grade, ECMA-376 OpenXML workbooks compatible with Microsoft Excel, Microsoft 365, Google Sheets, and LibreOffice Calc.
 
-### 10. Yearly Sales Analytics & Historical Machine Learning Integration (Philippine Retail Seasonality)
-- **Dedicated Manager Yearly Analytics Engine**:
-  * Seamlessly integrated into the Sales Report modal (`#reportModal`) via the `[🗓️ Yearly Analytics]` period button (strictly visible to Managers).
-  * Year Selector dropdown with stepping controls (◀ / ▶) and quick `Jump to This Year` action.
-- **Data Integrity & Synthetic Dataset Warning Badges**:
-  * Strict schema-level database separation via `is_mock TINYINT(1) NOT NULL DEFAULT 0` on `transactions` table.
-  * **🧪 Synthetic Dataset Alert Banner (`.alert-mock`)**: Prominently displayed when viewing 2025 simulated data (7,521 orders, ₱2,524,106.00 gross sales), explicitly informing management that records are calibrated for Machine Learning model training.
-  * **✅ Verified Production Sales Dataset Banner (`.alert-live`)**: Displayed when viewing 2026 actual sales, confirming live POS ledger reconciliation.
-- **Philippine Retail Seasonality Calibration**:
-  * **Tag-init Summer Beach Rush (March–May)**: Peak annual sales momentum (March: ₱276,671.00 across 837 orders), driven by cold beverage influx and extended evening foot traffic.
-  * **Habagat Rainy Season Stabilization (July–August)**: Monsoonal sales trough (August: ₱147,842.00) with hot coffee stability.
-  * **Quincena Paydays (15th & 30th)**: High-density semi-monthly spikes aligning with employee compensation cycles.
-  * **Q4 Ber-Months Holiday Surge (October–December)**: Resurgence fueled by 13th-month bonus spending, year-end gatherings, and gift card purchases.
-- **Annual Analytical Visualizations & Narrative Intelligence**:
-  * **8-Card KPI Summary Grid**: Annual Gross Sales (Hero Card), Completed Transactions, Average Order Value (AOV), Average Daily Pace, Peak Performing Month, Single Highest Day, Menu Units Sold (Cups vs Snacks), and Annual Data Coverage %.
-  * **12-Month Revenue & Month-over-Month Velocity Chart**: Dual-axis Chart.js bar and line graph with detailed tooltip metrics and Month-over-Month growth rates.
-  * **365-Day High-Density Daily Trend Line**: Continuous gradient curve mapping annual daily volatility and cyclical weekend rushes.
-  * **Product & Cup-Size Variant Demand Velocity Table**: Comprehensive catalog tracking demand across 12oz Hot, 16oz Cold, 22oz Grande, and standard pastry variants with revenue share % bars.
-  * **12-Month Financial Ledger**: Detailed tabular breakdown with conditional MoM growth coloring.
-  * **Work Sans 2-Paragraph Justified Narratives**: Structured analytical insights separating quantitative macroeconomic observations from strategic procurement and staffing directives.
-- **Machine Learning Data Pipeline & Streaming CSV Exports (`api/export_ml_data.php`)**:
-  * Dedicated streaming CSV endpoint with Manager RBAC enforcement, UTF-8 BOM, and CSV injection sanitization.
-  * **📈 Daily Aggregations (`?type=daily`)**: 365 daily rows with calendar features, weekend flags, revenues, AOV, drinks/snacks units, and synthetic flags for time-series forecasting.
-  * **☕ Product & Size Demand Matrix (`?type=product_daily`)**: Daily per-product and cup-size variant volumes for SKU-level demand prediction.
-  * **🧾 Transaction Line Items (`?type=transactions`)**: Raw transaction line items for basket analysis, customer expenditure clustering, and association rule mining.
-- **100% ECMA-376 OpenXML Compatibility**: Compatible with Microsoft Excel, Microsoft 365, Google Sheets, LibreOffice Calc, and mobile office suites (WPS Office, Samsung DeX) with frozen panes, print setup, and auto-fitted columns.
+### 10. Predictive Machine Learning & Demand Forecasting Engine
+- **Seasonal Decomposition & Holt-Winters Forecasting (`api/predictive_api.php`)**:
+  * Employs multi-seasonal time-series forecasting calibrated against Philippine retail cycles (Habagat rainy season, Tag-init summer beach surges, Quincena 15th/30th paydays, and Q4 Ber-months holiday spikes).
+  * Evaluates baseline levels, trend velocity, and weekly cyclical seasonality with 90% confidence intervals (upper/lower bounds).
+- **4 Dedicated Forecasting Horizons**:
+  * **Daily Prediction**: 24-hour demand projection, hourly rush curves (peak rush `7:00 PM – 9:00 PM`), and shift barista staffing recommendations.
+  * **7-Day Prediction**: Weekly trajectory with Quincena payday indicators and weekend surge modeling.
+  * **Specific Month Prediction**: 30-day projection with day-of-week seasonality, moving averages, and ingredient consumption projections.
+  * **Yearly Prediction**: Annual trajectory with 12-month trend forecasting, macro retail commentary, and capacity planning.
+- **1-Click Model Recalculation (`#predRecalculateBtn`)**: Instant model retraining from the latest database transaction records with solid high-contrast notification feedback (`.toast.info` with solid dark navy gradient `#1a3a5f` -> `#0f243d` and `z-index: 2000`).
+- **1-Click Dedicated Forecast Export (`#predExportExcelBtn`)**: Direct download of the 7-sheet executive forecast workbook (`DK_Cafe_Executive_Predictive_Forecast_*.xlsx`).
+- **Strict Role-Based Access Control**: Exclusively accessible to the Manager role. Direct API requests from Baristas or unauthenticated clients are strictly rejected with `HTTP 403 Forbidden`.
 
-### 10. Modular Frontend JavaScript Architecture
-- **Zero-Dependency Modular Design**: Decomposed from a legacy ~4,000-line monolithic file into 15 ES modules:
+### 11. Full-Page Edge-to-Edge Workspaces & Modern UI Design System
+- **1424x719px Full Desktop Workspaces**: `#reportModal` and `#predictiveModal` expand edge-to-edge across the screen (`padding: 0px`, `border-radius: 0px`), providing ample breathing room for multi-chart layouts, KPI cards, and analytical narratives.
+- **Constrained Scrollable Breakdown Ledger**: Sales report monthly breakdown table constrained to `max-height: 340px` with vertical scrolling and sticky column headers, eliminating awkward page overflow.
+- **Clean Yearly View Alignment**: Sanitized yearly sales view to match the clean layout of Specific Month view, eliminating redundant alert badges and "Actual Production" tags in favor of unified period metadata.
+- **Balanced 2x2 Manager Dashboard**: Replaced asymmetrical card placements with a balanced 2x2 responsive grid layout (`grid-template-columns: 1fr 1fr`).
+- **Zero-Emoji Professional Design System**: Completely purged emojis across all menus, buttons, modals, toasts, and dialogs. Replaced with clean vector SVGs, `.status-pip` indicators, and modern sans-serif typography (`Work Sans`).
+
+### 12. Modular Frontend JavaScript Architecture
+- **Zero-Dependency Modular Design**: Decomposed from a legacy monolithic script into 16 ES modules:
   * `core/config.js`, `core/state.js`, `core/utils.js`, `core/api.js`
-  * `modules/pos-menu.js`, `modules/pos-cart.js`, `modules/pos-queue.js`, `modules/inventory.js`, `modules/products.js`, `modules/accounts.js`, `modules/reports.js`, `modules/receipt.js`, `modules/dashboard.js`, `modules/navigation.js`
+  * `modules/pos-menu.js`, `modules/pos-cart.js`, `modules/pos-queue.js`, `modules/inventory.js`, `modules/products.js`, `modules/accounts.js`, `modules/reports.js`, `modules/predictive.js`, `modules/receipt.js`, `modules/dashboard.js`, `modules/navigation.js`
   * `app.js` (orchestration and bootstrapping)
 - **Zero Functional Regression**: Retained full `window.CafeFlow` namespace and global window bindings to seamlessly preserve HTML inline event compatibility (`window.loadReport`, `window.viewReceipt`, etc.).
 
-### 11. Co-Branded Dual Logo Lockup (CafeFlow & DK Cafe)
+### 13. Co-Branded Dual Logo Lockup (CafeFlow & DK Cafe)
 - **Header Lockup**: Features a co-branded header lockup pairing the circular **CafeFlow** vector emblem on the left with the official **DK Cafe** logo on the right, joined by a sleek `CAFEFLOW & DK CAFE` pill badge matching professional corporate lockup guidelines.
 - **Harmonized Color Palette**: Built on DK Cafe's brand colors:
   - Deep Forest Green (`#162318` / `#1b2e20`)
@@ -143,7 +130,7 @@ Built with vanilla PHP 8, modern modular JavaScript (ES6+), and MySQL/MariaDB, i
 
 ---
 
-## 📁 System Architecture & Directory Structure
+## System Architecture & Directory Structure
 
 ```text
 cafeflow_v5-1/
@@ -153,26 +140,28 @@ cafeflow_v5-1/
 │   ├── cancel_order.php           # Cancels orders & reverses ingredient deductions
 │   ├── checkout.php               # Validates cart, verifies raw inventory, creates orders
 │   ├── complete_order.php         # Completes orders & atomically deducts raw ingredients
-│   ├── export_excel.php           # Streams downloadable multi-sheet Excel (.xlsx) reports
+│   ├── export_excel.php           # Streams enterprise 7-sheet Excel (.xlsx) sales & forecast workbooks
 │   ├── fetch_menu.php             # Serves menu cards with size pricing & stock status
 │   ├── fetch_queue.php            # Serves pending barista queue items & low stock alerts
 │   ├── inventory_api.php          # Raw supplies CRUD, stock counts, restock actions
+│   ├── predictive_api.php         # Holt-Winters ML forecasting engine (Daily, 7-Day, Month, Year)
 │   ├── products_api.php           # Product management, recipe linking & image upload
 │   ├── report.php                 # Analytics, date filtering & sales report data
 │   └── transactions_api.php       # Past order lookups, receipts & live search filtering
 ├── assets/                        # Client-Side Frontend Assets
 │   ├── css/                       # Modular Stylesheet Architecture
 │   │   ├── auth.css               # Login, account management & profile styling
-│   │   ├── base.css               # Reset, typography, utility classes
+│   │   ├── base.css               # Reset, typography, utility classes, solid toasts
 │   │   ├── cart.css               # POS cart drawer, steppers, discount layout
 │   │   ├── inventory.css          # Raw inventory modal, table, threshold badges
 │   │   ├── layout.css             # Main grid, contextual empty states (.cf-empty-state)
 │   │   ├── modals.css             # Modal backdrops, header actions, sheet cards
 │   │   ├── pos.css                # Cashier menu grid, category pills, item cards
+│   │   ├── predictive.css         # Full-page predictive workspace, KPI cards, rush charts
 │   │   ├── print.css              # 58mm/80mm thermal receipt printer styles
 │   │   ├── products.css           # Product management form, cup size builder
 │   │   ├── queue.css              # Barista preparation tickets & wait-time SLA badges
-│   │   ├── reports.css            # Sales analytics, KPI cards, visual calendar drawer
+│   │   ├── reports.css            # Full-page sales report workspace, 340px scrollable breakdown ledger
 │   │   ├── responsive.css         # Mobile and tablet responsive breakpoint adaptations
 │   │   ├── style.css              # Master CSS bundler / loader
 │   │   ├── topbar.css             # Header, dual brand lockup, connection indicator
@@ -185,16 +174,17 @@ cafeflow_v5-1/
 │   │   │   └── utils.js           # DOM helpers, toast notifications, emptyState() component
 │   │   ├── modules/               # Single-Responsibility Feature Modules
 │   │   │   ├── accounts.js        # Staff administration & RBAC management
-│   │   │   ├── dashboard.js       # Manager workspace KPI cards & quick links
-│   │   │   ├── icons.js           # SVG icon definitions & helpers
+│   │   │   ├── dashboard.js       # Manager workspace KPI cards & 2x2 grid layout
+│   │   │   ├── icons.js           # SVG icon definitions & helpers (Zero emojis)
 │   │   │   ├── inventory.js       # Supplies table, restock modal, threshold alerts
 │   │   │   ├── navigation.js      # View switching, modal lifecycle, keyboard esc
 │   │   │   ├── pos-cart.js        # Cart management, discount math, Cash/GCash tender
 │   │   │   ├── pos-menu.js        # Menu rendering, category scroll, size popover
 │   │   │   ├── pos-queue.js       # Barista queue poller, ticket completion & voiding
+│   │   │   ├── predictive.js      # Multi-period ML forecasting, Chart.js graphs, recalculate handler
 │   │   │   ├── products.js        # Product catalog, multi-size pricing, recipe builder
 │   │   │   ├── receipt.js         # Official E-Receipt generator & thermal print formatting
-│   │   │   └── reports.js         # Sales analytics, KPI cards, charts, calendar drawer
+│   │   │   └── reports.js         # Sales analytics, 340px scrollable ledger, calendar drawer
 │   │   ├── vendor/                # Vendored Offline Third-Party Libraries
 │   │   │   └── chart.umd.min.js   # Local Chart.js library for offline vector charts
 │   │   ├── app.js                 # Master bootstrap coordinator & event delegator
@@ -206,22 +196,25 @@ cafeflow_v5-1/
 ├── core/                          # Central Backend Logic & Database
 │   ├── auth.php                   # Authentication engine, RBAC checks, session security
 │   ├── db.php                     # PDO connection, request helpers & schema verification
-│   ├── excel_generator.py         # Multi-sheet openpyxl Excel workbook generator
-│   └── recipe_engine.php          # Centralized recipe profiles, cup sizes & deduction logic
-├── database/                      # SQL Schemas & Database Migrations
+│   ├── excel_generator.py         # Enterprise 7-sheet openpyxl Excel workbook generator
+│   ├── recipe_engine.php          # Centralized recipe profiles, cup sizes & deduction logic
+│   └── seed_2025_ml_data.php      # Calibrated 2025 historical dataset seeder for ML training
+├── database/                      # SQL Schemas & Canonical Seed Files
 │   ├── archive/                   # Historical database migrations
-│   └── schema.sql                 # Baseline database schema & seed data
+│   └── schema.sql                 # Canonical baseline database schema & starter seed data (100% synced)
 ├── docs/                          # Project Documentation & Release Changelogs
 │   ├── CHANGES_2026-10-26.txt     # Initial technical changelog
 │   ├── CHANGES_2026-11-06.txt     # Non-VAT model transition & UI expansion release
 │   ├── CHANGES_2026-11-09.txt     # Multi-sheet Excel (.xlsx) overhaul release
 │   ├── CHANGES_2026-11-11.txt     # Modular JS breakdown, empty states & full QA audit
+│   ├── CHANGES_2026-11-16.txt     # Predictive ML engine & Enterprise 7-sheet Excel overhaul
 │   └── SYSTEM_EXPANSION_SUGGESTIONS.txt # Architecture suggestions for academic courses
 ├── ref_materials/                 # Official DK Cafe Menu & Inventory Reference Sheets
 ├── tools/                         # Operational CLI Utilities
+│   ├── generate_canonical_schema.py # Automated DDL & seed extraction tool to sync schema.sql
 │   └── provision_user.php         # Out-of-band user account provisioning CLI
 ├── uploads/                       # Product Imagery & Uploads
-│   └── products/                  # Consolidated product photography & menu image assets
+│   └── products/                  # Consolidated high-res product photography
 ├── index.php                      # Application Entry Point & Single-Screen Interface
 ├── login.php                      # Secure Authentication Gateway
 ├── logout.php                     # Session Termination & Redirection
@@ -230,7 +223,28 @@ cafeflow_v5-1/
 
 ---
 
-## 🗄️ Database Schema Overview
+## Database Architecture & Canonical Schema
+
+### What is the Database Schema?
+In relational database systems, the **database schema** is the formal blueprint that defines the tables, columns, data types, default values, primary keys, unique constraints, foreign key relationships, and performance indexes.
+
+The canonical schema file ([`database/schema.sql`](database/schema.sql)) represents the **clean, "empty" initial state of the system**:
+- **Clean Relational Tables**: It establishes all 8 production tables (`inventory`, `menu_products`, `product_size_prices`, `product_ingredients`, `transactions`, `transaction_items`, `users`, `login_attempts`) with strict referential integrity.
+- **Pre-Configured Master Seed Data**: It populates the essential foundation required for the cafe to open immediately upon launch:
+  * **62 Raw Inventory Items & Packaging**: Accurate units of measure (`g`, `ml`, `pcs`), baseline initial stock, and low-stock warning thresholds.
+  * **42 Official DK Cafe Products**: Categorized menu catalog with calibrated single and multi-size prices, plus exact image asset paths under `uploads/products/`.
+  * **44 Product Size Price Records**: Explicit prices mapped to cup size oz ratings (12oz Hot, 16oz Cold / Tall, 22oz Grande).
+  * **231 Product Ingredient Formulas**: Multi-ingredient deduction profiles linking menu products to raw supplies.
+  * **3 Authorized Starter Accounts**: Default credentials for `barista` (Dual POS register), `manager` (Executive Analytics & Admin), and `tan_smsn` (Active Barista).
+- **Zero Volatile Transactions**: Crucially, the schema contains **zero customer transaction rows** (`transactions: 0 rows`, `transaction_items: 0 rows`, `login_attempts: 0 rows`). It represents a pristine database ready to record its very first live customer checkout.
+
+### Strict Segregation of Live vs. Machine Learning Data (`is_mock`)
+To enable advanced time-series demand forecasting without corrupting financial audit integrity, the database enforces column-level segregation on the `transactions` table:
+- **`is_mock = 0` (Live Production Sales)**: Real orders processed by cashiers at the POS register. All official sales reports, accounting audits, and financial statements default strictly to live records.
+- **`is_mock = 1` (Synthetic Training Data)**: Simulated historical orders (e.g., the 7,521 transactions generated across 2025 via `core/seed_2025_ml_data.php`). These records incorporate realistic Philippine retail seasonality (Habagat rainy season, Tag-init summer surge, Quincena paydays, and Q4 holidays) to train the Holt-Winters predictive model.
+- **Index Optimization**: A dedicated index (`KEY idx_tx_is_mock (is_mock)`) guarantees millisecond query execution even across thousands of historical transactions.
+
+### Entity-Relationship Diagram
 
 ```mermaid
 erDiagram
@@ -239,6 +253,7 @@ erDiagram
     menu_products ||--o{ product_size_prices : "has size prices"
     menu_products ||--o{ product_ingredients : "consumes raw"
     inventory ||--o{ product_ingredients : "supplied as"
+    inventory ||--o{ menu_products : "linked single supply"
     transactions ||--o{ transaction_items : "contains"
     menu_products ||--o{ transaction_items : "sold as"
 
@@ -251,6 +266,7 @@ erDiagram
         string role
         string status
         timestamp created_at
+        timestamp updated_at
         timestamp last_login
     }
 
@@ -274,6 +290,8 @@ erDiagram
         decimal price_12oz
         decimal price_16oz
         decimal price_22oz
+        int linked_inventory_id FK
+        decimal deduction_amount
     }
 
     product_size_prices {
@@ -309,12 +327,14 @@ erDiagram
         string discount_type
         decimal discount_rate
         string discount_id_no
+        string discount_reason
         decimal tax
         decimal total_amount
         decimal amount_paid
         decimal change_due
         string payment_method
         string reference_number
+        boolean is_mock
         string status
         int cancelled_by_user_id FK
         timestamp cancelled_at
@@ -337,7 +357,7 @@ erDiagram
 
 ---
 
-## 🚀 Quick Installation Guide (XAMPP)
+## Quick Installation Guide (XAMPP)
 
 ### Prerequisites
 - **XAMPP** (Apache + MySQL/MariaDB + PHP 8.0 or higher)
@@ -359,7 +379,11 @@ erDiagram
    - Open your browser and navigate to: `http://localhost/phpmyadmin`
    - Create a new database named `cafeflow` (Collation: `utf8mb4_unicode_ci`).
    - Click the **Import** tab, choose `database/schema.sql` from the project directory, and click **Import**.
-   - *Note*: `core/db.php` includes an automatic migration engine (`ensure_schema()`) that automatically checks and applies schema updates on first launch.
+   - *Result*: You will have a clean, initialized database with all 62 raw supplies, 42 menu products, 44 cup-size price records, 231 recipe mappings, 3 starter accounts, and 0 customer transactions.
+   - *Optional ML Training Dataset*: If you wish to populate the 2025 synthetic historical dataset (7,521 transactions) for exploring the Machine Learning engine, run:
+     ```bash
+     php core/seed_2025_ml_data.php
+     ```
 
 4. **Verify Configuration**:
    Open `core/db.php`. Default settings connect to MySQL on `127.0.0.1:3306` with user `root` and an empty password. Adjust constants if your environment uses custom credentials:
@@ -379,7 +403,7 @@ erDiagram
 
 ---
 
-## 🔐 Authentication & Role-Based Access Control (RBAC)
+## Authentication & Role-Based Access Control (RBAC)
 
 CafeFlow enforces strict role-based access control across all frontend UI modules and backend API endpoints.
 
@@ -387,8 +411,8 @@ CafeFlow enforces strict role-based access control across all frontend UI module
 
 | Role | Username | Password | Default Landing Page | Authorized Modules & Permissions |
 |---|---|---|---|---|
-| **Barista** | `barista` | `barista123` | **Dual POS Screen** (`index.php`) | **Full POS Operations**, Order Taking, Cash/GCash Tender, Barista Queue Preparation, Product Management, Raw Supplies View/Restock, Sales Reports (Shift View). Strictly blocked from Account Management (`HTTP 403 Forbidden`). |
-| **Manager** | `manager` | `manager123` | **Manager Dashboard** (`index.php`) | **Executive Dashboard**, **Raw Inventory Management**, **Executive Sales Reports** (Historical date analysis, visual charts, multi-sheet Excel exports), **Staff Account Administration** (Create, reset passwords, activate/deactivate, role assignment). Strictly blocked from POS Cashier order processing. |
+| **Barista** | `barista` | `barista123` | **Dual POS Screen** (`index.php`) | **Full POS Operations**, Order Taking, Cash/GCash Tender, Barista Queue Preparation, Product Management, Raw Supplies View/Restock, Sales Reports (Shift View). Strictly blocked from Account Administration and Predictive Analytics (`HTTP 403 Forbidden`). |
+| **Manager** | `manager` | `manager123` | **Manager Dashboard** (`index.php`) | **Executive Dashboard (2x2 Grid)**, **Raw Inventory Management**, **Executive Sales Reports** (Historical date analysis, visual charts, 7-sheet Excel exports), **Predictive Sales Analytics** (Holt-Winters ML demand forecasting, rush curves, par recommendations), **Staff Account Administration** (Create, reset passwords, activate/deactivate, role assignment). Strictly blocked from POS Cashier order processing. |
 | **Active Barista** | `tan_smsn` | `alcaraz030303` | **Dual POS Screen** (`index.php`) | Active Barista account (Tristan Alcaraz). |
 
 ### Authorized Account Provisioning (No Public Registration)
@@ -404,7 +428,7 @@ Public self-registration is permanently disabled. CafeFlow operates strictly as 
 
 ---
 
-## 📋 Daily Cafe Operations Workflow
+## Daily Cafe Operations Workflow
 
 ### 1. Cashier (Order Taking & Checkout)
 1. Tap a beverage from the menu grid.
@@ -413,7 +437,7 @@ Public self-registration is permanently disabled. CafeFlow operates strictly as 
    - Depleted sizes are clearly indicated and disabled.
 3. Review the order in the **Current Order** cart. Adjust quantities using `+` or `−`.
 4. If the customer is a Senior Citizen or PWD, select **Senior / PWD (20% Discount)** from the discount dropdown and enter their OSCA / PWD ID or Booklet number.
-5. Tap **💵 Checkout · Cash** or **📱 Checkout · GCash**:
+5. Tap **Checkout · Cash** or **Checkout · GCash**:
    - For **Cash**: The Cash Tender dialog appears. Enter the amount received (or use quick-cash buttons). The exact change due is calculated automatically.
    - For **GCash**: Enter the customer's GCash receipt reference number (minimum 6 digits).
 6. Tap **Confirm Payment**. The transaction is recorded, an official e-receipt is generated, and the order is instantly pushed to the barista queue.
@@ -421,7 +445,7 @@ Public self-registration is permanently disabled. CafeFlow operates strictly as 
 ### 2. Barista (Order Preparation & Inventory Deduction)
 1. The right-hand **Barista Queue** automatically updates every 3 seconds.
 2. The barista views the customer queue with exact drink specifications (e.g., `Spanish Latte (Grande - 22oz) x 1`).
-3. Once the drink is brewed and served, the barista taps **✓ Mark Complete**.
+3. Once the drink is brewed and served, the barista taps **Mark Complete**.
 4. The system automatically marks the transaction `Completed` and deducts:
    - Specific cup (`22oz cup`) and `Flat lid`
    - Coffee beans, milk, and specialty syrups scaled to the 22oz serving size.
@@ -433,17 +457,24 @@ Public self-registration is permanently disabled. CafeFlow operates strictly as 
    - Log restock deliveries by entering quantities added.
    - Perform periodic stock takes and enter reconciled counts.
    - Set warning alert thresholds (e.g., alert when 16oz cups drop below 50 pcs).
-   - Export standalone physical stock audits to Excel via **📥 Export Excel**.
+   - Export standalone physical stock audits to Excel via **Export Excel**.
 
 ### 4. End-of-Day Sales Reporting & Accounting
-1. Open the **Sales Report** modal.
-2. Select the desired period (**Today**, **Specific Date**, **7-Day Report**, or **Specific Month**), or use the visual calendar drawer.
-3. Review total gross sales, completed order count, Cash vs. GCash breakdown, and top-selling beverages.
-4. Click **📥 Export Excel (.xlsx)** to download the presentation-grade 4-worksheet master sales workbook for accounting and management review.
+1. Open the **Sales Report** workspace.
+2. Select the desired period (**Today**, **Specific Date**, **7-Day Report**, **Specific Month**, or **Yearly Analytics**), or use the visual calendar drawer.
+3. Review total gross sales, completed order count, Cash vs. GCash breakdown, and top-selling items.
+4. Click **Export Excel (.xlsx)** to download the presentation-grade 7-worksheet master sales workbook (`DK_Cafe_Executive_Sales_*.xlsx`) for comprehensive financial audit and inventory reconciliation.
+
+### 5. Predictive Machine Learning Demand Forecasting
+1. Open the **Predictive Analytics** workspace via the topbar navigation or Manager Dashboard.
+2. Toggle between **Daily**, **7-Day**, **Specific Month**, and **Yearly** forecasting horizons.
+3. Review peak rush hours, recommended barista staffing allocations, and raw inventory reorder burn rates.
+4. Click **Recalculate Model** to instantly retrain the Holt-Winters parameters from recent transaction data.
+5. Click **Export Forecast (.xlsx)** to download the dedicated 7-sheet executive forecast workbook (`DK_Cafe_Executive_Predictive_Forecast_*.xlsx`).
 
 ---
 
-## 🛠️ Customizing Recipes & Ingredient Measurements
+## Customizing Recipes & Ingredient Measurements
 
 To calibrate recipes or update ingredient estimates as measurements are refined, edit [`core/recipe_engine.php`](core/recipe_engine.php).
 
@@ -498,7 +529,7 @@ When adjusting measurements, simply update the quantities in this array. All sto
 
 ---
 
-## 🔒 Security & Offline Reliability
+## Security & Offline Reliability
 - **Strict Input Validation**: All POST requests validate numeric types, sanitize string inputs, and guard against SQL injection via PDO parameterized queries.
 - **CSRF Defense**: All mutating requests auto-attach and validate session-scoped `X-CSRF-Token` headers.
 - **Centavo Precision**: All financial calculations are evaluated in whole integer centavos internally to avoid floating-point rounding discrepancies.
