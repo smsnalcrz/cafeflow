@@ -56,6 +56,18 @@ try {
     $inventoryReversed = false;
     $reversedItems = [];
 
+    // Fetch transaction items with snapshot details (for inventory reversal and waste logging)
+    $itemsStmt = $pdo->prepare('
+        SELECT ti.id, ti.product_id, ti.product_name, ti.quantity, ti.unit_price,
+               ti.size_code, ti.size_label, ti.size_oz,
+               mp.name AS base_name, mp.category
+          FROM transaction_items ti
+          LEFT JOIN menu_products mp ON mp.product_id = ti.product_id
+         WHERE ti.transaction_id = ?
+    ');
+    $itemsStmt->execute([$transactionId]);
+    $items = $itemsStmt->fetchAll();
+
     if ($currentStatus === 'Completed') {
         // Only managers are authorized to void completed sales
         if ($userRole !== 'manager') {
@@ -63,17 +75,6 @@ try {
         }
 
         $newStatus = 'Voided';
-
-        // Fetch transaction items with snapshot details
-        $itemsStmt = $pdo->prepare('
-            SELECT ti.product_id, ti.product_name, ti.quantity, ti.size_code, ti.size_label,
-                   mp.name AS base_name, mp.category
-              FROM transaction_items ti
-              LEFT JOIN menu_products mp ON mp.product_id = ti.product_id
-             WHERE ti.transaction_id = ?
-        ');
-        $itemsStmt->execute([$transactionId]);
-        $items = $itemsStmt->fetchAll();
 
         // Calculate and restore consumed raw ingredients
         $aggregatedRestoration = []; // item_id => amount
@@ -111,11 +112,14 @@ try {
             $inventoryReversed = true;
         }
     } elseif ($currentStatus === 'Pending') {
-        // Pending order: cancelled before kitchen preparation / inventory deduction
+        // Pending order: cancelled before kitchen preparation / live inventory was not deducted
         $newStatus = 'Cancelled';
     } else {
         fail(422, "Cannot cancel transaction with status '{$currentStatus}'.");
     }
+
+    // Atomically log raw ingredient and packaging waste to waste_log
+    $wasteResult = record_order_waste($pdo, $transactionId, $userId, $reason, $items);
 
     // Update transaction record with audit trail
     $updateStmt = $pdo->prepare('
@@ -143,6 +147,12 @@ send_json([
     'previous_status'    => $currentStatus,
     'inventory_reversed' => $inventoryReversed,
     'restoration_log'    => $reversedItems,
+    'waste_logged'       => !empty($wasteResult['items']),
+    'waste_summary'      => [
+        'events_count'       => $wasteResult['logged_count'] ?? 0,
+        'cost_loss_php'      => $wasteResult['total_cost_php'] ?? 0.00,
+        'income_loss_php'    => $wasteResult['total_income_loss_php'] ?? 0.00,
+    ],
     'message'            => $newStatus === 'Voided'
         ? "Transaction #{$transactionId} has been successfully voided and inventory reversed."
         : "Order #{$transactionId} has been cancelled.",

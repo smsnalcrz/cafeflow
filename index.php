@@ -23,6 +23,7 @@ $cssModules = [
   'assets/css/inventory.css',
   'assets/css/products.css',
   'assets/css/reports.css',
+  'assets/css/waste.css',
   'assets/css/predictive.css',
   'assets/css/responsive.css',
   'assets/css/print.css',
@@ -82,6 +83,10 @@ $cssModules = [
         <span>Sales Report</span>
       </button>
       <?php if ($currentRole === 'manager'): ?>
+      <button type="button" class="nav-btn" data-view="waste" id="wasteNavBtn">
+        <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+        <span>Waste Reports</span>
+      </button>
       <button type="button" class="nav-btn" data-view="predictive" id="predictiveNavBtn">
         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
         <span>Predictive Analytics</span>
@@ -292,6 +297,18 @@ $cssModules = [
         <div class="mgr-card-value" id="mgrCardUserCount">--</div>
         <p class="muted" style="margin: 0 0 10px;">Create Barista/Manager accounts, approve registrations, and manage credentials.</p>
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAccountsBtn">Manage Accounts</button>
+      </div>
+
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Waste &amp; Loss Tracking</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          </div>
+        </div>
+        <div class="mgr-card-value" id="mgrCardWasteToday">₱0.00 loss</div>
+        <p class="muted" style="margin: 0 0 10px;">Monitor raw material waste, ingredient consumption, and income loss from cancelled orders.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenWasteBtn">View Waste Reports</button>
       </div>
 
       <div class="mgr-card">
@@ -739,6 +756,125 @@ $cssModules = [
       <div class="modal-body" id="predictiveBody"></div>
     </div>
   </div>
+
+  <!-- ===== Dedicated Waste & Loss Reports Modal ===== -->
+  <div class="modal" id="wasteModal" hidden>
+    <div class="modal-card waste-modal-card">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <h2>Waste &amp; Loss Reports</h2>
+          <p class="modal-subtitle">Track raw ingredient consumption waste and estimated financial loss from cancelled orders.</p>
+        </div>
+        <div class="seg" id="wastePeriodSeg" role="group" aria-label="Waste reporting period">
+          <button type="button" data-waste-period="hourly">Hourly</button>
+          <button type="button" class="on" data-waste-period="daily">Daily</button>
+          <button type="button" data-waste-period="weekly">Weekly</button>
+          <button type="button" data-waste-period="yearly">Yearly</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn small primary" id="wasteRefreshBtn" title="Refresh waste data">Refresh</button>
+          <button type="button" class="btn small" id="wasteManualEntryBtn" title="Log manual waste entry">+ Log Manual Waste</button>
+          <button type="button" class="btn ghost" data-close>Close</button>
+        </div>
+      </div>
+
+      <!-- Waste Contextual Toolbar -->
+      <div class="report-toolbar" id="wasteToolbar">
+        <div class="toolbar-nav">
+          <button type="button" class="btn-step" id="wastePrevPeriodBtn" title="Previous period">◀</button>
+
+          <div class="picker-group" id="wasteHourlyPickerGroup" hidden>
+            <label for="wasteHourlyDatePicker" class="picker-label">Date:</label>
+            <input type="date" id="wasteHourlyDatePicker" class="date-input">
+            <span class="pill-range">24-Hour Breakdown</span>
+            <button type="button" class="btn ghost small" id="wasteJumpHourlyTodayBtn">Today</button>
+          </div>
+
+          <div class="picker-group" id="wasteDailyPickerGroup">
+            <label for="wasteDailyDatePicker" class="picker-label">Date:</label>
+            <input type="date" id="wasteDailyDatePicker" class="date-input">
+            <span class="pill-range">Single Day</span>
+            <button type="button" class="btn ghost small" id="wasteJumpDailyTodayBtn">Today</button>
+          </div>
+
+          <div class="picker-group" id="wasteWeeklyPickerGroup" hidden>
+            <label for="wasteWeeklyDatePicker" class="picker-label">Start Date:</label>
+            <input type="date" id="wasteWeeklyDatePicker" class="date-input">
+            <span class="pill-range" id="wasteWeeklyBadge">7-Day Span</span>
+            <button type="button" class="btn ghost small" id="wasteJumpThisWeekBtn">This Week</button>
+          </div>
+
+          <div class="picker-group" id="wasteYearlyPickerGroup" hidden>
+            <label for="wasteYearSelect" class="picker-label">Year:</label>
+            <select id="wasteYearSelect" class="year-select"></select>
+            <span class="pill-range">Annual Window</span>
+            <button type="button" class="btn ghost small" id="wasteJumpThisYearBtn">This Year</button>
+          </div>
+
+          <button type="button" class="btn-step" id="wasteNextPeriodBtn" title="Next period">▶</button>
+        </div>
+
+        <div class="toolbar-status">
+          <span class="status-period" id="wasteStatusPeriod">Loading waste audit data...</span>
+        </div>
+      </div>
+
+      <!-- View Navigation Tabs -->
+      <div class="waste-view-tabs" id="wasteViewTabs">
+        <button type="button" class="waste-tab active" data-view-tab="overview">Overview &amp; Charts</button>
+        <button type="button" class="waste-tab" data-view-tab="materials">Material Waste Summary</button>
+        <button type="button" class="waste-tab" data-view-tab="incomeloss">Income Loss Report</button>
+        <button type="button" class="waste-tab" data-view-tab="log">Waste Event Logs</button>
+      </div>
+
+      <!-- Manual Waste Entry Form Container (rendered by waste.js) -->
+      <div class="manual-waste-section" id="manualWasteSection" hidden>
+        <div class="waste-table-card">
+          <div class="waste-table-header-row">
+            <div class="waste-table-title-group">
+              <h3 style="margin: 0 0 2px 0; font-size: 16px; color: var(--espresso);">Log Manual Waste Entry</h3>
+              <p class="waste-table-subtitle" style="margin: 0;">Record uncontrollable waste (breakage, expired ingredients, spills, etc.) not tied to a customer order.</p>
+            </div>
+          </div>
+          <div class="manual-waste-form" id="manualWasteForm">
+            <div class="manual-waste-form-grid">
+              <div class="manual-waste-form-group">
+                <label class="manual-waste-form-label">Material / Supply Name <span class="req">*</span></label>
+                <input type="text" id="manualWasteItemName" class="manual-waste-form-input" placeholder="e.g. Broken Glass, Expired Milk" maxlength="100">
+              </div>
+              <div class="manual-waste-form-group">
+                <label class="manual-waste-form-label">Unit <span class="req">*</span></label>
+                <select id="manualWasteUnit" class="manual-waste-form-input">
+                  <option value="pcs">pcs</option>
+                  <option value="g">g</option>
+                  <option value="ml">ml</option>
+                </select>
+              </div>
+              <div class="manual-waste-form-group">
+                <label class="manual-waste-form-label">Amount Wasted <span class="req">*</span></label>
+                <input type="number" id="manualWasteAmount" class="manual-waste-form-input" placeholder="0.00" step="0.01" min="0.01">
+              </div>
+              <div class="manual-waste-form-group">
+                <label class="manual-waste-form-label">Cost (₱) <span class="req">*</span></label>
+                <input type="number" id="manualWasteCost" class="manual-waste-form-input" placeholder="0.00" step="0.01" min="0.01">
+              </div>
+              <div class="manual-waste-form-group full-width">
+                <label class="manual-waste-form-label">Reason / Description</label>
+                <input type="text" id="manualWasteReason" class="manual-waste-form-input" placeholder="e.g. Glass broke during cleanup, milk expired...">
+              </div>
+              <div class="manual-waste-form-group full-width">
+                <button type="button" class="btn primary" id="manualWasteSubmitBtn">Log Waste Entry</button>
+                <button type="button" class="btn ghost" id="manualWasteCancelBtn">Cancel</button>
+              </div>
+              <div id="manualWasteMessage" class="manual-waste-message" style="margin-top: 10px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-body" id="wasteBody"></div>
+    </div>
+  </div>
   <?php endif; ?>
 
   <!-- ===== E-Receipt modal ===== -->
@@ -1048,6 +1184,7 @@ $cssModules = [
   <script src="assets/js/modules/products.js?v=<?= $ver('assets/js/modules/products.js') ?>" defer></script>
   <script src="assets/js/modules/inventory.js?v=<?= $ver('assets/js/modules/inventory.js') ?>" defer></script>
   <script src="assets/js/modules/reports.js?v=<?= $ver('assets/js/modules/reports.js') ?>" defer></script>
+  <script src="assets/js/modules/waste.js?v=<?= $ver('assets/js/modules/waste.js') ?>" defer></script>
   <script src="assets/js/modules/accounts.js?v=<?= $ver('assets/js/modules/accounts.js') ?>" defer></script>
   <script src="assets/js/modules/dashboard.js?v=<?= $ver('assets/js/modules/dashboard.js') ?>" defer></script>
   <script src="assets/js/modules/predictive.js?v=<?= $ver('assets/js/modules/predictive.js') ?>" defer></script>

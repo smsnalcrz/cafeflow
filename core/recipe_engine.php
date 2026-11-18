@@ -816,3 +816,260 @@ function evaluate_product_stock_state(array $product, PDO $pdo): string
 
     return evaluate_single_size_stock($product, null, $pdo);
 }
+
+/**
+ * Estimates ingredient or packaging raw cost in centavos based on item name and unit.
+ * Used for financial waste tracking and material cost-loss accounting.
+ *
+ * @param string $name Item name (e.g., 'Matcha Powder', 'Milk', '22oz cup')
+ * @param string $unit Unit of measure ('g', 'ml', 'pcs')
+ * @param float  $amount Amount consumed/wasted
+ * @return int   Cost in centavos (integer to avoid floating-point errors)
+ */
+function estimate_ingredient_cost_cents(string $name, string $unit, float $amount): int
+{
+    if ($amount <= 0.0) {
+        return 0;
+    }
+
+    $n = strtolower(trim($name));
+    $u = strtolower(trim($unit));
+
+    // Unit rate in centavos per 1 unit of measurement
+    $centavosPerUnit = null;
+
+    // Specific ingredient overrides
+    if (str_contains($n, 'matcha')) {
+        $centavosPerUnit = 90.0; // ₱0.90 / g
+    } elseif (str_contains($n, 'espresso') || str_contains($n, 'bean')) {
+        $centavosPerUnit = ($u === 'ml') ? 50.0 : 70.0; // ₱0.70 / g or ₱0.50 / ml
+    } elseif (str_contains($n, 'milk') || str_contains($n, 'arla') || str_contains($n, 'emborg')) {
+        $centavosPerUnit = 9.0; // ₱0.09 / ml
+    } elseif (str_contains($n, 'cream') || str_contains($n, 'whipping')) {
+        $centavosPerUnit = 18.0; // ₱0.18 / ml
+    } elseif (str_contains($n, 'syrup') || str_contains($n, 'sauce') || str_contains($n, 'puree')) {
+        $centavosPerUnit = 30.0; // ₱0.30 / ml
+    } elseif (str_contains($n, 'powder')) {
+        $centavosPerUnit = 60.0; // ₱0.60 / g
+    } elseif (str_contains($n, 'ice')) {
+        $centavosPerUnit = 1.5; // ₱0.015 / g
+    } elseif (str_contains($n, 'croissant') || str_contains($n, 'croffle')) {
+        $centavosPerUnit = 4500.0; // ₱45.00 / pc
+    } elseif (str_contains($n, 'fries')) {
+        $centavosPerUnit = 16.0; // ₱0.16 / g
+    } elseif (str_contains($n, 'bread') || str_contains($n, 'roll')) {
+        $centavosPerUnit = 1000.0; // ₱10.00 / pc
+    } elseif (str_contains($n, 'egg')) {
+        $centavosPerUnit = 900.0; // ₱9.00 / pc
+    } elseif (str_contains($n, 'cheese')) {
+        $centavosPerUnit = 700.0; // ₱7.00 / pc
+    } elseif (str_contains($n, 'ham') || str_contains($n, 'spam') || str_contains($n, 'chicken')) {
+        $centavosPerUnit = 50.0; // ₱0.50 / g
+    } elseif (str_contains($n, 'biscuit') || str_contains($n, 'banana')) {
+        $centavosPerUnit = 500.0; // ₱5.00 / pc
+    } elseif (str_contains($n, 'spread') || str_contains($n, 'nutella') || str_contains($n, 'biscoff')) {
+        $centavosPerUnit = 60.0; // ₱0.60 / g
+    } elseif (str_contains($n, 'tea')) {
+        $centavosPerUnit = 5.0; // ₱0.05 / ml
+    } elseif (str_contains($n, 'soda')) {
+        $centavosPerUnit = 4.0; // ₱0.04 / ml
+    } elseif (str_contains($n, 'juice')) {
+        $centavosPerUnit = 15.0; // ₱0.15 / ml
+    } elseif (str_contains($n, 'boba') || str_contains($n, 'pearl') || str_contains($n, 'nata')) {
+        $centavosPerUnit = 18.0; // ₱0.18 / g
+    }
+    // Packaging
+    elseif (str_contains($n, '22oz cup')) {
+        $centavosPerUnit = 380.0; // ₱3.80 / pc
+    } elseif (str_contains($n, '16oz cup')) {
+        $centavosPerUnit = 300.0; // ₱3.00 / pc
+    } elseif (str_contains($n, '12oz') || str_contains($n, 'hot cup')) {
+        $centavosPerUnit = 350.0; // ₱3.50 / pc
+    } elseif (str_contains($n, 'lid')) {
+        $centavosPerUnit = 120.0; // ₱1.20 / pc
+    } elseif (str_contains($n, 'straw')) {
+        $centavosPerUnit = 50.0; // ₱0.50 / pc
+    }
+
+    // Fallbacks by unit of measure
+    if ($centavosPerUnit === null) {
+        if ($u === 'g') {
+            $centavosPerUnit = 30.0; // ₱0.30 / g
+        } elseif ($u === 'ml') {
+            $centavosPerUnit = 15.0; // ₱0.15 / ml
+        } elseif ($u === 'pcs' || $u === 'pc') {
+            $centavosPerUnit = 300.0; // ₱3.00 / pc
+        } else {
+            $centavosPerUnit = 100.0;
+        }
+    }
+
+    return (int) round($amount * $centavosPerUnit);
+}
+
+/**
+ * Calculates raw ingredient and packaging waste consumption for cancelled/voided orders,
+ * logs granular records to waste_log, and updates waste_report_summary inside the caller's transaction.
+ *
+ * @param PDO    $pdo
+ * @param int    $transactionId
+ * @param int    $userId
+ * @param string $reason
+ * @param array  $items List of transaction_items rows with product details
+ * @return array Array of logged waste items with details and summary
+ */
+function record_order_waste(PDO $pdo, int $transactionId, int $userId, string $reason, array $items): array
+{
+    if (empty($items)) {
+        return [
+            'success' => true,
+            'logged_count' => 0,
+            'items' => [],
+            'total_cost_cents' => 0,
+            'total_income_loss_cents' => 0,
+        ];
+    }
+
+    // Guard against duplicate waste logging for the same transaction
+    $checkStmt = $pdo->prepare('SELECT COUNT(*) FROM waste_log WHERE transaction_id = ?');
+    $checkStmt->execute([$transactionId]);
+    if ((int) $checkStmt->fetchColumn() > 0) {
+        return [
+            'success' => true,
+            'logged_count' => 0,
+            'items' => [],
+            'total_cost_cents' => 0,
+            'total_income_loss_cents' => 0,
+            'note' => 'Waste was already recorded for this transaction.',
+        ];
+    }
+
+    $insertStmt = $pdo->prepare('
+        INSERT INTO waste_log (
+            transaction_id, product_id, product_name, size_code, size_label,
+            quantity, item_id, item_name, unit, amount_wasted,
+            cost_cents, estimated_cost_php, wasted_by_user_id, reason, wasted_at
+        ) VALUES (
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, NOW()
+        )
+    ');
+
+    $loggedEntries = [];
+    $totalCostCents = 0;
+    $totalAmountWasted = 0.0;
+
+    foreach ($items as $item) {
+        $pId = $item['product_id'] ?? null;
+        $baseName = !empty($item['base_name']) ? $item['base_name'] : ($item['product_name'] ?? 'Product');
+        $product = [
+            'product_id' => $pId,
+            'name'       => $baseName,
+            'category'   => $item['category'] ?? 'Coffee',
+        ];
+        $sizeCode = $item['size_code'] ?? null;
+        $sizeLabel = $item['size_label'] ?? null;
+        $qty = max(1, (int) ($item['quantity'] ?? 1));
+
+        $cons = calculate_product_consumption($product, $sizeCode, $qty, $pdo, $sizeLabel);
+
+        foreach ($cons as $c) {
+            $itemId = (int) $c['item_id'];
+            $itemName = (string) $c['name'];
+            $unit = (string) $c['unit'];
+            $amount = (float) $c['amount'];
+            $costCents = estimate_ingredient_cost_cents($itemName, $unit, $amount);
+            $costPhp = round($costCents / 100, 2);
+
+            $insertStmt->execute([
+                $transactionId,
+                $pId,
+                $baseName,
+                $sizeCode,
+                $sizeLabel,
+                $qty,
+                $itemId,
+                $itemName,
+                $unit,
+                $amount,
+                $costCents,
+                $costPhp,
+                $userId,
+                $reason,
+            ]);
+
+            $totalCostCents += $costCents;
+            $totalAmountWasted += $amount;
+
+            $loggedEntries[] = [
+                'item_id'            => $itemId,
+                'item_name'          => $itemName,
+                'unit'               => $unit,
+                'amount_wasted'      => $amount,
+                'cost_cents'         => $costCents,
+                'estimated_cost_php' => $costPhp,
+                'product_name'       => $baseName,
+                'size_label'         => $sizeLabel,
+                'quantity'           => $qty,
+            ];
+        }
+    }
+
+    // Compute total sales revenue income loss from the cancelled line items
+    $totalIncomeLossCents = 0;
+    foreach ($items as $item) {
+        $uPrice = (float) ($item['unit_price'] ?? 0.0);
+        $q = max(1, (int) ($item['quantity'] ?? 1));
+        $totalIncomeLossCents += (int) round($uPrice * $q * 100);
+    }
+
+    // Update hourly and daily pre-aggregated summary
+    try {
+        $hourlySummaryStmt = $pdo->prepare('
+            INSERT INTO waste_report_summary (
+                summary_date, summary_hour, period_type, total_events,
+                total_items_wasted, total_cost_cents, total_income_loss_cents, updated_at
+            ) VALUES (
+                CURDATE(), HOUR(NOW()), "hourly", 1,
+                ?, ?, ?, NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                total_events = total_events + 1,
+                total_items_wasted = total_items_wasted + VALUES(total_items_wasted),
+                total_cost_cents = total_cost_cents + VALUES(total_cost_cents),
+                total_income_loss_cents = total_income_loss_cents + VALUES(total_income_loss_cents),
+                updated_at = NOW()
+        ');
+        $hourlySummaryStmt->execute([$totalAmountWasted, $totalCostCents, $totalIncomeLossCents]);
+
+        $dailySummaryStmt = $pdo->prepare('
+            INSERT INTO waste_report_summary (
+                summary_date, summary_hour, period_type, total_events,
+                total_items_wasted, total_cost_cents, total_income_loss_cents, updated_at
+            ) VALUES (
+                CURDATE(), NULL, "daily", 1,
+                ?, ?, ?, NOW()
+            )
+            ON DUPLICATE KEY UPDATE
+                total_events = total_events + 1,
+                total_items_wasted = total_items_wasted + VALUES(total_items_wasted),
+                total_cost_cents = total_cost_cents + VALUES(total_cost_cents),
+                total_income_loss_cents = total_income_loss_cents + VALUES(total_income_loss_cents),
+                updated_at = NOW()
+        ');
+        $dailySummaryStmt->execute([$totalAmountWasted, $totalCostCents, $totalIncomeLossCents]);
+    } catch (Throwable $summaryErr) {
+        error_log('[CafeFlow Waste Summary] ' . $summaryErr->getMessage());
+    }
+
+    return [
+        'success'                 => true,
+        'logged_count'            => count($loggedEntries),
+        'items'                   => $loggedEntries,
+        'total_cost_cents'        => $totalCostCents,
+        'total_cost_php'          => round($totalCostCents / 100, 2),
+        'total_income_loss_cents' => $totalIncomeLossCents,
+        'total_income_loss_php'   => round($totalIncomeLossCents / 100, 2),
+    ];
+}

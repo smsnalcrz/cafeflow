@@ -445,6 +445,7 @@ window.CafeFlow = window.CafeFlow || {};
   var _topSellersBarChart  = null;
   var _reportYearBarChart  = null;
   var _reportYearLineChart = null;
+  var _reportWasteTrendChart = null;
 
   // Active chart tab state for the report selector
   var _activeChartTab = 'trend';
@@ -2169,6 +2170,119 @@ window.CafeFlow = window.CafeFlow || {};
     loadYearlyTransactions({});
   }
 
+  function renderWasteKpiSection(body, r) {
+    const ws = r.waste_summary || {};
+    const events = ws.events_count || 0;
+    const cancelledOrders = ws.cancelled_orders || 0;
+    const incomeLoss = ws.total_income_loss_php || 0;
+    const materialCost = ws.total_material_cost_php || 0;
+    const wastedKg = ws.total_wasted_kg || 0;
+    const wastedPcs = Math.round(ws.total_wasted_pcs || 0);
+
+    const isManager = currentUser && currentUser.role === 'manager';
+
+    const section = h('section', { class: 'report-waste-section' });
+
+    const headActions = h('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+    if (isManager) {
+      headActions.append(h('button', {
+        type: 'button',
+        class: 'btn small primary',
+        text: 'Open Waste Reports ↗',
+        title: 'Launch dedicated Waste & Loss Reports workspace',
+        onclick: () => {
+          if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
+            window.CafeFlow.nav.showView('waste');
+          }
+        }
+      }));
+    }
+
+    const head = h('div', { class: 'report-waste-head' },
+      h('div', { class: 'report-waste-title-group' },
+        h('h3', { text: 'Order Cancellation & Waste Impact' }),
+        h('p', { class: 'report-waste-subtitle', text: 'Financial income loss from cancelled orders and estimated raw ingredient consumption waste' })
+      ),
+      headActions
+    );
+    section.append(head);
+
+    // 4 Waste KPI Cards
+    const kpiGrid = h('div', { class: 'waste-kpi-grid' },
+      h('div', { class: 'waste-kpi-card loss-hero' },
+        h('span', { class: 'waste-kpi-label', text: 'Estimated Income Loss' }),
+        h('span', { class: 'waste-kpi-val', text: money(incomeLoss) }),
+        h('span', { class: 'waste-kpi-sub', text: `${cancelledOrders} cancelled ticket${cancelledOrders === 1 ? '' : 's'}` })
+      ),
+      h('div', { class: 'waste-kpi-card cost-hero' },
+        h('span', { class: 'waste-kpi-label', text: 'Raw Material Cost Loss' }),
+        h('span', { class: 'waste-kpi-val', text: money(materialCost) }),
+        h('span', { class: 'waste-kpi-sub', text: 'Estimated ingredients & cups wasted' })
+      ),
+      h('div', { class: 'waste-kpi-card' },
+        h('span', { class: 'waste-kpi-label', text: 'Waste Events Logged' }),
+        h('span', { class: 'waste-kpi-val', text: String(events) }),
+        h('span', { class: 'waste-kpi-sub', text: `${events} item consumption record${events === 1 ? '' : 's'}` })
+      ),
+      h('div', { class: 'waste-kpi-card' },
+        h('span', { class: 'waste-kpi-label', text: 'Materials Wasted' }),
+        h('span', { class: 'waste-kpi-val', style: 'font-size: 18px;', text: `${wastedKg} kg / ${wastedPcs} pcs` }),
+        h('span', { class: 'waste-kpi-sub', text: 'Physical powders, beans & packaging' })
+      )
+    );
+    section.append(kpiGrid);
+
+    // Mini waste trend chart if trend data is available
+    const trendRows = ws.trend || [];
+    if (trendRows.length > 0 && typeof Chart !== 'undefined') {
+      const chartCard = h('div', { class: 'waste-chart-card', style: 'margin-top: 14px;' },
+        h('div', { class: 'waste-chart-head' },
+          h('span', { class: 'waste-chart-title', text: 'Mini Waste Trend' }),
+          h('span', { class: 'waste-chart-badge', text: 'DAILY TIMELINE' })
+        ),
+        h('div', { class: 'waste-chart-wrap', style: 'height: 160px;' },
+          h('canvas', { id: 'reportMiniWasteCanvas', 'aria-label': 'Mini waste trend' })
+        )
+      );
+      section.append(chartCard);
+
+      requestAnimationFrame(() => {
+        const cvs = document.getElementById('reportMiniWasteCanvas');
+        if (cvs) {
+          if (_reportWasteTrendChart) {
+            _reportWasteTrendChart = destroyChart(_reportWasteTrendChart);
+          }
+          const ctx = cvs.getContext('2d');
+          _reportWasteTrendChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: trendRows.map(t => dayLabel(t.waste_date)),
+              datasets: [{
+                label: 'Material Cost (₱)',
+                data: trendRows.map(t => Number(t.cost_php || 0)),
+                backgroundColor: 'rgba(232, 98, 58, 0.7)',
+                borderColor: '#e8623a',
+                borderWidth: 1.5,
+                borderRadius: 4
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { grid: { display: false } },
+                y: { beginAtZero: true, ticks: { callback: v => '₱' + v } }
+              }
+            }
+          });
+        }
+      });
+    }
+
+    body.append(section);
+  }
+
   async function renderReport(r) {
 
     const s = r.summary;
@@ -2193,6 +2307,7 @@ window.CafeFlow = window.CafeFlow || {};
     _topSellersBarChart  = destroyChart(_topSellersBarChart);
     _reportYearBarChart  = destroyChart(_reportYearBarChart);
     _reportYearLineChart = destroyChart(_reportYearLineChart);
+    _reportWasteTrendChart = destroyChart(_reportWasteTrendChart);
 
     // Sync Year Picker dropdown options if available
     const yrPicker = $('#reportYearPicker');
@@ -2623,7 +2738,8 @@ window.CafeFlow = window.CafeFlow || {};
     breakdownWrap.append(breakdownHeaderWrap, breakdownNarrativeBox, scrollableTable);
     body.append(breakdownWrap);
 
-
+    // Render Waste KPI Cards & Mini Trend Section
+    renderWasteKpiSection(body, r);
 
     // Daily Transaction Records & E-Receipt Section
 

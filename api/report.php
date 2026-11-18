@@ -307,6 +307,57 @@ if (empty($availableYears)) {
 }
 
 // -----------------------------------------------------------------------------
+// Waste & Loss Tracking for reporting window
+// -----------------------------------------------------------------------------
+$wasteStmt = $pdo->prepare("
+    SELECT
+        COUNT(DISTINCT wl.waste_id)        AS total_waste_events,
+        COUNT(DISTINCT wl.transaction_id) AS distinct_cancelled_orders,
+        COALESCE(SUM(wl.cost_cents), 0)    AS total_material_cost_cents,
+        COALESCE(SUM(wl.estimated_cost_php), 0.00) AS total_material_cost_php,
+        COALESCE(SUM(CASE WHEN wl.unit = 'g' THEN wl.amount_wasted ELSE 0 END), 0.00)   AS total_wasted_g,
+        COALESCE(SUM(CASE WHEN wl.unit = 'ml' THEN wl.amount_wasted ELSE 0 END), 0.00)  AS total_wasted_ml,
+        COALESCE(SUM(CASE WHEN wl.unit = 'pcs' THEN wl.amount_wasted ELSE 0 END), 0.00) AS total_wasted_pcs
+    FROM waste_log wl
+    WHERE wl.wasted_at >= :start AND wl.wasted_at < :end
+");
+$wasteStmt->execute([':start' => $startStr, ':end' => $endStr]);
+$wSum = $wasteStmt->fetch() ?: [
+    'total_waste_events' => 0,
+    'distinct_cancelled_orders' => 0,
+    'total_material_cost_cents' => 0,
+    'total_material_cost_php' => 0.0,
+    'total_wasted_g' => 0.0,
+    'total_wasted_ml' => 0.0,
+    'total_wasted_pcs' => 0.0,
+];
+
+// Cancelled sales income loss in this report window
+$cancelledLossStmt = $pdo->prepare("
+    SELECT
+        COUNT(transaction_id) AS cancelled_orders,
+        COALESCE(SUM(total_amount), 0.00) AS income_loss_php
+    FROM transactions
+    WHERE `timestamp` >= :start AND `timestamp` < :end
+      AND status IN ('Cancelled', 'Voided')
+");
+$cancelledLossStmt->execute([':start' => $startStr, ':end' => $endStr]);
+$cLoss = $cancelledLossStmt->fetch() ?: ['cancelled_orders' => 0, 'income_loss_php' => 0.0];
+
+$wasteTrendStmt = $pdo->prepare("
+    SELECT
+        DATE(wasted_at) AS waste_date,
+        COUNT(DISTINCT waste_id) AS events,
+        COALESCE(SUM(estimated_cost_php), 0.00) AS cost_php
+    FROM waste_log
+    WHERE wasted_at >= :start AND wasted_at < :end
+    GROUP BY waste_date
+    ORDER BY waste_date ASC
+");
+$wasteTrendStmt->execute([':start' => $startStr, ':end' => $endStr]);
+$wasteTrend = $wasteTrendStmt->fetchAll();
+
+// -----------------------------------------------------------------------------
 // Yearly Monthly Breakdown & Enriched Analytics
 // -----------------------------------------------------------------------------
 $monthlyBreakdown = [];
@@ -642,4 +693,16 @@ send_json([
         'qty'      => (int) $r['qty'],
         'revenue'  => (float) $r['revenue'],
     ], $categories),
+    'waste_summary' => [
+        'events_count'            => (int)($wSum['total_waste_events'] ?? 0),
+        'cancelled_orders'        => (int)($cLoss['cancelled_orders'] ?? 0),
+        'total_income_loss_php'   => (float)($cLoss['income_loss_php'] ?? 0.0),
+        'total_material_cost_php' => (float)($wSum['total_material_cost_php'] ?? 0.0),
+        'total_material_cost_cents' => (int)($wSum['total_material_cost_cents'] ?? 0),
+        'total_wasted_g'          => (float)($wSum['total_wasted_g'] ?? 0.0),
+        'total_wasted_kg'         => round(((float)($wSum['total_wasted_g'] ?? 0.0)) / 1000, 2),
+        'total_wasted_ml'         => (float)($wSum['total_wasted_ml'] ?? 0.0),
+        'total_wasted_pcs'        => (float)($wSum['total_wasted_pcs'] ?? 0.0),
+        'trend'                   => $wasteTrend,
+    ],
 ]);

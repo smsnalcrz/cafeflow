@@ -21,6 +21,7 @@ window.CafeFlow = window.CafeFlow || {};
   const { initAccountEvents } = window.CafeFlow.accounts;
   const { loadManagerDashboard, initDashboardEvents } = window.CafeFlow.dashboard;
   const { initPredictiveEvents } = window.CafeFlow.predictive || {};
+  const { initWasteEvents } = window.CafeFlow.waste || {};
 
   function initApp() {
     // 1. Initialize event listeners across modules
@@ -35,6 +36,7 @@ window.CafeFlow = window.CafeFlow || {};
     initAccountEvents();
     initDashboardEvents();
     if (initPredictiveEvents) initPredictiveEvents();
+    if (initWasteEvents) initWasteEvents();
 
     // 2. Global Brand Logo click behavior
     const brandEl = $('.brand');
@@ -86,7 +88,7 @@ window.CafeFlow = window.CafeFlow || {};
       loadManagerDashboard();
       const urlParams = new URLSearchParams(window.location.search);
       const reqView = urlParams.get('view');
-      if (reqView === 'inventory' || reqView === 'report' || reqView === 'accounts' || reqView === 'predictive') {
+      if (reqView === 'inventory' || reqView === 'report' || reqView === 'accounts' || reqView === 'predictive' || reqView === 'waste') {
         showView(reqView);
       } else {
         showView('dashboard');

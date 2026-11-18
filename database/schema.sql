@@ -168,6 +168,55 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   KEY idx_attempt_user (username, attempt_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ------------------------------------------------------------
+--  9. Raw ingredient & packaging waste audit log
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS waste_log (
+  waste_id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  transaction_id     INT UNSIGNED  NOT NULL,
+  product_id         INT UNSIGNED  NULL DEFAULT NULL,
+  product_name       VARCHAR(100)  NULL DEFAULT NULL,
+  size_code          VARCHAR(30)   NULL DEFAULT NULL,
+  size_label         VARCHAR(50)   NULL DEFAULT NULL,
+  quantity           INT UNSIGNED  NOT NULL DEFAULT 1,
+  item_id            INT UNSIGNED  NOT NULL,
+  item_name          VARCHAR(100)  NOT NULL,
+  unit               VARCHAR(20)   NOT NULL,
+  amount_wasted      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  cost_cents         INT           NOT NULL DEFAULT 0,
+  estimated_cost_php DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  wasted_by_user_id  INT UNSIGNED  NULL DEFAULT NULL,
+  reason             VARCHAR(255)  NOT NULL DEFAULT '',
+  wasted_at          DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (waste_id),
+  KEY idx_wl_tx (transaction_id),
+  KEY idx_wl_product (product_id),
+  KEY idx_wl_item (item_id),
+  KEY idx_wl_user (wasted_by_user_id),
+  KEY idx_wl_time (wasted_at),
+  CONSTRAINT fk_wl_tx FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
+  CONSTRAINT fk_wl_user FOREIGN KEY (wasted_by_user_id) REFERENCES users (user_id) ON DELETE SET NULL,
+  CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+--  10. Pre-aggregated waste summary (for high-speed dashboard reads)
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS waste_report_summary (
+  summary_id              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  summary_date            DATE          NOT NULL,
+  summary_hour            TINYINT UNSIGNED NULL DEFAULT NULL,
+  period_type             ENUM('hourly', 'daily') NOT NULL DEFAULT 'daily',
+  total_events            INT UNSIGNED  NOT NULL DEFAULT 0,
+  total_items_wasted      DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  total_cost_cents        BIGINT        NOT NULL DEFAULT 0,
+  total_income_loss_cents BIGINT        NOT NULL DEFAULT 0,
+  updated_at              DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (summary_id),
+  UNIQUE KEY uq_period_summary (summary_date, summary_hour, period_type),
+  KEY idx_summary_date (summary_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ============================================================
 --  STARTER SEED DATA: 1. Raw Supplies & Packaging Inventory (62 Items)
 -- ============================================================

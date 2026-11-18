@@ -41,6 +41,15 @@ window.CafeFlow = window.CafeFlow || {};
         salesTodayEl.textContent = money(totalSales);
       }
 
+      // 4. Load today's waste & income loss metrics
+      const wasteTodayEl = $('#mgrCardWasteToday');
+      if (wasteTodayEl && repData.waste_summary) {
+        const loss = repData.waste_summary.total_income_loss_php || 0;
+        const events = repData.waste_summary.events_count || 0;
+        const orders = repData.waste_summary.cancelled_orders || 0;
+        wasteTodayEl.textContent = money(loss) + ' loss' + (orders > 0 ? ' (' + orders + ' cancelled)' : ' (0 waste)');
+      }
+
       // Update dashboard chart subtitle
       const periodLabel = $('#mgrChartsPeriodLabel');
       if (periodLabel) periodLabel.textContent = repData.label || todayIso;
@@ -118,6 +127,15 @@ window.CafeFlow = window.CafeFlow || {};
       mgrOpenAccountsBtn.addEventListener('click', () => {
         if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
           window.CafeFlow.nav.showView('accounts');
+        }
+      });
+    }
+
+    const mgrOpenWasteBtn = $('#mgrOpenWasteBtn');
+    if (mgrOpenWasteBtn) {
+      mgrOpenWasteBtn.addEventListener('click', () => {
+        if (window.CafeFlow.nav && window.CafeFlow.nav.showView) {
+          window.CafeFlow.nav.showView('waste');
         }
       });
     }

@@ -229,6 +229,72 @@ if (!function_exists('ensure_schema')) {
                 ");
             }
 
+            if (!in_array('waste_log', $tables, true)) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS waste_log (
+                        waste_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        transaction_id INT UNSIGNED NOT NULL,
+                        product_id INT UNSIGNED NULL DEFAULT NULL,
+                        product_name VARCHAR(100) NULL DEFAULT NULL,
+                        size_code VARCHAR(30) NULL DEFAULT NULL,
+                        size_label VARCHAR(50) NULL DEFAULT NULL,
+                        quantity INT UNSIGNED NOT NULL DEFAULT 1,
+                        item_id INT UNSIGNED NOT NULL,
+                        item_name VARCHAR(100) NOT NULL,
+                        unit VARCHAR(20) NOT NULL,
+                        amount_wasted DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                        cost_cents INT NOT NULL DEFAULT 0,
+                        estimated_cost_php DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                        wasted_by_user_id INT UNSIGNED NULL DEFAULT NULL,
+                        reason VARCHAR(255) NOT NULL DEFAULT '',
+                        wasted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (waste_id),
+                        KEY idx_wl_tx (transaction_id),
+                        KEY idx_wl_product (product_id),
+                        KEY idx_wl_item (item_id),
+                        KEY idx_wl_user (wasted_by_user_id),
+                        KEY idx_wl_time (wasted_at),
+                        CONSTRAINT fk_wl_tx FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
+                        CONSTRAINT fk_wl_user FOREIGN KEY (wasted_by_user_id) REFERENCES users (user_id) ON DELETE SET NULL,
+                        CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+
+            // Allow manual waste entries not tied to a transaction or inventory item
+            try {
+                $txCol = $pdo->query("SHOW COLUMNS FROM waste_log LIKE 'transaction_id'")->fetch(PDO::FETCH_ASSOC);
+                if ($txCol && $txCol['Null'] === 'NO') {
+                    $pdo->exec("ALTER TABLE waste_log MODIFY COLUMN transaction_id INT UNSIGNED NULL DEFAULT NULL");
+                }
+            } catch (Throwable $e) {}
+
+            try {
+                $itemCol = $pdo->query("SHOW COLUMNS FROM waste_log LIKE 'item_id'")->fetch(PDO::FETCH_ASSOC);
+                if ($itemCol && $itemCol['Null'] === 'NO') {
+                    $pdo->exec("ALTER TABLE waste_log MODIFY COLUMN item_id INT UNSIGNED NULL DEFAULT NULL");
+                }
+            } catch (Throwable $e) {}
+
+            if (!in_array('waste_report_summary', $tables, true)) {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS waste_report_summary (
+                        summary_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                        summary_date DATE NOT NULL,
+                        summary_hour TINYINT UNSIGNED NULL DEFAULT NULL,
+                        period_type ENUM('hourly', 'daily') NOT NULL DEFAULT 'daily',
+                        total_events INT UNSIGNED NOT NULL DEFAULT 0,
+                        total_items_wasted DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+                        total_cost_cents BIGINT NOT NULL DEFAULT 0,
+                        total_income_loss_cents BIGINT NOT NULL DEFAULT 0,
+                        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        PRIMARY KEY (summary_id),
+                        UNIQUE KEY uq_period_summary (summary_date, summary_hour, period_type),
+                        KEY idx_summary_date (summary_date)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+                ");
+            }
+
             // Seed default authorized accounts if users table is empty
             $userCount = (int) $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
             if ($userCount === 0) {
