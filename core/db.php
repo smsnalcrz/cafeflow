@@ -5,7 +5,7 @@
  */
 
 if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-if (!defined('DB_PORT')) define('DB_PORT', getenv('DB_PORT') ?: '3307');
+if (!defined('DB_PORT')) define('DB_PORT', getenv('DB_PORT') ?: '3306');
 if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'cafeflow');
 if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');
 if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : '');              // XAMPP default: empty password
@@ -289,8 +289,8 @@ if (!function_exists('db')) {
     {
         static $pdo = null;
         if ($pdo === null) {
-            $configuredPort = defined('DB_PORT') ? (int) DB_PORT : 3307;
-            $portsToTry = array_values(array_unique(array_filter([$configuredPort, 3307, 3306])));
+            $configuredPort = defined('DB_PORT') ? (int) DB_PORT : 3306;
+            $portsToTry = array_values(array_unique(array_filter([$configuredPort, 3306, 3307])));
 
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
