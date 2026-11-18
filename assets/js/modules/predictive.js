@@ -892,16 +892,16 @@ window.CafeFlow = window.CafeFlow || {};
       predExportBtn.addEventListener('click', () => {
         let url = 'api/export_excel.php?type=predictive';
         if (_predPeriod === 'year') {
-          url += `&start=${_targetYear}-01-01&end=${_targetYear}-12-31`;
+          url += `&start=${encodeURIComponent(_targetYear)}-01-01&end=${encodeURIComponent(_targetYear)}-12-31`;
         } else if (_predPeriod === 'month') {
           const [y, m] = _targetMonth.split('-').map(Number);
           const lastD = new Date(y, m, 0).getDate();
-          url += `&start=${_targetMonth}-01&end=${_targetMonth}-${pad2(lastD)}`;
+          url += `&start=${encodeURIComponent(_targetMonth)}-01&end=${encodeURIComponent(_targetMonth)}-${pad2(lastD)}`;
         } else if (_predPeriod === '7days') {
-          const end7 = toIsoDate(addDays(parseIsoDate(_target7DayStart), 6));
-          url += `&start=${_target7DayStart}&end=${end7}`;
+          const end7 = toIsoDate(addDays(parseIsoDate(_startDate7), 6));
+          url += `&start=${encodeURIComponent(_startDate7)}&end=${encodeURIComponent(end7)}`;
         } else {
-          url += `&date=${_targetDailyDate}`;
+          url += `&date=${encodeURIComponent(_targetDate)}`;
         }
         toast('Generating Predictive Machine Learning Excel Workbook (.xlsx)…', 'success', 2500);
         const link = document.createElement('a');

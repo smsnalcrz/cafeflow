@@ -109,7 +109,7 @@ def auto_fit_columns(ws, min_col=1, max_col=None, start_row=4, min_width=12, pad
             max_len = max(max_len, len(val_str))
         ws.column_dimensions[col_letter].width = max(max_len + padding, min_width)
 
-def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False):
+def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False, report_type="sales"):
     conn = get_db_connection()
 
     where_clause = ""
@@ -1761,6 +1761,11 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         'A': 10, 'B': 32, 'C': 16, 'D': 16, 'E': 18, 'F': 16, 'G': 18
     })
 
+    if report_type == "predictive":
+        wb.active = ws_pred
+    else:
+        wb.active = ws1
+
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     wb.save(output_path)
     print(f"SUCCESS: Exported {output_path} ({os.path.getsize(output_path):,} bytes) with 7 sheets!")
@@ -2081,5 +2086,6 @@ if __name__ == '__main__':
             start_date=args.start,
             end_date=args.end,
             single_date=args.date,
-            is_all=args.all
+            is_all=args.all,
+            report_type=args.type
         )
