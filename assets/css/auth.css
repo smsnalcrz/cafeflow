@@ -527,6 +527,11 @@
   grid-template-columns: repeat(2, 1fr);
   gap: 18px;
 }
+.mgr-card.mgr-card-featured {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, #ffffff 0%, var(--parchment, #fbf7ee) 100%);
+  border-left: 4px solid var(--caramel, #e8623a);
+}
 .mgr-card {
   background: #ffffff;
   border: 1.5px solid var(--line);

@@ -343,113 +343,461 @@
 }
 
 /* ======================================================================
-   Manual Waste Entry Form Styles
+   Shared Manual Waste Entry Modal Styles
    ====================================================================== */
-.manual-waste-section {
-  margin-bottom: 20px;
-  animation: fadeIn 0.25s ease;
+#manualWasteModal.sheet {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 100 !important; /* Above .modal (20) and topbar */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(22, 35, 24, 0.62) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.manual-waste-form {
-  background: #fbfaf6;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 16px 18px;
-}
-
-.manual-waste-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px 16px;
-}
-
-.manual-waste-form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.manual-waste-form-group.full-width {
-  grid-column: 1 / -1;
-}
-
-.manual-waste-form-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.manual-waste-form-label .req {
-  color: var(--red);
-  font-size: 11px;
-}
-
-.manual-waste-form-input {
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: #ffffff;
-  color: var(--ink);
-  font-size: 13px;
-  font-family: inherit;
-}
-
-.manual-waste-form-input:focus {
-  outline: none;
-  border-color: var(--espresso);
-  box-shadow: 0 0 0 3px rgba(22, 35, 24, 0.1);
-}
-
-.manual-waste-message {
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.manual-waste-message.success {
-  background: #e6f4ea;
-  color: #137333;
-  border: 1px solid #b7e4c7;
-}
-
-.manual-waste-message.error {
-  background: #fce8e6;
-  color: #c5221f;
-  border: 1px solid #f5c7c2;
-}
-
-#wasteManualEntryBtn.active {
-  background: var(--espresso);
-  color: #ffffff;
-}
-
-/* Responsive: stack form fields on narrow screens */
-@media (max-width: 580px) {
-  .manual-waste-form-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Ensure manual waste section is prominent when open */
-.manual-waste-section:not([hidden]) {
-  display: block !important;
-  visibility: visible !important;
-}
-
-/* Hide reports/dashboard sections when manual waste form is open */
-#wastePeriodSeg[hidden],
-#wasteToolbar[hidden],
-#wasteViewTabs[hidden],
-#wasteBody[hidden] {
+#manualWasteModal[hidden] {
   display: none !important;
+}
+
+.manual-waste-sheet-card,
+.sheet-card.manual-waste-sheet-card {
+  width: min(680px, calc(100vw - 32px)) !important;
+  max-width: 680px !important;
+  max-height: calc(100vh - 40px) !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+  border-radius: 22px !important;
+  border: 1.5px solid var(--line, #e2e8f0) !important;
+  box-shadow: 0 24px 55px -12px rgba(22, 35, 24, 0.32), 0 12px 24px -6px rgba(22, 35, 24, 0.12) !important;
+  padding: 28px 32px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 18px !important;
+  box-sizing: border-box !important;
+  animation: card-in var(--dur, 0.25s) var(--ease-spring, cubic-bezier(0.16, 1, 0.3, 1)) !important;
+  margin: auto !important;
+}
+
+.manual-waste-sheet-card::-webkit-scrollbar {
+  width: 5px;
+}
+.manual-waste-sheet-card::-webkit-scrollbar-thumb {
+  background: rgba(22, 35, 24, 0.15);
+  border-radius: 4px;
+}
+
+.manual-waste-header {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  padding-bottom: 14px !important;
+  border-bottom: 1.5px solid var(--line, #e8ece9) !important;
+}
+
+.manual-waste-title-group {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+.manual-waste-title {
+  margin: 0 0 4px 0 !important;
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  color: var(--espresso, #162318) !important;
+  letter-spacing: -0.3px !important;
+  line-height: 1.2 !important;
+}
+
+.manual-waste-subtitle {
+  margin: 0 !important;
+  font-size: 13.5px !important;
+  color: var(--muted, #64748b) !important;
+  line-height: 1.45 !important;
+}
+
+.manual-waste-close-btn {
+  flex: 0 0 auto !important;
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  border: 1px solid var(--line, #e2e8f0) !important;
+  background: var(--surface, #f4f7f5) !important;
+  color: var(--muted, #64748b) !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all var(--dur-fast, 0.15s) ease !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+}
+
+.manual-waste-close-btn:hover {
+  background: #e9efe9 !important;
+  color: var(--espresso, #162318) !important;
+  border-color: rgba(22, 35, 24, 0.2) !important;
+}
+
+.manual-waste-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 16px 20px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.manual-waste-field {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.manual-waste-field.full-width {
+  grid-column: 1 / -1 !important;
+}
+
+/* Override .sheet-card label which enforces display:flex; flex-direction:column */
+.manual-waste-label,
+.sheet-card label.manual-waste-label {
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+  color: var(--muted, #64748b) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
+  gap: 4px !important;
+  margin: 0 !important;
+  line-height: 1.2 !important;
+}
+
+.manual-waste-label .req,
+.sheet-card label.manual-waste-label .req {
+  color: var(--red, #c5221f) !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  font-weight: 800 !important;
+  display: inline !important;
+}
+
+/* Fix input overflow by strictly bounding dimensions and box-sizing */
+.manual-waste-input,
+.sheet-card input.manual-waste-input,
+.sheet-card select.manual-waste-input {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 46px !important;
+  padding: 0 14px !important;
+  border: 1.5px solid var(--line, #d0d7d2) !important;
+  border-radius: var(--radius-sm, 8px) !important;
+  background: #ffffff !important;
+  color: var(--ink, #1f2937) !important;
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  font-family: inherit !important;
+  transition: border-color var(--dur-fast, 0.15s), box-shadow var(--dur-fast, 0.15s) !important;
+}
+
+.manual-waste-input:focus,
+.sheet-card input.manual-waste-input:focus,
+.sheet-card select.manual-waste-input:focus {
+  outline: none !important;
+  border-color: var(--caramel, #e8623a) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(232, 98, 58, 0.16) !important;
+}
+
+.sheet-card select.manual-waste-input {
+  padding-right: 34px !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='%23162318'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: calc(100% - 12px) center !important;
+  background-size: 16px !important;
+  cursor: pointer !important;
+}
+
+/* ===== Custom Searchable Combobox Component ===== */
+.manual-waste-combobox {
+  position: relative !important;
+  width: 100% !important;
+}
+
+.combobox-input-wrap {
+  position: relative !important;
+  width: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.combobox-input {
+  padding-right: 44px !important;
+  height: 46px !important;
+  font-size: 14.5px !important;
+}
+
+.combobox-toggle-btn {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--muted, #64748b) !important;
+  cursor: pointer !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all var(--dur-fast, 0.15s) ease !important;
+  padding: 0 !important;
+}
+
+.combobox-toggle-btn:hover {
+  background: var(--surface, #f4f7f5) !important;
+  color: var(--espresso, #162318) !important;
+}
+
+.combobox-toggle-btn svg {
+  transition: transform var(--dur-fast, 0.15s) ease !important;
+}
+
+.manual-waste-combobox.open .combobox-toggle-btn svg {
+  transform: rotate(180deg) !important;
+}
+
+.combobox-menu {
+  position: absolute !important;
+  top: calc(100% + 6px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 120 !important;
+  background: #ffffff !important;
+  border: 1.5px solid var(--line, #d0d7d2) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px -6px rgba(22, 35, 24, 0.22), 0 6px 14px -2px rgba(22, 35, 24, 0.08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  animation: fadeIn 0.15s ease !important;
+}
+
+.combobox-menu[hidden] {
+  display: none !important;
+}
+
+.combobox-menu-header {
+  padding: 9px 14px !important;
+  background: var(--cream, #fcf9f2) !important;
+  border-bottom: 1px solid var(--line, #e2e8f0) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--muted, #64748b) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.combobox-count {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--caramel, #c07c2e) !important;
+}
+
+.combobox-list {
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  padding: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.combobox-list::-webkit-scrollbar {
+  width: 5px !important;
+}
+.combobox-list::-webkit-scrollbar-thumb {
+  background: rgba(22, 35, 24, 0.18) !important;
+  border-radius: 4px !important;
+}
+
+.combobox-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 9px 12px !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all var(--dur-fast, 0.12s) ease !important;
+  gap: 10px !important;
+  user-select: none !important;
+}
+
+.combobox-item:hover,
+.combobox-item.active {
+  background: #f1f7f2 !important;
+}
+
+.combobox-item.active {
+  border-left: 3px solid var(--caramel, #e8623a) !important;
+}
+
+.combobox-item-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+}
+
+.combobox-item-name {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: var(--espresso, #162318) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.combobox-item-unit {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--muted, #64748b) !important;
+  background: var(--surface, #f4f7f5) !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--line, #e2e8f0) !important;
+  flex-shrink: 0 !important;
+}
+
+.combobox-item-stock {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  padding: 3px 9px !important;
+  border-radius: 12px !important;
+  flex-shrink: 0 !important;
+  letter-spacing: 0.2px !important;
+}
+
+.combobox-item-stock.stock-healthy {
+  background: #e6f4ea !important;
+  color: #137333 !important;
+}
+
+.combobox-item-stock.stock-warning {
+  background: #fef7e0 !important;
+  color: #b06000 !important;
+}
+
+.combobox-item-stock.stock-critical {
+  background: #fce8e6 !important;
+  color: #c5221f !important;
+}
+
+.combobox-empty-item {
+  padding: 14px 14px !important;
+  text-align: center !important;
+  font-size: 13px !important;
+  color: var(--muted, #64748b) !important;
+  cursor: pointer !important;
+  border-radius: 8px !important;
+  background: var(--surface, #f8faf8) !important;
+  margin: 4px !important;
+  border: 1px dashed var(--line, #cbd5e1) !important;
+}
+.combobox-empty-item:hover {
+  background: #eef5f0 !important;
+  color: var(--espresso, #162318) !important;
+  border-color: var(--caramel, #e8623a) !important;
+}
+
+.manual-waste-stock-hint {
+  font-size: 12px !important;
+  color: var(--muted, #64748b) !important;
+  margin-top: 3px !important;
+  min-height: 18px !important;
+  display: block !important;
+}
+
+.manual-waste-checkbox-wrap,
+.sheet-card label.manual-waste-checkbox-wrap {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 10px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  font-weight: 700 !important;
+  color: var(--ink, #1f2937) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.4px !important;
+  height: 46px !important;
+}
+
+.manual-waste-checkbox-wrap input[type="checkbox"],
+.sheet-card input[type="checkbox"]#manualWasteDeductCheck {
+  width: 19px !important;
+  height: 19px !important;
+  margin: 0 !important;
+  accent-color: var(--espresso, #162318) !important;
+  cursor: pointer !important;
+  border-radius: 4px !important;
+}
+
+.manual-waste-actions {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  margin-top: 4px !important;
+  padding-top: 14px !important;
+  border-top: 1.5px solid var(--line, #e8ece9) !important;
+}
+
+.manual-waste-inline-msg {
+  flex: 1 1 auto !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  padding: 6px 10px !important;
+  border-radius: var(--radius-sm, 6px) !important;
+}
+
+.manual-waste-inline-msg.success {
+  background: #e6f4ea !important;
+  color: #137333 !important;
+  border: 1px solid #b7e4c7 !important;
+}
+
+.manual-waste-inline-msg.error {
+  background: #fce8e6 !important;
+  color: #c5221f !important;
+  border: 1px solid #f5c7c2 !important;
+}
+
+@media (max-width: 580px) {
+  .manual-waste-grid {
+    grid-template-columns: 1fr !important;
+  }
 }

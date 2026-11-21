@@ -42,52 +42,292 @@ window.CafeFlow = window.CafeFlow || {};
   }
 
   /* ------------------------------------------------------------------ *
-   *  Manual Waste Entry Form (uncontrollable waste: breakage, expiry, etc.)
+   *  Manual Waste Entry Modal (uncontrollable waste: breakage, expiry, etc.)
    * ------------------------------------------------------------------ */
-  function toggleManualWasteForm(show) {
-    const section = $('#manualWasteSection');
-    const btn = $('#wasteManualEntryBtn');
-    const form = $('#manualWasteForm');
-    const msg = $('#manualWasteMessage');
+  let _inventoryCache = null;
 
-    // Reports/dashboard sections to hide when manual waste form is open
-    const periodSeg = $('#wastePeriodSeg');
-    const toolbar = $('#wasteToolbar');
-    const viewTabs = $('#wasteViewTabs');
-    const body = $('#wasteBody');
-
-    if (show) {
-      if (section) {
-        section.hidden = false;
-        section.style.display = '';
-      }
-      if (btn) btn.classList.add('active');
-      if (form) form.reset();
-      if (msg) { msg.innerHTML = ''; msg.hidden = true; }
-
-      // Hide reports UI when manual waste form is open (clean look)
-      if (periodSeg) { periodSeg.hidden = true; periodSeg.style.display = 'none'; }
-      if (toolbar) { toolbar.hidden = true; toolbar.style.display = 'none'; }
-      if (viewTabs) { viewTabs.hidden = true; viewTabs.style.display = 'none'; }
-      if (body) { body.hidden = true; body.style.display = 'none'; }
-
-      _manualWasteOpen = true;
-    } else {
-      if (section) {
-        section.hidden = true;
-        section.style.display = 'none';
-      }
-      if (btn) btn.classList.remove('active');
-      if (msg) { msg.innerHTML = ''; msg.hidden = true; }
-
-      // Restore reports UI when manual waste form is closed
-      if (periodSeg) { periodSeg.hidden = false; periodSeg.style.display = ''; }
-      if (toolbar) { toolbar.hidden = false; toolbar.style.display = ''; }
-      if (viewTabs) { viewTabs.hidden = false; viewTabs.style.display = ''; }
-      if (body) { body.hidden = false; body.style.display = ''; }
-
-      _manualWasteOpen = false;
+  async function getInventoryList() {
+    if (_inventoryCache && _inventoryCache.length > 0) return _inventoryCache;
+    if (window.CafeFlow.state && Array.isArray(window.CafeFlow.state.inventory) && window.CafeFlow.state.inventory.length > 0) {
+      _inventoryCache = window.CafeFlow.state.inventory;
+      return _inventoryCache;
     }
+    try {
+      const res = await api('inventory_api.php?status=all');
+      _inventoryCache = res.items || [];
+      return _inventoryCache;
+    } catch {
+      return [];
+    }
+  }
+
+  function estimateIngredientCost(name, unit, amount) {
+    if (!amount || amount <= 0) return 0;
+    const n = (name || '').toLowerCase();
+    const u = (unit || '').toLowerCase();
+
+    // Normalize bulk units to base units
+    let effAmount = amount;
+    let effUnit = u;
+    if (u === 'kg') {
+      effAmount = amount * 1000;
+      effUnit = 'g';
+    } else if (u === 'l' || u === 'liter' || u === 'liters') {
+      effAmount = amount * 1000;
+      effUnit = 'ml';
+    }
+
+    let rate = null;
+    if (n.includes('matcha')) rate = 0.90;
+    else if (n.includes('espresso') || n.includes('bean')) rate = (effUnit === 'ml') ? 0.50 : 0.70;
+    else if (n.includes('milk') || n.includes('arla') || n.includes('emborg')) rate = 0.09;
+    else if (n.includes('cream') || n.includes('whipping')) rate = 0.18;
+    else if (n.includes('syrup') || n.includes('sauce') || n.includes('puree')) rate = 0.30;
+    else if (n.includes('powder')) rate = 0.60;
+    else if (n.includes('ice')) rate = 0.015;
+    else if (n.includes('croissant') || n.includes('croffle')) rate = 45.00;
+    else if (n.includes('fries')) rate = 0.16;
+    else if (n.includes('bread') || n.includes('roll')) rate = 10.00;
+    else if (n.includes('egg')) rate = 9.00;
+    else if (n.includes('cheese')) rate = 7.00;
+    else if (n.includes('ham') || n.includes('spam') || n.includes('chicken')) rate = 0.50;
+    else if (n.includes('spread') || n.includes('nutella') || n.includes('biscoff')) rate = 0.60;
+    else if (n.includes('tea')) rate = 0.05;
+    else if (n.includes('soda')) rate = 0.04;
+    else if (n.includes('juice')) rate = 0.15;
+    else if (n.includes('boba') || n.includes('pearl') || n.includes('nata')) rate = 0.18;
+    else if (n.includes('22oz cup')) rate = 3.80;
+    else if (n.includes('16oz cup')) rate = 3.00;
+    else if (n.includes('12oz') || n.includes('hot cup')) rate = 3.50;
+    else if (n.includes('lid')) rate = 1.20;
+    else if (n.includes('straw')) rate = 0.50;
+
+    if (rate === null) {
+      if (effUnit === 'g') rate = 0.30;
+      else if (effUnit === 'ml') rate = 0.15;
+      else if (effUnit === 'pcs' || effUnit === 'pc') rate = 3.00;
+      else rate = 1.00;
+    }
+    return Math.round(effAmount * rate * 100) / 100;
+  }
+
+  function updateEstimatedCost() {
+    const name = $('#manualWasteItemName')?.value?.trim();
+    const unit = $('#manualWasteUnit')?.value;
+    const amount = parseFloat($('#manualWasteAmount')?.value || '0');
+    const costInput = $('#manualWasteCost');
+
+    if (costInput && !costInput.dataset.manuallyEdited) {
+      if (amount > 0) {
+        const est = estimateIngredientCost(name, unit, amount);
+        costInput.value = est > 0 ? est.toFixed(2) : '';
+      } else {
+        costInput.value = '';
+      }
+    }
+  }
+
+  function onItemNameSelected(name, items) {
+    if (!name) return;
+    const clean = name.trim().toLowerCase();
+    const match = (items || []).find(it => it.name.toLowerCase() === clean);
+    const unitSelect = $('#manualWasteUnit');
+    const itemIdInput = $('#manualWasteItemId');
+    const hint = $('#manualWasteStockHint');
+
+    if (match) {
+      if (itemIdInput) itemIdInput.value = match.item_id;
+      if (unitSelect) {
+        const u = match.unit_measure || 'pcs';
+        let optExists = Array.from(unitSelect.options).some(o => o.value.toLowerCase() === u.toLowerCase());
+        if (!optExists) {
+          const newOpt = document.createElement('option');
+          newOpt.value = u;
+          newOpt.textContent = u;
+          unitSelect.appendChild(newOpt);
+        }
+        unitSelect.value = u;
+      }
+      if (hint) {
+        const stockNum = Number(match.current_stock);
+        const threshNum = Number(match.restock_threshold || 0);
+        hint.textContent = `In Stock: ${stockNum.toLocaleString()} ${match.unit_measure}`;
+        hint.style.color = (stockNum <= threshNum) ? 'var(--amber, #b54516)' : 'var(--muted)';
+      }
+    } else {
+      if (itemIdInput) itemIdInput.value = '';
+      if (hint) {
+        hint.textContent = 'Custom material (not tracked in live inventory stock)';
+        hint.style.color = 'var(--muted)';
+      }
+    }
+    updateEstimatedCost();
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Custom Combobox State & Functions
+   * ------------------------------------------------------------------ */
+  let _comboboxItems = [];
+  let _filteredComboboxItems = [];
+  let _highlightedComboboxIndex = -1;
+
+  function renderComboboxList(filterText = '') {
+    const listEl = $('#manualWasteDropdownList');
+    const countEl = $('#comboboxItemCount');
+    if (!listEl) return;
+
+    listEl.innerHTML = '';
+    const cleanFilter = (filterText || '').trim().toLowerCase();
+
+    _filteredComboboxItems = cleanFilter
+      ? _comboboxItems.filter(it => (it.name || '').toLowerCase().includes(cleanFilter))
+      : _comboboxItems.slice();
+
+    if (countEl) {
+      countEl.textContent = cleanFilter
+        ? `${_filteredComboboxItems.length} of ${_comboboxItems.length}`
+        : `${_comboboxItems.length} items`;
+    }
+
+    if (_filteredComboboxItems.length === 0) {
+      const emptyDiv = document.createElement('div');
+      emptyDiv.className = 'combobox-empty-item';
+      emptyDiv.innerHTML = `<strong>No matching supplies found.</strong><br><span style="font-size: 11.5px; opacity: 0.85;">Click to log "${escapeHtml(cleanFilter || 'custom')}" as unlisted supply</span>`;
+      emptyDiv.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        onItemNameSelected(cleanFilter || filterText, _comboboxItems);
+        closeCombobox();
+        $('#manualWasteAmount')?.focus();
+      });
+      listEl.appendChild(emptyDiv);
+      return;
+    }
+
+    _filteredComboboxItems.forEach((it, idx) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'combobox-item' + (idx === _highlightedComboboxIndex ? ' active' : '');
+      itemEl.setAttribute('role', 'option');
+      itemEl.dataset.index = idx;
+
+      const stockNum = Number(it.current_stock || 0);
+      const threshNum = Number(it.restock_threshold || 0);
+      let stockClass = 'stock-healthy';
+      if (stockNum <= 0) stockClass = 'stock-critical';
+      else if (stockNum <= threshNum) stockClass = 'stock-warning';
+
+      itemEl.innerHTML = `
+        <div class="combobox-item-left">
+          <span class="combobox-item-name">${escapeHtml(it.name)}</span>
+          <span class="combobox-item-unit">${escapeHtml(it.unit_measure || 'pcs')}</span>
+        </div>
+        <span class="combobox-item-stock ${stockClass}">
+          ${stockNum <= 0 ? 'Out of Stock' : `${stockNum.toLocaleString()} ${escapeHtml(it.unit_measure || '')}`}
+        </span>
+      `;
+
+      itemEl.addEventListener('mousedown', (e) => {
+        e.preventDefault(); // prevent blur before click
+        selectComboboxItem(it);
+      });
+
+      listEl.appendChild(itemEl);
+    });
+  }
+
+  function openCombobox() {
+    const menu = $('#manualWasteDropdownMenu');
+    const wrap = $('#manualWasteCombobox');
+    if (!menu || !wrap) return;
+    const filterText = $('#manualWasteItemName')?.value || '';
+    renderComboboxList(filterText);
+    menu.hidden = false;
+    wrap.classList.add('open');
+  }
+
+  function closeCombobox() {
+    const menu = $('#manualWasteDropdownMenu');
+    const wrap = $('#manualWasteCombobox');
+    if (menu) menu.hidden = true;
+    if (wrap) wrap.classList.remove('open');
+    _highlightedComboboxIndex = -1;
+  }
+
+  function isComboboxOpen() {
+    const menu = $('#manualWasteDropdownMenu');
+    return menu && !menu.hidden;
+  }
+
+  function selectComboboxItem(it) {
+    const nameInput = $('#manualWasteItemName');
+    if (nameInput) nameInput.value = it.name;
+    onItemNameSelected(it.name, _comboboxItems);
+    closeCombobox();
+    $('#manualWasteAmount')?.focus();
+  }
+
+  function updateHighlightedComboboxItem(newIndex) {
+    const listEl = $('#manualWasteDropdownList');
+    if (!listEl) return;
+    const items = listEl.querySelectorAll('.combobox-item');
+    if (!items.length) return;
+
+    if (newIndex < 0) newIndex = 0;
+    if (newIndex >= items.length) newIndex = items.length - 1;
+
+    _highlightedComboboxIndex = newIndex;
+    items.forEach((el, idx) => {
+      el.classList.toggle('active', idx === newIndex);
+    });
+
+    const activeEl = items[newIndex];
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  async function openManualWasteModal(prefillItem = null) {
+    const modal = $('#manualWasteModal');
+    if (!modal) return;
+
+    modal.hidden = false;
+
+    const form = $('#manualWasteForm');
+    if (form && typeof form.reset === 'function') {
+      form.reset();
+    }
+
+    const itemIdInput = $('#manualWasteItemId');
+    if (itemIdInput) itemIdInput.value = '';
+
+    const costInput = $('#manualWasteCost');
+    if (costInput) delete costInput.dataset.manuallyEdited;
+
+    const hint = $('#manualWasteStockHint');
+    if (hint) { hint.textContent = ''; hint.style.color = 'var(--muted)'; }
+
+    const msg = $('#manualWasteMessage');
+    if (msg) { msg.textContent = ''; msg.hidden = true; }
+
+    const deductCheck = $('#manualWasteDeductCheck');
+    if (deductCheck) deductCheck.checked = true;
+
+    // Load inventory into combobox items
+    _comboboxItems = await getInventoryList();
+    closeCombobox();
+
+    if (prefillItem) {
+      const nameInput = $('#manualWasteItemName');
+      if (nameInput) nameInput.value = prefillItem.name || '';
+      onItemNameSelected(prefillItem.name, _comboboxItems);
+    }
+
+    $('#manualWasteItemName')?.focus();
+  }
+
+  function closeManualWasteModal() {
+    const modal = $('#manualWasteModal');
+    if (modal) modal.hidden = true;
+    closeCombobox();
   }
 
   async function submitManualWaste() {
@@ -96,22 +336,19 @@ window.CafeFlow = window.CafeFlow || {};
     const amount = $('#manualWasteAmount')?.value;
     const cost = $('#manualWasteCost')?.value;
     const reason = $('#manualWasteReason')?.value?.trim();
-    const msg = $('#manualWasteMessage');
+    const itemId = $('#manualWasteItemId')?.value;
+    const deductStock = $('#manualWasteDeductCheck') ? $('#manualWasteDeductCheck').checked : true;
     const btn = $('#manualWasteSubmitBtn');
+    const msg = $('#manualWasteMessage');
 
     if (!itemName) {
-      showManualWasteMessage('Please enter the material or supply name.', 'error');
+      showManualWasteMessage('Please enter or select a material or supply name.', 'error');
       $('#manualWasteItemName')?.focus();
       return;
     }
     if (!amount || parseFloat(amount) <= 0) {
       showManualWasteMessage('Please enter a valid amount wasted (greater than 0).', 'error');
       $('#manualWasteAmount')?.focus();
-      return;
-    }
-    if (!cost || parseFloat(cost) <= 0) {
-      showManualWasteMessage('Please enter a valid cost (greater than 0).', 'error');
-      $('#manualWasteCost')?.focus();
       return;
     }
 
@@ -122,24 +359,38 @@ window.CafeFlow = window.CafeFlow || {};
     if (msg) { msg.innerHTML = ''; msg.hidden = true; }
 
     try {
-      const res = await api('manual_waste.php', {
+      const payload = {
+        item_id: itemId ? parseInt(itemId, 10) : undefined,
         item_name: itemName,
         unit: unit,
         amount_wasted: parseFloat(amount),
-        cost_php: parseFloat(cost),
+        cost_php: cost ? parseFloat(cost) : undefined,
+        deduct_inventory: deductStock,
         quantity: 1,
         reason: reason || 'Manual waste entry',
-      });
+      };
 
-      showManualWasteMessage(res.message || 'Waste entry recorded.', 'success');
-      toggleManualWasteForm(false);
+      const res = await api('manual_waste.php', payload);
 
-      // Refresh waste report data to reflect the new entry
-      loadWasteReport();
+      closeManualWasteModal();
+      toast(res.message || 'Waste entry logged successfully.', 'success', 3500);
 
-      // Also refresh dashboard if it's the current view
+      // Invalidate inventory cache
+      _inventoryCache = null;
+
+      // Refresh waste reports if currently active
+      if (window.CafeFlow.state && window.CafeFlow.state.currentView === 'waste' && typeof loadWasteReport === 'function') {
+        loadWasteReport();
+      }
+
+      // Refresh inventory table if currently active
+      if (window.CafeFlow.state && window.CafeFlow.state.currentView === 'inventory' && window.CafeFlow.inventory && window.CafeFlow.inventory.loadInventory) {
+        window.CafeFlow.inventory.loadInventory();
+      }
+
+      // Refresh manager dashboard cards if manager
       if (window.CafeFlow.dashboard && window.CafeFlow.dashboard.loadManagerDashboard) {
-        // dashboard will refresh on next view activation
+        window.CafeFlow.dashboard.loadManagerDashboard();
       }
     } catch (err) {
       showManualWasteMessage(err.message || 'Failed to record waste entry.', 'error');
@@ -156,7 +407,7 @@ window.CafeFlow = window.CafeFlow || {};
     if (!msg) return;
     msg.hidden = false;
     msg.textContent = text;
-    msg.className = 'manual-waste-message ' + (type === 'error' ? 'error' : 'success');
+    msg.className = 'manual-waste-inline-msg ' + (type === 'error' ? 'error' : 'success');
   }
 
   function getWasteApiUrl() {
@@ -643,28 +894,33 @@ window.CafeFlow = window.CafeFlow || {};
     const tbody = h('tbody');
     const table = h('table', { class: 'waste-table' },
       h('thead', {}, h('tr', {},
-        h('th', { text: 'Receipt #' }),
+        h('th', { text: 'Type / Order #' }),
         h('th', { text: 'Timestamp' }),
-        h('th', { text: 'Product' }),
+        h('th', { text: 'Menu Product' }),
         h('th', { text: 'Size' }),
         h('th', { class: 'num', text: 'Qty' }),
         h('th', { text: 'Supply Wasted' }),
         h('th', { class: 'num', text: 'Amount' }),
         h('th', { class: 'num', text: 'Cost (₱)' }),
-        h('th', { text: 'Cancelled By' }),
-        h('th', { text: 'Reason' })
+        h('th', { text: 'Staff' }),
+        h('th', { text: 'Reason / Details' })
       )),
       tbody
     );
 
     logs.forEach(log => {
+      const isManual = log.is_manual || log.receipt_no === 'Manual' || !log.transaction_id;
+      const receiptCell = isManual
+        ? h('span', { class: 'waste-pill', style: 'background: var(--parchment-mid); color: var(--muted); font-weight: 700;', text: 'Manual Waste' })
+        : h('span', { style: 'font-family: monospace; font-weight: 700; color: var(--espresso);', text: log.receipt_no });
+
       const tr = h('tr', {},
-        h('td', { style: 'font-family: monospace; font-weight: 700;', text: log.receipt_no }),
+        h('td', {}, receiptCell),
         h('td', { style: 'white-space: nowrap;', text: log.formatted_datetime }),
         h('td', { style: 'font-weight: 600;', text: log.product_name }),
-        h('td', {}, h('span', { class: 'waste-pill unit', text: log.size_label || 'Standard' })),
+        h('td', {}, h('span', { class: 'waste-pill unit', text: log.size_label || '—' })),
         h('td', { class: 'num', text: String(log.quantity) }),
-        h('td', { text: log.item_name }),
+        h('td', { style: 'font-weight: 600;', text: log.item_name }),
         h('td', { class: 'num', style: 'font-weight: 700;', text: log.formatted_amount }),
         h('td', { class: 'num', style: 'font-weight: 700; color: #b54516;', text: log.formatted_cost }),
         h('td', {}, h('span', { class: 'waste-pill role', text: `${log.wasted_by_name} (${log.wasted_by_role})` })),
@@ -787,11 +1043,124 @@ window.CafeFlow = window.CafeFlow || {};
     const refreshBtn = $('#wasteRefreshBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', () => loadWasteReport());
 
-    // Manual Waste Entry Button
+    // Manual Waste Entry Open Buttons (Waste Reports modal, Inventory modal, Manager card)
     const manualEntryBtn = $('#wasteManualEntryBtn');
     if (manualEntryBtn) {
-      manualEntryBtn.addEventListener('click', () => {
-        toggleManualWasteForm(!_manualWasteOpen);
+      manualEntryBtn.addEventListener('click', () => openManualWasteModal());
+    }
+
+    const invLogWasteBtn = $('#invLogWasteBtn');
+    if (invLogWasteBtn) {
+      invLogWasteBtn.addEventListener('click', () => openManualWasteModal());
+    }
+
+    const mgrLogWasteQuickBtn = $('#mgrLogWasteQuickBtn');
+    if (mgrLogWasteQuickBtn) {
+      mgrLogWasteQuickBtn.addEventListener('click', () => openManualWasteModal());
+    }
+
+    // Close buttons for Manual Waste Modal
+    const closeBtn = $('#closeManualWasteBtn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => closeManualWasteModal());
+    }
+
+    const cancelBtn = $('#manualWasteCancelBtn');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', () => closeManualWasteModal());
+    }
+
+    const wasteModal = $('#manualWasteModal');
+    if (wasteModal) {
+      wasteModal.addEventListener('click', (e) => {
+        if (e.target === wasteModal) closeManualWasteModal();
+      });
+    }
+
+    // Item selection and combobox events
+    const itemNameInput = $('#manualWasteItemName');
+    const comboboxToggle = $('#manualWasteComboboxToggle');
+
+    if (itemNameInput) {
+      itemNameInput.addEventListener('input', () => {
+        openCombobox();
+        onItemNameSelected(itemNameInput.value, _comboboxItems);
+      });
+
+      itemNameInput.addEventListener('focus', () => {
+        openCombobox();
+      });
+
+      itemNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (!isComboboxOpen()) {
+            openCombobox();
+          } else {
+            updateHighlightedComboboxItem(_highlightedComboboxIndex + 1);
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (isComboboxOpen()) {
+            updateHighlightedComboboxItem(_highlightedComboboxIndex - 1);
+          }
+        } else if (e.key === 'Enter') {
+          if (isComboboxOpen() && _highlightedComboboxIndex >= 0 && _filteredComboboxItems[_highlightedComboboxIndex]) {
+            e.preventDefault();
+            selectComboboxItem(_filteredComboboxItems[_highlightedComboboxIndex]);
+          }
+        } else if (e.key === 'Escape' || e.key === 'Tab') {
+          if (isComboboxOpen()) {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            closeCombobox();
+          }
+        }
+      });
+    }
+
+    if (comboboxToggle) {
+      comboboxToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isComboboxOpen()) {
+          closeCombobox();
+        } else {
+          openCombobox();
+          itemNameInput?.focus();
+        }
+      });
+    }
+
+    // Dismiss combobox on outside click
+    document.addEventListener('click', (e) => {
+      const combobox = $('#manualWasteCombobox');
+      if (combobox && !combobox.contains(e.target)) {
+        closeCombobox();
+      }
+    });
+
+    const amountInput = $('#manualWasteAmount');
+    if (amountInput) {
+      amountInput.addEventListener('input', () => updateEstimatedCost());
+    }
+
+    const unitSelect = $('#manualWasteUnit');
+    if (unitSelect) {
+      unitSelect.addEventListener('change', () => updateEstimatedCost());
+    }
+
+    const costInput = $('#manualWasteCost');
+    if (costInput) {
+      costInput.addEventListener('input', () => {
+        if (costInput.value.trim() !== '') {
+          costInput.dataset.manuallyEdited = 'true';
+        } else {
+          delete costInput.dataset.manuallyEdited;
+          updateEstimatedCost();
+        }
       });
     }
 
@@ -800,16 +1169,12 @@ window.CafeFlow = window.CafeFlow || {};
     if (manualSubmitBtn) {
       manualSubmitBtn.addEventListener('click', submitManualWaste);
     }
-
-    // Manual Waste Cancel
-    const manualCancelBtn = $('#manualWasteCancelBtn');
-    if (manualCancelBtn) {
-      manualCancelBtn.addEventListener('click', () => toggleManualWasteForm(false));
-    }
   }
 
   window.CafeFlow.waste = {
     loadWasteReport,
-    initWasteEvents
+    initWasteEvents,
+    openManualWasteModal,
+    closeManualWasteModal
   };
 })();

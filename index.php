@@ -311,7 +311,7 @@ $cssModules = [
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenWasteBtn">View Waste Reports</button>
       </div>
 
-      <div class="mgr-card">
+      <div class="mgr-card mgr-card-featured">
         <div class="mgr-card-header">
           <span class="mgr-card-title">Predictive Sales Analytics</span>
           <div class="mgr-card-icon-badge">
@@ -552,6 +552,7 @@ $cssModules = [
           <button type="button" class="search-clear" id="inventorySearchClearBtn" hidden title="Clear search">✕</button>
         </div>
         <div class="modal-actions">
+          <button type="button" class="btn small" id="invLogWasteBtn" title="Log spilled, damaged, or expired stock" style="background: var(--red-light, #fce8e6); color: var(--red, #c5221f); border: 1px solid rgba(197, 34, 31, 0.25);">+ Log Waste</button>
           <button type="button" class="btn primary" id="addNewSupplyBtn">+ Add Supply</button>
           <a href="api/export_excel.php?type=inventory" class="btn small" id="exportInventoryExcelBtn" title="Export inventory & recipe audit to Excel (.xlsx)" style="background: var(--amber); color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; padding: 7px 12px; font-weight: 600; border-radius: var(--radius-sm); font-size: 13px;">Export Excel</a>
           <button type="button" class="btn ghost" data-close>✕ Close</button>
@@ -827,51 +828,6 @@ $cssModules = [
         <button type="button" class="waste-tab" data-view-tab="log">Waste Event Logs</button>
       </div>
 
-      <!-- Manual Waste Entry Form Container (rendered by waste.js) -->
-      <div class="manual-waste-section" id="manualWasteSection" hidden>
-        <div class="waste-table-card">
-          <div class="waste-table-header-row">
-            <div class="waste-table-title-group">
-              <h3 style="margin: 0 0 2px 0; font-size: 16px; color: var(--espresso);">Log Manual Waste Entry</h3>
-              <p class="waste-table-subtitle" style="margin: 0;">Record uncontrollable waste (breakage, expired ingredients, spills, etc.) not tied to a customer order.</p>
-            </div>
-          </div>
-          <div class="manual-waste-form" id="manualWasteForm">
-            <div class="manual-waste-form-grid">
-              <div class="manual-waste-form-group">
-                <label class="manual-waste-form-label">Material / Supply Name <span class="req">*</span></label>
-                <input type="text" id="manualWasteItemName" class="manual-waste-form-input" placeholder="e.g. Broken Glass, Expired Milk" maxlength="100">
-              </div>
-              <div class="manual-waste-form-group">
-                <label class="manual-waste-form-label">Unit <span class="req">*</span></label>
-                <select id="manualWasteUnit" class="manual-waste-form-input">
-                  <option value="pcs">pcs</option>
-                  <option value="g">g</option>
-                  <option value="ml">ml</option>
-                </select>
-              </div>
-              <div class="manual-waste-form-group">
-                <label class="manual-waste-form-label">Amount Wasted <span class="req">*</span></label>
-                <input type="number" id="manualWasteAmount" class="manual-waste-form-input" placeholder="0.00" step="0.01" min="0.01">
-              </div>
-              <div class="manual-waste-form-group">
-                <label class="manual-waste-form-label">Cost (₱) <span class="req">*</span></label>
-                <input type="number" id="manualWasteCost" class="manual-waste-form-input" placeholder="0.00" step="0.01" min="0.01">
-              </div>
-              <div class="manual-waste-form-group full-width">
-                <label class="manual-waste-form-label">Reason / Description</label>
-                <input type="text" id="manualWasteReason" class="manual-waste-form-input" placeholder="e.g. Glass broke during cleanup, milk expired...">
-              </div>
-              <div class="manual-waste-form-group full-width">
-                <button type="button" class="btn primary" id="manualWasteSubmitBtn">Log Waste Entry</button>
-                <button type="button" class="btn ghost" id="manualWasteCancelBtn">Cancel</button>
-              </div>
-              <div id="manualWasteMessage" class="manual-waste-message" style="margin-top: 10px;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="modal-body" id="wasteBody"></div>
     </div>
   </div>
@@ -952,6 +908,81 @@ $cssModules = [
         <button type="button" class="btn danger" id="confirmCancelOrderBtn">Confirm</button>
       </div>
     </div>
+  </div>
+
+  <!-- ===== Shared Manual Waste Entry Modal ===== -->
+  <div class="sheet" id="manualWasteModal" hidden>
+    <form class="sheet-card manual-waste-sheet-card" id="manualWasteForm" autocomplete="off" onsubmit="return false;">
+      <input type="hidden" id="manualWasteItemId" value="">
+
+      <div class="manual-waste-header">
+        <div class="manual-waste-title-group">
+          <h3 class="manual-waste-title">Log Manual Waste</h3>
+          <p class="manual-waste-subtitle">Record spilled, damaged, or expired stock to keep inventory and loss tracking accurate.</p>
+        </div>
+        <button type="button" class="manual-waste-close-btn" id="closeManualWasteBtn" aria-label="Close dialog" title="Close">✕</button>
+      </div>
+
+      <div class="manual-waste-grid">
+        <div class="manual-waste-field full-width">
+          <label class="manual-waste-label" for="manualWasteItemName">Material / Supply Name <span class="req">*</span></label>
+          <div class="manual-waste-combobox" id="manualWasteCombobox">
+            <div class="combobox-input-wrap">
+              <input type="text" id="manualWasteItemName" class="manual-waste-input combobox-input" placeholder="Search or select raw supply item..." maxlength="100" autocomplete="off">
+              <button type="button" class="combobox-toggle-btn" id="manualWasteComboboxToggle" aria-label="Toggle supply list" tabindex="-1">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </button>
+            </div>
+            
+            <div class="combobox-menu" id="manualWasteDropdownMenu" hidden>
+              <div class="combobox-menu-header">
+                <span>Raw Supplies Inventory</span>
+                <span class="combobox-count" id="comboboxItemCount">0 items</span>
+              </div>
+              <div class="combobox-list" id="manualWasteDropdownList" role="listbox" tabindex="-1"></div>
+            </div>
+          </div>
+          <span id="manualWasteStockHint" class="manual-waste-stock-hint"></span>
+        </div>
+
+        <div class="manual-waste-field">
+          <label class="manual-waste-label" for="manualWasteUnit">Unit <span class="req">*</span></label>
+          <select id="manualWasteUnit" class="manual-waste-input">
+            <option value="pcs">pcs</option>
+            <option value="g">g</option>
+            <option value="ml">ml</option>
+          </select>
+        </div>
+
+        <div class="manual-waste-field">
+          <label class="manual-waste-label" for="manualWasteAmount">Amount Wasted <span class="req">*</span></label>
+          <input type="number" id="manualWasteAmount" class="manual-waste-input" placeholder="e.g. 50" step="0.01" min="0.01">
+        </div>
+
+        <div class="manual-waste-field">
+          <label class="manual-waste-label" for="manualWasteCost">Estimated Cost (₱)</label>
+          <input type="number" id="manualWasteCost" class="manual-waste-input" placeholder="Auto-calculated" step="0.01" min="0.01">
+        </div>
+
+        <div class="manual-waste-field" style="justify-content: flex-end;">
+          <label class="manual-waste-checkbox-wrap">
+            <input type="checkbox" id="manualWasteDeductCheck" checked>
+            <span>Deduct from Stock</span>
+          </label>
+        </div>
+
+        <div class="manual-waste-field full-width">
+          <label class="manual-waste-label" for="manualWasteReason">Reason / Description</label>
+          <input type="text" id="manualWasteReason" class="manual-waste-input" placeholder="e.g. Spilled during preparation, expired batch, cracked cup..." maxlength="255">
+        </div>
+      </div>
+
+      <div class="manual-waste-actions">
+        <div id="manualWasteMessage" class="manual-waste-inline-msg" hidden></div>
+        <button type="button" class="btn ghost" id="manualWasteCancelBtn">Cancel</button>
+        <button type="button" class="btn primary" id="manualWasteSubmitBtn">Log Waste Entry</button>
+      </div>
+    </form>
   </div>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>

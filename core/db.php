@@ -233,13 +233,13 @@ if (!function_exists('ensure_schema')) {
                 $pdo->exec("
                     CREATE TABLE IF NOT EXISTS waste_log (
                         waste_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                        transaction_id INT UNSIGNED NOT NULL,
+                        transaction_id INT UNSIGNED NULL DEFAULT NULL,
                         product_id INT UNSIGNED NULL DEFAULT NULL,
                         product_name VARCHAR(100) NULL DEFAULT NULL,
                         size_code VARCHAR(30) NULL DEFAULT NULL,
                         size_label VARCHAR(50) NULL DEFAULT NULL,
                         quantity INT UNSIGNED NOT NULL DEFAULT 1,
-                        item_id INT UNSIGNED NOT NULL,
+                        item_id INT UNSIGNED NULL DEFAULT NULL,
                         item_name VARCHAR(100) NOT NULL,
                         unit VARCHAR(20) NOT NULL,
                         amount_wasted DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -256,7 +256,7 @@ if (!function_exists('ensure_schema')) {
                         KEY idx_wl_time (wasted_at),
                         CONSTRAINT fk_wl_tx FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
                         CONSTRAINT fk_wl_user FOREIGN KEY (wasted_by_user_id) REFERENCES users (user_id) ON DELETE SET NULL,
-                        CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
+                        CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE SET NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ");
             }
@@ -281,7 +281,7 @@ if (!function_exists('ensure_schema')) {
                     CREATE TABLE IF NOT EXISTS waste_report_summary (
                         summary_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
                         summary_date DATE NOT NULL,
-                        summary_hour TINYINT UNSIGNED NULL DEFAULT NULL,
+                        summary_hour TINYINT UNSIGNED NOT NULL DEFAULT 255,
                         period_type ENUM('hourly', 'daily') NOT NULL DEFAULT 'daily',
                         total_events INT UNSIGNED NOT NULL DEFAULT 0,
                         total_items_wasted DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -293,6 +293,36 @@ if (!function_exists('ensure_schema')) {
                         KEY idx_summary_date (summary_date)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ");
+            } else {
+                try {
+                    $hourCol = $pdo->query("SHOW COLUMNS FROM waste_report_summary LIKE 'summary_hour'")->fetch(PDO::FETCH_ASSOC);
+                    if ($hourCol && $hourCol['Null'] === 'YES') {
+                        // Consolidate duplicate daily rows before enforcing NOT NULL unique constraint
+                        $pdo->exec("
+                            CREATE TEMPORARY TABLE IF NOT EXISTS tmp_daily_summary AS
+                            SELECT summary_date,
+                                   SUM(total_events) AS total_events,
+                                   SUM(total_items_wasted) AS total_items_wasted,
+                                   SUM(total_cost_cents) AS total_cost_cents,
+                                   SUM(total_income_loss_cents) AS total_income_loss_cents
+                              FROM waste_report_summary
+                             WHERE period_type = 'daily'
+                             GROUP BY summary_date;
+                        ");
+                        $pdo->exec("DELETE FROM waste_report_summary WHERE period_type = 'daily'");
+                        $pdo->exec("ALTER TABLE waste_report_summary MODIFY COLUMN summary_hour TINYINT UNSIGNED NOT NULL DEFAULT 255");
+                        $pdo->exec("
+                            INSERT INTO waste_report_summary (
+                                summary_date, summary_hour, period_type, total_events,
+                                total_items_wasted, total_cost_cents, total_income_loss_cents
+                            )
+                            SELECT summary_date, 255, 'daily', total_events,
+                                   total_items_wasted, total_cost_cents, total_income_loss_cents
+                              FROM tmp_daily_summary;
+                        ");
+                        $pdo->exec("DROP TEMPORARY TABLE IF EXISTS tmp_daily_summary;");
+                    }
+                } catch (Throwable $e) {}
             }
 
             // Seed default authorized accounts if users table is empty
@@ -426,8 +456,8 @@ if (!function_exists('require_method')) {
 if (!function_exists('read_json')) {
     function read_json(): array
     {
-        $raw  = file_get_contents('php://input');
-        $data = json_decode($raw === false ? '' : $raw, true);
+        $raw  = $GLOBALS['MOCK_INPUT_JSON'] ?? file_get_contents('php://input');
+        $data = json_decode($raw === false || $raw === null ? '' : $raw, true);
         if (!is_array($data)) {
             fail(400, 'Invalid request.');
         }

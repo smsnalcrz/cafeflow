@@ -151,9 +151,14 @@ if ($userId !== null) {
     $wasteParams[':user_id'] = $userId;
 }
 if ($search !== '') {
-    $wasteWhere[] = '(wl.product_name LIKE :search OR wl.item_name LIKE :search OR wl.reason LIKE :search OR wl.transaction_id = :search_exact)';
+    $exactId = (int) preg_replace('/\D/', '', $search);
+    if ($exactId > 0) {
+        $wasteWhere[] = '(wl.product_name LIKE :search OR wl.item_name LIKE :search OR wl.reason LIKE :search OR wl.transaction_id = :search_exact)';
+        $wasteParams[':search_exact'] = $exactId;
+    } else {
+        $wasteWhere[] = '(wl.product_name LIKE :search OR wl.item_name LIKE :search OR wl.reason LIKE :search)';
+    }
     $wasteParams[':search'] = '%' . $search . '%';
-    $wasteParams[':search_exact'] = (int) preg_replace('/\D/', '', $search);
 }
 
 $wasteWhereSql = implode(' AND ', $wasteWhere);
@@ -427,16 +432,23 @@ $logs = $logsStmt->fetchAll();
 // Format logs for frontend presentation
 $formattedLogs = array_map(static function(array $row): array {
     $ts = strtotime($row['wasted_at']);
+    $hasTx = ($row['transaction_id'] !== null && (int)$row['transaction_id'] > 0);
+    $txId = $hasTx ? (int)$row['transaction_id'] : null;
+    $receiptNo = $hasTx ? ('#' . str_pad((string)$txId, 5, '0', STR_PAD_LEFT)) : 'Manual';
+    $productName = $row['product_name'] ?: ($hasTx ? 'Product' : '—');
+    $sizeLabel = $row['size_label'] ?: ($hasTx ? 'Standard' : '—');
+
     return [
         'waste_id'           => (int)$row['waste_id'],
-        'transaction_id'     => (int)$row['transaction_id'],
-        'receipt_no'         => '#' . str_pad((string)$row['transaction_id'], 5, '0', STR_PAD_LEFT),
+        'transaction_id'     => $txId,
+        'receipt_no'         => $receiptNo,
+        'is_manual'          => !$hasTx,
         'product_id'         => $row['product_id'] !== null ? (int)$row['product_id'] : null,
-        'product_name'       => $row['product_name'] ?: 'Product',
+        'product_name'       => $productName,
         'size_code'          => $row['size_code'],
-        'size_label'         => $row['size_label'] ?: 'Standard',
+        'size_label'         => $sizeLabel,
         'quantity'           => (int)$row['quantity'],
-        'item_id'            => (int)$row['item_id'],
+        'item_id'            => $row['item_id'] !== null ? (int)$row['item_id'] : null,
         'item_name'          => $row['item_name'],
         'unit'               => $row['unit'],
         'amount_wasted'      => (float)$row['amount_wasted'],

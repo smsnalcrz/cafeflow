@@ -283,6 +283,63 @@ assertTest('Income loss in report.php reflects cancelled orders',
     "Income loss: ₱" . ($repJson['waste_summary']['total_income_loss_php'] ?? 0)
 );
 
+// -----------------------------------------------------------------------------
+// Test 7: Manual Waste Logging & Stock Deduction
+// -----------------------------------------------------------------------------
+echo "\n7. Testing Manual Waste Logging & Stock Deduction...\n";
+
+// Get initial stock of Matcha powder
+$mRow = $pdo->query("SELECT item_id, current_stock, unit_measure FROM inventory WHERE LOWER(name) LIKE '%matcha%' LIMIT 1")->fetch();
+$mItemId = (int)$mRow['item_id'];
+$initialMatchaStock = (float)$mRow['current_stock'];
+
+$outManual = runSubPhp('
+$_SERVER["REQUEST_METHOD"] = "POST";
+$_SERVER["REQUEST_URI"] = "/cafeflow/api/manual_waste.php";
+require_once "' . addslashes(__DIR__ . '/../core/db.php') . '";
+require_once "' . addslashes(__DIR__ . '/../core/auth.php') . '";
+init_session();
+$_SESSION["user_id"] = 1;
+$_SESSION["user_role"] = "barista";
+$_SESSION["csrf_token"] = "valid_csrf_token_waste_test";
+$input = [
+    "csrf_token" => "valid_csrf_token_waste_test",
+    "item_id" => ' . $mItemId . ',
+    "item_name" => "Matcha Powder",
+    "unit" => "g",
+    "amount_wasted" => 50.00,
+    "cost_php" => 45.00,
+    "reason" => "Spilled container during test"
+];
+$GLOBALS["MOCK_INPUT_JSON"] = json_encode($input);
+include "' . addslashes(__DIR__ . '/../api/manual_waste.php') . '";
+');
+$manualJson = parseJsonOutput($outManual);
+
+assertTest('Barista can successfully log manual waste',
+    !empty($manualJson['success']) && $manualJson['success'] === true,
+    $manualJson['message'] ?? 'Failed'
+);
+
+$newMatchaRow = $pdo->query("SELECT current_stock FROM inventory WHERE item_id = $mItemId")->fetch();
+$newMatchaStock = (float)$newMatchaRow['current_stock'];
+
+assertTest('Manual waste deducted 50g from inventory stock',
+    round($newMatchaStock, 2) === round($initialMatchaStock - 50.00, 2),
+    "Initial: $initialMatchaStock, New: $newMatchaStock"
+);
+
+// Verify waste_log table record
+$lastWaste = $pdo->query("SELECT * FROM waste_log WHERE reason = 'Spilled container during test' ORDER BY waste_id DESC LIMIT 1")->fetch();
+assertTest('waste_log records null transaction_id and valid item_id',
+    $lastWaste && $lastWaste['transaction_id'] === null && (int)$lastWaste['item_id'] === $mItemId,
+    "Waste ID: " . ($lastWaste['waste_id'] ?? 'none') . ", TX: " . var_export($lastWaste['transaction_id'] ?? false, true)
+);
+
+// Restore stock after test
+$pdo->exec("UPDATE inventory SET current_stock = $initialMatchaStock WHERE item_id = $mItemId");
+$pdo->exec("DELETE FROM waste_log WHERE reason = 'Spilled container during test'");
+
 echo "\n====================================================\n";
 echo "TEST RESULTS: $testsPassed PASSED, $testsFailed FAILED\n";
 echo "====================================================\n";

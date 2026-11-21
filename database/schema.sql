@@ -173,13 +173,13 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS waste_log (
   waste_id           INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-  transaction_id     INT UNSIGNED  NOT NULL,
+  transaction_id     INT UNSIGNED  NULL DEFAULT NULL,
   product_id         INT UNSIGNED  NULL DEFAULT NULL,
   product_name       VARCHAR(100)  NULL DEFAULT NULL,
   size_code          VARCHAR(30)   NULL DEFAULT NULL,
   size_label         VARCHAR(50)   NULL DEFAULT NULL,
   quantity           INT UNSIGNED  NOT NULL DEFAULT 1,
-  item_id            INT UNSIGNED  NOT NULL,
+  item_id            INT UNSIGNED  NULL DEFAULT NULL,
   item_name          VARCHAR(100)  NOT NULL,
   unit               VARCHAR(20)   NOT NULL,
   amount_wasted      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -196,7 +196,7 @@ CREATE TABLE IF NOT EXISTS waste_log (
   KEY idx_wl_time (wasted_at),
   CONSTRAINT fk_wl_tx FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
   CONSTRAINT fk_wl_user FOREIGN KEY (wasted_by_user_id) REFERENCES users (user_id) ON DELETE SET NULL,
-  CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
+  CONSTRAINT fk_wl_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -205,7 +205,7 @@ CREATE TABLE IF NOT EXISTS waste_log (
 CREATE TABLE IF NOT EXISTS waste_report_summary (
   summary_id              INT UNSIGNED  NOT NULL AUTO_INCREMENT,
   summary_date            DATE          NOT NULL,
-  summary_hour            TINYINT UNSIGNED NULL DEFAULT NULL,
+  summary_hour            TINYINT UNSIGNED NOT NULL DEFAULT 255, -- 0-23 for hourly distribution, 255 for daily
   period_type             ENUM('hourly', 'daily') NOT NULL DEFAULT 'daily',
   total_events            INT UNSIGNED  NOT NULL DEFAULT 0,
   total_items_wasted      DECIMAL(12,2) NOT NULL DEFAULT 0.00,

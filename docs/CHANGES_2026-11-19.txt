@@ -1,0 +1,155 @@
+CafeFlow POS — Waste & Loss Tracking Hardening, Custom Combobox UI Redesign, Database Constraint Fixes & 14-Test Verification Suite
+Release Date: November 19, 2026 | Environment: PHP 8.2 / MariaDB / Apache (XAMPP) / Vanilla JS ES Modules | Status: Complete, Verified & 100% Green
+
+================================================================================
+1. EXECUTIVE SUMMARY OF IMPLEMENTED ENHANCEMENTS
+================================================================================
+This release delivers a complete production-grade hardening and UI/UX overhaul of the CafeFlow Waste & Loss Tracking module. Following the initial prototype introduced on November 18, rigorous QA audits identified critical database constraint crashes, duplicate summary inflation, unit calculation flaws, and severe UI modal clipping. All identified defects were thoroughly diagnosed, re-engineered, verified, and backed by a comprehensive 14-point automated test suite.
+
+• Resolution of Database Schema Constraints & Duplicate Inflation:
+  - Fixed Manual Waste Crash (Column 'transaction_id' cannot be null):
+    * In the initial schema, `transaction_id` and `item_id` in `waste_log` were configured as `NOT NULL INT`.
+    * Manual waste entries (dropped milk jugs, spoiled syrups, broken cups) are operational incidents unassociated with any customer sales order. Submitting a manual entry passed `null` for `transaction_id`, triggering an immediate PDO exception (SQLSTATE 23000) that blocked all manual waste submissions.
+    * Altered `transaction_id` and `item_id` to `INT NULL DEFAULT NULL`, allowing manual operational waste to log cleanly while preserving order linkage for cancelled POS tickets.
+  - Fixed Summary Duplicate Row Accumulation (Unique Key Null Flaw):
+    * The daily summary roll-up table (`waste_report_summary`) used a composite unique key `(summary_date, summary_hour, supply_id)`. For whole-day daily summaries, `summary_hour` was stored as `NULL`.
+    * In MySQL / MariaDB InnoDB engines, `NULL` values are treated as distinct (`NULL != NULL`), rendering the unique index ineffective for daily entries. Consequently, every daily report load or recalculation inserted duplicate records, accumulating 43+ redundant daily rows with zero waste.
+    * Re-engineered `waste_report_summary.summary_hour` to `TINYINT UNSIGNED NOT NULL DEFAULT 255`. A sentinel value of `255` explicitly designates daily/all-day summaries (valid operating hours are 0–23). Cleaned existing redundant rows and re-established strict database uniqueness with `ON DUPLICATE KEY UPDATE`.
+
+• Enterprise Custom Combobox UI Redesign (Elimination of Native Datalist):
+  - In the prototype, supply selection relied on a native browser `<datalist id="wasteSuppliesList">`. On Windows/Chrome, this rendered an unstyled, off-center dark OS popup showing raw IDs without stock availability or visual hierarchy.
+  - Engineered an Enterprise Custom Combobox (`.cf-combobox`) in assets/js/modules/waste.js and assets/css/waste.css:
+    * Searchable text input with focus ring (#1B4332), clear button (`✕`), and custom animated chevron indicator.
+    * Floating custom dropdown menu (`.cf-combobox-dropdown`) with smooth scrolling and max height of 280px.
+    * Displays all 62 raw inventory supplies formatted with item name, base unit, and live stock pills (e.g. `Stock: 7,040 ml`, `Stock: 482 pcs`, `Stock: 4,289 g`).
+    * Real-time substring filter: Typing any keyword (e.g., "milk", "syrup", "cup") instantly narrows the list across names and categories.
+    * Full keyboard navigation support (Arrow Down, Arrow Up, Enter to select, Escape to dismiss).
+    * Auto-Synchronization: Selecting an item immediately updates the Unit dropdown to the supply's base unit and triggers live estimated cost calculation.
+
+• Modal Geometry, Visual Hierarchy & Overflow Elimination:
+  - Enlarged Modal Dimensions: Expanded `.waste-modal-card` width from a cramped 460px to an ergonomic 680px, preventing squeezed inputs and label truncation.
+  - Eliminated Layout Bleed: Fixed CSS bounding box overflow where modal action buttons bled 36px below the container border over an unstyled green bar.
+  - Responsive 2-Column Grid: Form fields structured into logical rows:
+    * Row 1: Material / Supply Name (Full Width Custom Combobox)
+    * Row 2: Unit Selector (Left) + Amount Wasted (Right)
+    * Row 3: Estimated Financial Cost (Auto-calculated, Left) + "Deduct from Stock" Checkbox (Right)
+    * Row 4: Reason / Description (Full Width textarea)
+    * Row 5: Action Buttons (Cancel and Log Waste Entry aligned right with proper button padding)
+  - Real-time Cost Estimation: Typing in the "Amount Wasted" field dynamically calculates `Amount × Unit Cost` from database records and displays the estimated financial loss in real-time (₱XX.XX).
+
+• Manager Dashboard Card 4 Layout Symmetry Restoration:
+  - In the previous push, a secondary "+ Log Waste" button was added inside Manager Dashboard Card 4. Because `.mgr-card-btn` had `width: 100%`, placing two buttons inside Card 4 broke the flex row, squeezing the primary button into three vertical lines ("View\nWaste\nReports") and breaking visual balance across the 5 dashboard cards.
+  - Restored Card 4 in index.php to a single, full-width primary button (`<button class="mgr-card-btn" id="mgrOpenWasteBtn">View Waste Reports</button>`), perfectly matching Cards 1, 2, 3, and 5.
+  - Placed the "+ Log Manual Waste" action button cleanly inside the Waste Reports modal header toolbar, maintaining an intuitive workflow.
+
+• Bulk Unit Normalization & Pricing Logic Fix:
+  - Resolved unit mismatch calculations in api/manual_waste.php:
+    * When logging waste in bulk units (`kg` or `L`), the previous logic failed to scale to base units (`g` or `ml`), incorrectly assessing 1 kg of coffee beans at ₱1.00 instead of the true purchase cost of ₱600.00.
+    * Implemented unit normalization matrix: `kg` scales to `1,000 × g`, `L` scales to `1,000 × ml`.
+    * Added comprehensive café operational units: `shots`, `packs`, `bottles`, `cans`, `boxes`, `portions`, `sleeves`, `g`, `ml`, `pcs`.
+  - Non-Negative Stock Clamping: Stock deduction queries now enforce `SET current_stock = GREATEST(0, current_stock - ?)` within database transactions, preventing negative inventory balances.
+
+• Master Prompts & Documentation:
+  - Authored MASTER_PROMPT_WASTE_REPORTS_ENHANCEMENT.md: Comprehensive architectural prompt detailing the waste tracking engine, database constraints, and analytical requirements.
+  - Authored MASTER_PROMPT_MANUAL_WASTE_COMBOBOX_REDESIGN.md: Detailed UI/UX prompt specifying the custom combobox redesign, modal geometry, and component design tokens.
+
+================================================================================
+2. DETAILED FILE-BY-FILE CODE CHANGES
+================================================================================
+
+1. database/schema.sql:
+   - Altered `waste_log.transaction_id` and `waste_log.item_id` to nullable:
+     `transaction_id INT NULL DEFAULT NULL,`
+     `item_id INT NULL DEFAULT NULL,`
+   - Modified `waste_report_summary.summary_hour` default value to 255:
+     `summary_hour TINYINT UNSIGNED NOT NULL DEFAULT 255,`
+   - Preserved unique composite index `UNIQUE KEY uq_date_hour_supply (summary_date, summary_hour, supply_id)`.
+
+2. core/db.php:
+   - Updated `ensure_schema()` migration routine:
+     * Executes `ALTER TABLE waste_log MODIFY transaction_id INT NULL DEFAULT NULL;`
+     * Executes `ALTER TABLE waste_log MODIFY item_id INT NULL DEFAULT NULL;`
+     * Executes `ALTER TABLE waste_report_summary MODIFY summary_hour TINYINT UNSIGNED NOT NULL DEFAULT 255;`
+     * Consolidates duplicate daily rows in `waste_report_summary` where `summary_hour IS NULL`, summing quantities and resetting to hour 255.
+
+3. api/manual_waste.php:
+   - Refactored request parsing and validation:
+     * Accepts `supply_id`, `amount`, `unit`, `waste_type`, `reason`, `deduct_stock`.
+     * Retrieves `cost_per_unit` and `unit` from `raw_supplies`.
+     * Applies bulk unit conversion factors: `kg` to `g` (* 1000), `L` to `ml` (* 1000).
+     * Computes `estimated_cost` accurately based on normalized units.
+   - Wrapped operations in `$pdo->beginTransaction()` and `$pdo->commit()`:
+     * Inserts into `waste_log` with `transaction_id = NULL` and `item_id = NULL`.
+     * Updates `raw_supplies` with `current_stock = GREATEST(0, current_stock - ?)` if `deduct_stock` is true.
+     * Upserts into `waste_report_summary` using `summary_hour = 255` for daily aggregate.
+
+4. api/waste_api.php:
+   - Updated queries in `action=summary` and `action=timeframe_breakdown` to handle `summary_hour = 255` as daily totals.
+   - Enhanced `action=supplies_list` to return `id`, `name`, `unit`, `current_stock`, and `cost_per_unit` for all 62 raw supplies.
+   - Ensured proper JSON error formatting with HTTP status codes (400 Bad Request, 403 Forbidden, 500 Server Error).
+
+5. assets/js/modules/waste.js:
+   - Replaced native `<datalist>` implementation with `WasteCombobox` class:
+     * Created `initSupplyCombobox()`: renders custom input, toggle arrow, and dropdown menu.
+     * Implemented real-time search filtering on `input` events.
+     * Implemented keyboard navigation (ArrowUp, ArrowDown, Enter, Escape).
+     * Bound item selection to populate hidden `#wasteSupplyId`, update `#wasteUnitSelect`, and recalculate estimated cost.
+   - Implemented live estimated cost calculator:
+     * Listens to `#wasteAmountInput` and `#wasteUnitSelect` change/input events.
+     * Multiplies amount by unit rate and displays formatted preview in `#wasteCostInput`.
+   - Updated modal management:
+     * Moved "+ Log Manual Waste" trigger to waste report modal header.
+     * Added backdrop click and escape key dismissal handlers.
+
+6. assets/css/waste.css:
+   - Overhauled `.waste-modal-card`:
+     * Increased `max-width` to 680px with `width: 95%`.
+     * Added `padding: 28px 32px`.
+     * Set `overflow: visible` to allow combobox dropdown to overlay cleanly.
+   - Added styles for Custom Combobox:
+     * `.cf-combobox`, `.cf-combobox-input-wrap`, `.cf-combobox-input`, `.cf-combobox-clear`, `.cf-combobox-chevron`.
+     * `.cf-combobox-dropdown`: absolute positioning, z-index 1000, background #FFFFFF, border 1.5px solid #D8E2DC, border-radius 12px, box-shadow 0 12px 32px rgba(27,67,50,0.15).
+     * `.cf-combobox-item`: flex layout, padding 10px 14px, cursor pointer, hover background #F2EBE0.
+     * `.cf-combobox-stock-pill`: background #E8F5E9, color #2D6A4F, font-size 11px, border-radius 20px, padding 2px 8px.
+   - Fixed modal footer button alignment and removed bottom clipping.
+
+7. index.php:
+   - Restored Manager Dashboard Card 4 to a single full-width primary button:
+     `<button class="mgr-card-btn" id="mgrOpenWasteBtn">View Waste Reports</button>`
+   - Removed secondary `.mgr-card-btn` inside Card 4 that caused button distortion.
+   - Updated `#logManualWasteModal` markup to integrate the new Custom Combobox container `#wasteSupplyComboboxContainer`.
+
+8. tools/test_waste_suite.php:
+   - Expanded test suite to 14 automated verification tests covering database schema, manual logging, unit conversion, duplicate prevention, and API responses.
+
+9. docs/MASTER_PROMPT_WASTE_REPORTS_ENHANCEMENT.md (New File):
+   - Comprehensive master specification prompt for waste reporting enhancements.
+
+10. docs/MASTER_PROMPT_MANUAL_WASTE_COMBOBOX_REDESIGN.md (New File):
+    - Detailed master prompt for custom combobox implementation and modal UI redesign.
+
+================================================================================
+3. QA VERIFICATION, AUTOMATED TEST RESULTS & SYSTEM HEALTH
+================================================================================
+• Comprehensive Automated Waste Test Suite (`php tools/test_waste_suite.php`):
+  - Test 1:  Table existence (`waste_log`, `waste_report_summary`)           -> [PASS]
+  - Test 2:  `transaction_id` and `item_id` nullable in `waste_log`          -> [PASS]
+  - Test 3:  Manual waste logging with stock deduction                      -> [PASS]
+  - Test 4:  Manual waste logging without stock deduction                   -> [PASS]
+  - Test 5:  Bulk unit conversion (1 kg coffee beans -> ₱600.00)            -> [PASS]
+  - Test 6:  Liquid bulk unit conversion (1 L full cream milk -> ₱95.00)    -> [PASS]
+  - Test 7:  Non-negative stock clamp (GREATEST(0, stock - amount))         -> [PASS]
+  - Test 8:  Daily summary aggregation with summary_hour = 255              -> [PASS]
+  - Test 9:  Daily summary deduplication on duplicate insert               -> [PASS]
+  - Test 10: Cancelled order recipe explosion and waste logging             -> [PASS]
+  - Test 11: Waste API `action=summary` response structure                  -> [PASS]
+  - Test 12: Waste API `action=timeframe_breakdown` response structure      -> [PASS]
+  - Test 13: Waste API `action=material_summary` response structure         -> [PASS]
+  - Test 14: Waste API `action=event_logs` response structure               -> [PASS]
+  - Final Suite Result: 14/14 tests PASSED (100% Green).
+
+• Headless Browser Verification & Visual Evidence:
+  - Verified Manager Dashboard layout: Card 4 rendered with single full-width button; zero button squishing. Visual artifact: `verified_mgr_dashboard_fixed.png`.
+  - Verified Custom Combobox: Opened modal, typed "milk", confirmed instant filtering to milk series with green stock badges. Visual artifact: `verified_expanded_combobox_filtered_milk.png`.
+  - Verified Form Submission: Submitted manual waste for 250ml milk; verified instant entry creation and stock deduction. Visual artifact: `verified_expanded_form_filled_milk.png`.
+  - Verified Waste Event Logs: Confirmed newly created manual waste entry appears in Event Logs table with timestamp, amount, and cost loss. Visual artifact: `verified_expanded_waste_event_logs.png`.

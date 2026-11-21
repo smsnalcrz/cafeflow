@@ -835,6 +835,15 @@ function estimate_ingredient_cost_cents(string $name, string $unit, float $amoun
     $n = strtolower(trim($name));
     $u = strtolower(trim($unit));
 
+    // Normalize bulk units to base units
+    if ($u === 'kg') {
+        $amount *= 1000.0;
+        $u = 'g';
+    } elseif ($u === 'l' || $u === 'liter' || $u === 'liters') {
+        $amount *= 1000.0;
+        $u = 'ml';
+    }
+
     // Unit rate in centavos per 1 unit of measurement
     $centavosPerUnit = null;
 
@@ -960,6 +969,8 @@ function record_order_waste(PDO $pdo, int $transactionId, int $userId, string $r
     $totalCostCents = 0;
     $totalAmountWasted = 0.0;
 
+    $wastedByUserId = ($userId > 0) ? $userId : null;
+
     foreach ($items as $item) {
         $pId = $item['product_id'] ?? null;
         $baseName = !empty($item['base_name']) ? $item['base_name'] : ($item['product_name'] ?? 'Product');
@@ -995,7 +1006,7 @@ function record_order_waste(PDO $pdo, int $transactionId, int $userId, string $r
                 $amount,
                 $costCents,
                 $costPhp,
-                $userId,
+                $wastedByUserId,
                 $reason,
             ]);
 
@@ -1018,6 +1029,7 @@ function record_order_waste(PDO $pdo, int $transactionId, int $userId, string $r
 
     // Compute total sales revenue income loss from the cancelled line items
     $totalIncomeLossCents = 0;
+
     foreach ($items as $item) {
         $uPrice = (float) ($item['unit_price'] ?? 0.0);
         $q = max(1, (int) ($item['quantity'] ?? 1));
@@ -1048,7 +1060,7 @@ function record_order_waste(PDO $pdo, int $transactionId, int $userId, string $r
                 summary_date, summary_hour, period_type, total_events,
                 total_items_wasted, total_cost_cents, total_income_loss_cents, updated_at
             ) VALUES (
-                CURDATE(), NULL, "daily", 1,
+                CURDATE(), 255, "daily", 1,
                 ?, ?, ?, NOW()
             )
             ON DUPLICATE KEY UPDATE
