@@ -207,12 +207,13 @@ function handle_image_upload(?array $file): ?string
 function safe_delete_image(?string $url): void
 {
     if (!$url) return;
-    $relative = str_replace(['..', '\\'], ['', '/'], $url);
-    if (str_starts_with($relative, 'uploads/products/')) {
-        $fullPath = dirname(__DIR__) . '/' . $relative;
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
-        }
+    $filename = basename($url);
+    if ($filename === '' || $filename === '.' || $filename === '..') return;
+    $fullPath = UPLOADS_DIR . $filename;
+    $realUploads = realpath(UPLOADS_DIR);
+    $realFile = realpath($fullPath);
+    if ($realFile && $realUploads && str_starts_with($realFile, $realUploads) && is_file($realFile)) {
+        @unlink($realFile);
     }
 }
 

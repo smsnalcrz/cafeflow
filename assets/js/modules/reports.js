@@ -404,10 +404,18 @@ window.CafeFlow = window.CafeFlow || {};
   const CF_GREEN       = '#2a9b52';
 
   const CF_ESPRESSO    = '#162318';
-
   const CF_MUTED       = '#5a7a63';
-
   const CF_LINE        = '#cde5d4';
+
+  function getThemeColors() {
+    return {
+      grid: '#cde5d4',
+      ticks: '#5a7a63',
+      text: '#0e1e12',
+      tooltipBg: '#162318',
+      tooltipBorder: 'rgba(255,255,255,0.1)'
+    };
+  }
 
 
 
@@ -485,141 +493,109 @@ window.CafeFlow = window.CafeFlow || {};
     var ctx = canvas.getContext('2d');
 
     var grad = ctx.createLinearGradient(0, 0, 0, 240);
-
-    grad.addColorStop(0, 'rgba(232,98,58,0.22)');
-
-    grad.addColorStop(1, 'rgba(232,98,58,0.0)');
+    grad.addColorStop(0, 'rgba(232,98,58,0.28)');
+    grad.addColorStop(1, 'rgba(232,98,58,0.00)');
 
     return new Chart(ctx, {
-
       type: 'line',
-
       data: {
-
         labels: data.labels,
-
         datasets: [{
-
           label: 'Sales (\u20b1)',
-
           data: data.totals,
-
           borderColor: CF_ORANGE,
-
           backgroundColor: grad,
-
-          borderWidth: 2.5,
-
-          pointBackgroundColor: CF_ESPRESSO,
-
+          borderWidth: 2.6,
+          pointBackgroundColor: '#ffffff',
           pointBorderColor: CF_ORANGE,
-
-          pointRadius: 4,
-
-          pointHoverRadius: 6,
-
-          tension: 0.4,
-
+          pointBorderWidth: 2.4,
+          pointRadius: 3.5,
+          pointHoverRadius: 6.5,
+          pointHoverBackgroundColor: CF_ORANGE,
+          pointHoverBorderColor: '#ffffff',
+          pointHoverBorderWidth: 2,
+          tension: 0.38,
           fill: true,
-
           yAxisID: 'y'
-
         }, {
-
           label: 'Orders',
-
           data: data.orders,
-
           borderColor: CF_GREEN,
-
           backgroundColor: 'transparent',
-
           borderWidth: 2,
-
-          pointBackgroundColor: CF_GREEN,
-
+          pointBackgroundColor: '#ffffff',
+          pointBorderColor: CF_GREEN,
+          pointBorderWidth: 2,
           pointRadius: 3,
-
-          pointHoverRadius: 5,
-
-          tension: 0.4,
-
+          pointHoverRadius: 5.5,
+          tension: 0.38,
           fill: false,
-
           borderDash: [5, 3],
-
           yAxisID: 'y2'
-
         }]
-
       },
-
       options: {
-
         responsive: true,
-
         maintainAspectRatio: false,
-
         interaction: { mode: 'index', intersect: false },
-
         plugins: {
-
-          legend: { position: 'top', labels: { boxWidth: 12, padding: 16, font: { size: 12 } } },
-
-          tooltip: {
-
-            backgroundColor: CF_ESPRESSO,
-
-            titleColor: '#fff',
-
-            bodyColor: 'rgba(255,255,255,0.8)',
-
-            padding: 10,
-
-            cornerRadius: 8,
-
-            callbacks: {
-
-              label: function(c) {
-
-                return c.dataset.yAxisID === 'y'
-
-                  ? '  \u20b1' + Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })
-
-                  : '  ' + c.parsed.y + ' orders';
-
-              }
-
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              padding: 16,
+              font: { family: "'Work Sans', sans-serif", size: 12, weight: '600' }
             }
-
-          }
-
-        },
-
-        scales: {
-
-          x: { grid: { color: CF_LINE }, ticks: { font: { size: 11 }, maxRotation: 45 } },
-
-          y: {
-
-            position: 'left', grid: { color: CF_LINE },
-
-            ticks: { font: { size: 11 }, callback: function(v) { return '\u20b1' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 0 }); } }
-
           },
-
-          y2: {
-
-            position: 'right', grid: { drawOnChartArea: false },
-
-            ticks: { font: { size: 11 }, stepSize: 1, precision: 0 }
-
+          tooltip: {
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
+            callbacks: {
+              label: function(c) {
+                return c.dataset.yAxisID === 'y'
+                  ? '  \u20b1' + Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : '  ' + c.parsed.y + ' orders';
+              }
+            }
           }
-
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '500' },
+              color: '#5a7a63',
+              maxRotation: 45
+            }
+          },
+          y: {
+            position: 'left',
+            grid: { color: 'rgba(22, 35, 24, 0.06)' },
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
+              callback: function(v) { return '\u20b1' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString('en-PH')); }
+            }
+          },
+          y2: {
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
+              stepSize: 1,
+              precision: 0
+            }
+          }
         }
-
       }
-
     });
 
   }
@@ -655,11 +631,15 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: CF_ESPRESSO,
-            titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.85)',
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
             padding: 10,
             cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               label: function(c) { return '  ' + c.parsed.y + ' units sold'; }
             }
@@ -669,7 +649,8 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
-              font: { size: 11, weight: '600' },
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
+              color: '#5a7a63',
               maxRotation: 35,
               minRotation: 0,
               callback: function(val) {
@@ -680,9 +661,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: CF_LINE },
+            grid: { color: 'rgba(22, 35, 24, 0.06)' },
             ticks: {
-              font: { size: 11 },
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
               precision: 0,
               stepSize: 1
             }
@@ -723,11 +705,15 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: CF_ESPRESSO,
-            titleColor: '#fff',
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
             bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
             padding: 10,
             cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               title: function(itemsList) {
                 return itemsList[0] ? itemsList[0].label : '';
@@ -744,7 +730,8 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
-              font: { size: 11, weight: '600' },
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
+              color: '#5a7a63',
               maxRotation: 30,
               minRotation: 0,
               callback: function(val) {
@@ -755,9 +742,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: CF_LINE },
+            grid: { color: 'rgba(22, 35, 24, 0.06)' },
             ticks: {
-              font: { size: 11 },
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
               precision: 0,
               stepSize: 1
             }
@@ -783,16 +771,20 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'GCash Sales (₱)',
             data: gcashTotals,
-            backgroundColor: 'rgba(30, 144, 255, 0.82)',
-            borderRadius: 4,
+            backgroundColor: 'rgba(2, 132, 199, 0.85)',
+            borderColor: '#0284c7',
+            borderWidth: 1.2,
+            borderRadius: 5,
             stack: 'sales',
             yAxisID: 'y'
           },
           {
             label: 'Cash Sales (₱)',
             data: cashTotals,
-            backgroundColor: 'rgba(42, 155, 82, 0.85)',
-            borderRadius: 4,
+            backgroundColor: 'rgba(42, 155, 82, 0.88)',
+            borderColor: '#2a9b52',
+            borderWidth: 1.2,
+            borderRadius: 5,
             stack: 'sales',
             yAxisID: 'y'
           },
@@ -801,10 +793,13 @@ window.CafeFlow = window.CafeFlow || {};
             label: 'Orders Count',
             data: orders,
             borderColor: '#e8623a',
-            backgroundColor: '#e8623a',
-            borderWidth: 2.5,
+            backgroundColor: '#ffffff',
+            borderWidth: 2.4,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#e8623a',
+            pointBorderWidth: 2.2,
             pointRadius: 4,
-            pointHoverRadius: 6,
+            pointHoverRadius: 6.5,
             tension: 0.35,
             yAxisID: 'y1'
           }
@@ -817,14 +812,22 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: {
             position: 'top',
-            labels: { boxWidth: 12, font: { size: 11, weight: '600' } }
+            labels: {
+              boxWidth: 12,
+              padding: 14,
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
+            }
           },
           tooltip: {
-            backgroundColor: CF_ESPRESSO,
-            titleColor: '#fff',
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
             bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
             padding: 10,
             cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               afterBody: function(items) {
                 var idx = items[0] ? items[0].dataIndex : 0;
@@ -846,13 +849,17 @@ window.CafeFlow = window.CafeFlow || {};
         scales: {
           x: {
             grid: { display: false },
-            ticks: { font: { size: 11, weight: '700' } }
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '700' },
+              color: '#5a7a63'
+            }
           },
           y: {
             beginAtZero: true,
-            grid: { color: CF_LINE },
+            grid: { color: 'rgba(22, 35, 24, 0.06)' },
             ticks: {
-              font: { size: 11 },
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
               callback: function(v) { return '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v); }
             }
           },
@@ -860,7 +867,11 @@ window.CafeFlow = window.CafeFlow || {};
             beginAtZero: true,
             position: 'right',
             grid: { drawOnChartArea: false },
-            ticks: { font: { size: 11 }, precision: 0 }
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
+              precision: 0
+            }
           }
         }
       }
@@ -1328,7 +1339,8 @@ window.CafeFlow = window.CafeFlow || {};
 
     var summaryPanel = h('div', { class: 'top-sellers-summary-panel' });
     var body = h('div', { class: 'top-sellers-body' }, chartBox, summaryPanel);
-    card.append(head, body);
+    var leaderboardContainer = h('div', { class: 'top-sellers-leaderboard-container' });
+    card.append(head, body, leaderboardContainer);
     container.append(card);
 
     function updateTopView() {
@@ -1360,6 +1372,8 @@ window.CafeFlow = window.CafeFlow || {};
       }
 
       summaryPanel.innerHTML = '';
+      leaderboardContainer.innerHTML = '';
+
       var catLabel = _topCategory === 'drinks' ? 'Drinks Scope' : _topCategory === 'snacks' ? 'Snacks Scope' : 'All Categories Scope';
       var limitLabel = 'Top ' + _topLimit + ' Ranking';
 
@@ -1385,7 +1399,34 @@ window.CafeFlow = window.CafeFlow || {};
           h('div', { class: 'summary-chip' }, h('span', { text: 'Category Revenue:' }), h('strong', { text: money(totalCatRev) }))
         );
       }
+
       summaryPanel.append(scopeHeader, narrativeDiv, chipsDiv);
+
+      if (sliced.length > 0) {
+        var displayLimit = Math.min(sliced.length, _topLimit);
+        var leaderboardWrap = h('div', { class: 'top-sellers-leaderboard' },
+          h('h4', { class: 'leaderboard-title', text: 'Top ' + displayLimit + ' Bestselling Products Leaderboard' }),
+          h('div', { class: 'leaderboard-list' },
+            sliced.slice(0, displayLimit).map(function(item, idx) {
+              var rank = idx + 1;
+              var medalClass = rank === 1 ? 'rank-gold' : (rank === 2 ? 'rank-silver' : (rank === 3 ? 'rank-bronze' : 'rank-std'));
+              var medalIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : '#' + rank));
+              return h('div', { class: 'leaderboard-row ' + medalClass },
+                h('div', { class: 'leaderboard-rank' }, h('span', { text: medalIcon })),
+                h('div', { class: 'leaderboard-info' },
+                  h('strong', { class: 'leaderboard-name', text: item.name }),
+                  h('span', { class: 'leaderboard-cat', text: item.category || 'Beverage' })
+                ),
+                h('div', { class: 'leaderboard-stats' },
+                  h('span', { class: 'leaderboard-qty', text: item.qty + ' units' }),
+                  h('strong', { class: 'leaderboard-rev', text: money(item.revenue || 0) })
+                )
+              );
+            })
+          )
+        );
+        leaderboardContainer.append(leaderboardWrap);
+      }
     }
 
     [catBtnDrinks, catBtnSnacks, catBtnAll].forEach(function(btn) {
@@ -1592,104 +1633,56 @@ window.CafeFlow = window.CafeFlow || {};
         datasets: [{
 
           data: data.values,
-
           backgroundColor: sliceColors,
-
           borderColor: '#ffffff',
-
-          borderWidth: 3,
-
-          hoverOffset: 8
-
+          borderWidth: 2.5,
+          spacing: 2,
+          hoverOffset: 6
         }]
-
       },
-
       options: {
-
         responsive: true,
-
         maintainAspectRatio: false,
-
-        cutout: '62%',
-
+        cutout: '68%',
         onHover: function(event, elements, ch) {
-
           var prev = ch._hoveredSliceIndex;
-
           if (elements && elements.length > 0) {
-
             ch._hoveredSliceIndex = elements[0].index;
-
             ch.canvas.style.cursor = 'pointer';
-
           } else {
-
             ch._hoveredSliceIndex = null;
-
             ch.canvas.style.cursor = 'default';
-
           }
-
           if (prev !== ch._hoveredSliceIndex) {
-
             ch.draw();
-
           }
-
         },
-
         plugins: {
-
           legend: {
-
             position: 'right',
-
             onHover: function(event, legendItem, legend) {
-
               var ch = legend.chart;
-
               if (ch && ch._hoveredSliceIndex !== legendItem.index) {
-
                 ch._hoveredSliceIndex = legendItem.index;
-
                 ch.canvas.style.cursor = 'pointer';
-
                 ch.draw();
-
               }
-
             },
-
             onLeave: function(event, legendItem, legend) {
-
               var ch = legend.chart;
-
               if (ch && ch._hoveredSliceIndex != null) {
-
                 ch._hoveredSliceIndex = null;
-
                 ch.canvas.style.cursor = 'default';
-
                 ch.draw();
-
               }
-
             },
-
             labels: {
-
-              boxWidth: 14,
-
-              boxHeight: 14,
-
+              boxWidth: 12,
+              boxHeight: 12,
               borderRadius: 3,
-
               useBorderRadius: true,
-
-              padding: 16,
-
-              font: { size: 12, weight: '600' },
+              padding: 14,
+              font: { family: "'Work Sans', sans-serif", size: 12, weight: '600' },
 
               generateLabels: function(ch) {
 
@@ -2260,19 +2253,47 @@ window.CafeFlow = window.CafeFlow || {};
               datasets: [{
                 label: 'Material Cost (₱)',
                 data: trendRows.map(t => Number(t.cost_php || 0)),
-                backgroundColor: 'rgba(232, 98, 58, 0.7)',
+                backgroundColor: 'rgba(232, 98, 58, 0.85)',
                 borderColor: '#e8623a',
                 borderWidth: 1.5,
-                borderRadius: 4
+                borderRadius: 5,
+                borderSkipped: false
               }]
             },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#162318',
+                  titleColor: '#ffffff',
+                  titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+                  bodyColor: 'rgba(255,255,255,0.9)',
+                  bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+                  padding: 10,
+                  cornerRadius: 8,
+                  borderColor: 'rgba(255,255,255,0.12)',
+                  borderWidth: 1,
+                  callbacks: {
+                    label: (c) => `  Material Waste: ₱${Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                  }
+                }
+              },
               scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, ticks: { callback: v => '₱' + v } }
+                x: {
+                  grid: { display: false },
+                  ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: '#5a7a63' }
+                },
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(22, 35, 24, 0.06)' },
+                  ticks: {
+                    font: { family: "'Work Sans', sans-serif", size: 11 },
+                    color: '#5a7a63',
+                    callback: v => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)
+                  }
+                }
               }
             }
           });
@@ -2281,6 +2302,85 @@ window.CafeFlow = window.CafeFlow || {};
     }
 
     body.append(section);
+  }
+
+  function renderExecutiveKpiGrid(r) {
+    const s = r.summary || {};
+    const totalSales = Number(s.total || 0);
+    const totalOrders = Number(s.orders || 0);
+    const cashSales = Number(s.cash || 0);
+    const gcashSales = Number(s.gcash || 0);
+    const aov = s.aov ? Number(s.aov) : (totalOrders > 0 ? totalSales / totalOrders : 0);
+    
+    // Operating days calculation for average pace
+    const opDays = (r.by_day && r.by_day.length > 0) ? r.by_day.length : 1;
+    const avgDailyOrders = opDays > 1 ? (totalOrders / opDays).toFixed(1) : totalOrders;
+
+    // Payment percentages
+    const totalTender = (cashSales + gcashSales) > 0 ? (cashSales + gcashSales) : 1;
+    const cashPct = Math.round((cashSales / totalTender) * 100);
+    const gcashPct = 100 - cashPct;
+
+    const grid = h('div', { class: 'sales-kpi-grid' },
+      // 1. Gross Sales Revenue
+      h('div', { class: 'sales-kpi-card hero-gross' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Gross Sales Revenue' }),
+          h('span', { class: 'sales-kpi-badge revenue', text: 'Total Settled' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(totalSales) }),
+        h('div', { class: 'sales-kpi-sub', text: `${totalOrders.toLocaleString()} completed customer ticket${totalOrders === 1 ? '' : 's'}` })
+      ),
+      // 2. Net Sales Revenue
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Net Realized Revenue' }),
+          h('span', { class: 'sales-kpi-badge net', text: '100% Retained' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(totalSales) }),
+        h('div', { class: 'sales-kpi-sub', text: '₱0.00 deductions · 100% net realization' })
+      ),
+      // 3. Transaction Volume
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Transaction Volume' }),
+          h('span', { class: 'sales-kpi-badge orders', text: `${opDays} Day${opDays === 1 ? '' : 's'}` })
+        ),
+        h('div', { class: 'sales-kpi-val', text: totalOrders.toLocaleString() }),
+        h('div', { class: 'sales-kpi-sub', text: opDays > 1 ? `Avg ${avgDailyOrders} tickets / trading day` : 'Single trading shift' })
+      ),
+      // 4. Average Ticket Value (ATV / AOV)
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Average Ticket Value (ATV)' }),
+          h('span', { class: 'sales-kpi-badge ticket', text: 'Per Order' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(aov) }),
+        h('div', { class: 'sales-kpi-sub', text: 'Average customer order size' })
+      ),
+      // 5. Cash vs GCash Distribution
+      h('div', { class: 'sales-kpi-card pay-split-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Cash vs. GCash Distribution' }),
+          h('span', { class: 'sales-kpi-badge split', text: 'Tender Split' })
+        ),
+        h('div', { class: 'pay-split-bar' },
+          h('div', { class: 'pay-split-seg cash', style: `width: ${cashPct}%;`, title: `Cash: ${cashPct}%` }),
+          h('div', { class: 'pay-split-seg gcash', style: `width: ${gcashPct}%;`, title: `GCash: ${gcashPct}%` })
+        ),
+        h('div', { class: 'pay-split-legend' },
+          h('span', { class: 'legend-item' },
+            h('span', { class: 'legend-dot cash' }),
+            h('span', { text: `Cash: ${money(cashSales)} (${cashPct}%)` })
+          ),
+          h('span', { class: 'legend-item' },
+            h('span', { class: 'legend-dot gcash' }),
+            h('span', { text: `GCash: ${money(gcashSales)} (${gcashPct}%)` })
+          )
+        )
+      )
+    );
+    return grid;
   }
 
   async function renderReport(r) {
@@ -2336,6 +2436,9 @@ window.CafeFlow = window.CafeFlow || {};
       h('span', { class: 'report-banner-meta', text: metaText })
 
     ));
+
+    // Render Executive 5-Card KPI Summary
+    body.append(renderExecutiveKpiGrid(r));
 
     // ---- Chart Selector (Sales Trend / Top Products / Payment Breakdown / Compare All) ----
     var hasHourly  = r.by_hour && r.by_hour.length > 0;

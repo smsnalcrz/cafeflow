@@ -40,10 +40,24 @@ foreach ($inventory as $inv) {
     $invByName[strtolower(trim($inv['name']))] = $inv;
 }
 
-// Calibrated monthly targets (Strictly ₱25,000 - ₱30,000, averaging ~₱27,400)
+// Calibrated monthly targets (Strictly ₱24,000 - ₱32,000, averaging ~₱27,200)
+// 2 Full Calendar Years: 2025 (Jan - Dec) and 2026 (Jan - Dec)
 $monthlyTargets = [
-    '2025-11' => 27300.00, // Early holiday build-up
-    '2025-12' => 29400.00, // Christmas / holiday peak
+    // 2025 (Full Year: Jan - Dec)
+    '2025-01' => 24800.00, // Post-holiday recovery
+    '2025-02' => 25400.00, // Valentine's month boost
+    '2025-03' => 26800.00, // Graduations / start of dry season
+    '2025-04' => 26500.00, // Summer vacation & Holy Week
+    '2025-05' => 27600.00, // Peak summer heat / cold beverage demand
+    '2025-06' => 25900.00, // School opening transition
+    '2025-07' => 25100.00, // Rainy season onset (Habagat)
+    '2025-08' => 26200.00, // Mid-rainy season
+    '2025-09' => 26900.00, // Ber-months commence
+    '2025-10' => 27500.00, // Semestral break & Halloween
+    '2025-11' => 27800.00, // Pre-holiday gathering build-up
+    '2025-12' => 29600.00, // Christmas / holiday peak
+
+    // 2026 (Full Year: Jan - Dec)
     '2026-01' => 25600.00, // Post-holiday dip
     '2026-02' => 26100.00, // Short month, Valentine's boost
     '2026-03' => 27400.00, // Summer start / graduations
@@ -54,6 +68,8 @@ $monthlyTargets = [
     '2026-08' => 27100.00, // Mid-rainy season
     '2026-09' => 27700.00, // Ber months begin
     '2026-10' => 28400.00, // Semestral break & Halloween
+    '2026-11' => 28900.00, // Pre-holiday build-up
+    '2026-12' => 31200.00, // Christmas / year-end celebration peak
 ];
 
 // Product popularity weights
@@ -745,10 +761,10 @@ if (!$fp) {
 }
 
 fwrite($fp, "-- ============================================================================\n");
-fwrite($fp, "-- CafeFlow POS - 1 Full Year of Realistic Mock Data (Small Café Scale)\n");
-fwrite($fp, "-- Period: November 1, 2025 - October 31, 2026 (12 Completed Calendar Months)\n");
-fwrite($fp, "-- Average Monthly Gross Sales: ₱25,000 - ₱30,000 (Target Average: ~₱27,500)\n");
-fwrite($fp, "-- Total Annual Gross Sales: ₱" . number_format($totalYearGross, 2) . "\n");
+fwrite($fp, "-- CafeFlow POS - 2 Full Years of Realistic Mock Data (Small Café Scale)\n");
+fwrite($fp, "-- Period: January 1, 2025 - December 31, 2026 (24 Full Calendar Months)\n");
+fwrite($fp, "-- Average Monthly Gross Sales: ₱25,000 - ₱31,000 (Target Average: ~₱27,200)\n");
+fwrite($fp, "-- Total Gross Sales: ₱" . number_format($totalYearGross, 2) . "\n");
 fwrite($fp, "-- Transactions: " . number_format($totalCompletedTx) . " Completed, " . number_format($totalCancelledTx) . " Cancelled\n");
 fwrite($fp, "-- Line Items: " . number_format($totalLineItems) . "\n");
 fwrite($fp, "-- Waste Records: " . number_format($totalWasteEvents) . "\n");
@@ -760,9 +776,18 @@ fwrite($fp, "SET SQL_MODE = 'NO_AUTO_VALUE_ON_ZERO';\n");
 fwrite($fp, "SET time_zone = '+08:00';\n\n");
 fwrite($fp, "START TRANSACTION;\n\n");
 
+// 0. Clean previous mock data for idempotent re-runs
+fwrite($fp, "-- ----------------------------------------------------------------------------\n");
+fwrite($fp, "-- 0. Clean Previous Mock Data (Preserves Audit Integrity & Non-Mock Transactions)\n");
+fwrite($fp, "-- ----------------------------------------------------------------------------\n");
+fwrite($fp, "DELETE FROM `transaction_items` WHERE `transaction_id` IN (SELECT `transaction_id` FROM `transactions` WHERE `is_mock` = 1);\n");
+fwrite($fp, "DELETE FROM `waste_log` WHERE `transaction_id` IN (SELECT `transaction_id` FROM `transactions` WHERE `is_mock` = 1) OR `wasted_at` BETWEEN '2025-01-01 00:00:00' AND '2026-12-31 23:59:59';\n");
+fwrite($fp, "DELETE FROM `transactions` WHERE `is_mock` = 1;\n");
+fwrite($fp, "DELETE FROM `waste_report_summary` WHERE `summary_date` BETWEEN '2025-01-01' AND '2026-12-31';\n\n");
+
 // 1. Transactions batch insert
 fwrite($fp, "-- ----------------------------------------------------------------------------\n");
-fwrite($fp, "-- 1. Sales & Order Transactions (12 Months: Nov 2025 - Oct 2026)\n");
+fwrite($fp, "-- 1. Sales & Order Transactions (24 Months: Jan 2025 - Dec 2026)\n");
 fwrite($fp, "-- ----------------------------------------------------------------------------\n");
 
 $batchSize = 250;

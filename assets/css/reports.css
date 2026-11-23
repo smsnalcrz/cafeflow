@@ -7,33 +7,49 @@
    SEGMENTED CONTROL (report period)
    ====================================================================== */
 .seg {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 3px;
-  gap: 3px;
+  gap: 2px;
   border-radius: var(--radius-sm);
   background: var(--parchment-mid);
   border: 1.5px solid var(--line);
+  flex-shrink: 0;
+  margin: 0;
+  box-sizing: border-box;
 }
 .seg button {
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 7px;
   background: transparent;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--muted);
   white-space: nowrap;
   border: none;
   cursor: pointer;
+  margin: 0;
+  box-sizing: border-box;
   transition: all var(--dur-fast);
 }
-.seg button:hover { color: var(--espresso); background: rgba(0,0,0,0.03); }
+.seg button:hover { color: var(--espresso); background: rgba(0,0,0,0.04); }
 .seg button.on {
   background: var(--espresso);
   color: #fff;
   font-weight: 700;
   box-shadow: 0 1px 3px rgba(22, 35, 24, 0.2);
+}
+
+/* Equal width distribution for waste period segments to eliminate awkward visual gaps */
+#wastePeriodSeg button {
+  min-width: 66px;
+  padding: 0 8px;
+  text-align: center;
 }
 
 /* ======================================================================
@@ -331,9 +347,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0 6px;
+  padding: 6px 0 4px;
   border-bottom: 1px solid var(--line);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -1236,8 +1252,9 @@
   border: 1.5px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 12px 14px;
-  height: 240px;
   min-height: 240px;
+  height: 100%;
+  box-sizing: border-box;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -1245,6 +1262,7 @@
 .top-sellers-chart-box canvas {
   width: 100% !important;
   height: 100% !important;
+  flex: 1;
 }
 .top-sellers-summary-panel {
   display: flex;
@@ -1255,6 +1273,8 @@
   border-radius: var(--radius-sm);
   padding: 14px 16px;
   min-height: 240px;
+  height: 100%;
+  box-sizing: border-box;
 }
 .summary-scope-header {
   display: flex;
@@ -1886,3 +1906,226 @@
   from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ======================================================================
+   EXECUTIVE SALES KPI SUMMARY GRID & LEADERBOARD
+   ====================================================================== */
+.sales-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.sales-kpi-card {
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+}
+.sales-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.sales-kpi-card.hero-gross {
+  border-left: 4px solid var(--caramel);
+  background: var(--surface);
+}
+.sales-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sales-kpi-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.sales-kpi-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--parchment-mid);
+  color: var(--muted);
+}
+.sales-kpi-badge.revenue {
+  background: var(--caramel-soft);
+  color: var(--caramel);
+}
+.sales-kpi-badge.net {
+  background: var(--green-light);
+  color: var(--green);
+}
+.sales-kpi-badge.orders {
+  background: rgba(26, 94, 203, 0.12);
+  color: var(--blue);
+}
+.sales-kpi-badge.ticket {
+  background: var(--parchment);
+  color: var(--ink-mid);
+}
+.sales-kpi-badge.split {
+  background: var(--caramel-soft);
+  color: var(--caramel);
+}
+.sales-kpi-val {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--ink);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+.sales-kpi-card.hero-gross .sales-kpi-val {
+  color: var(--caramel);
+}
+.sales-kpi-sub {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* Pay Split Bar in KPI Card */
+.pay-split-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 6px 0 4px;
+  background: var(--line);
+}
+.pay-split-seg.cash {
+  background: var(--green);
+  transition: width var(--dur-slow) var(--ease);
+}
+.pay-split-seg.gcash {
+  background: var(--blue);
+  transition: width var(--dur-slow) var(--ease);
+}
+.pay-split-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  flex-wrap: wrap;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.legend-dot.cash { background: var(--green); }
+.legend-dot.gcash { background: var(--blue); }
+
+/* Leaderboard Ranking in Top Sellers Panel (Full-Width Responsive Row) */
+.top-sellers-leaderboard-container {
+  width: 100%;
+}
+.top-sellers-leaderboard {
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.leaderboard-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.leaderboard-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  transition: transform var(--dur-fast), border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+.leaderboard-row:hover {
+  transform: translateY(-2px);
+  border-color: var(--caramel);
+  box-shadow: var(--shadow-xs);
+}
+.leaderboard-row.rank-gold {
+  border-left: 3.5px solid #f59e0b;
+}
+.leaderboard-row.rank-silver {
+  border-left: 3.5px solid #94a3b8;
+}
+.leaderboard-row.rank-bronze {
+  border-left: 3.5px solid #d97706;
+}
+.leaderboard-rank {
+  font-size: 17px;
+  font-weight: 800;
+  min-width: 24px;
+  text-align: center;
+  line-height: 1;
+}
+.leaderboard-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.leaderboard-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leaderboard-cat {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.leaderboard-stats {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+.leaderboard-qty {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.leaderboard-rev {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--espresso);
+}
+

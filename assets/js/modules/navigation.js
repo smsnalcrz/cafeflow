@@ -43,6 +43,9 @@ window.CafeFlow = window.CafeFlow || {};
     const wasteModal = $('#wasteModal');
     if (wasteModal) wasteModal.hidden = view !== 'waste';
 
+    const secModal = $('#security2faModal');
+    if (secModal) secModal.hidden = view !== 'security_2fa';
+
     const recModal = $('#receiptModal');
     if (recModal) recModal.hidden = true;
 
@@ -62,6 +65,7 @@ window.CafeFlow = window.CafeFlow || {};
     if (view !== 'accounts' && window.CafeFlow.accounts) {
       if (window.CafeFlow.accounts.closeAccountSheet) window.CafeFlow.accounts.closeAccountSheet();
       if (window.CafeFlow.accounts.closeResetPassSheet) window.CafeFlow.accounts.closeResetPassSheet();
+      if (window.CafeFlow.accounts.closeReset2faSheet) window.CafeFlow.accounts.closeReset2faSheet();
     }
 
     if (view !== 'report') {
@@ -89,6 +93,9 @@ window.CafeFlow = window.CafeFlow || {};
     }
     if (view === 'predictive' && currentUser.role === 'manager' && window.CafeFlow.predictive && window.CafeFlow.predictive.loadPredictiveView) {
       window.CafeFlow.predictive.loadPredictiveView();
+    }
+    if (view === 'security_2fa' && window.CafeFlow.security2fa && window.CafeFlow.security2fa.load2faStatus) {
+      window.CafeFlow.security2fa.load2faStatus();
     }
   }
 
@@ -128,6 +135,15 @@ window.CafeFlow = window.CafeFlow || {};
             showView(currentUser.role === 'manager' ? 'dashboard' : 'pos');
           }
         }
+      });
+    }
+
+    const openSecurity2faBtn = $('#openSecurity2faBtn');
+    if (openSecurity2faBtn) {
+      openSecurity2faBtn.addEventListener('click', () => {
+        if (profileDropdown) profileDropdown.hidden = true;
+        if (profileBtn) profileBtn.classList.remove('active');
+        showView('security_2fa');
       });
     }
 

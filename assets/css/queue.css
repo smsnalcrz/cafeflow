@@ -159,3 +159,4 @@
 .complete::before { content: "✓"; font-size: 14px; }
 .complete:not(:disabled):hover { filter: brightness(1.1); }
 .complete:not(:disabled):active { transform: scale(.97); }
+

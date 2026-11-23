@@ -21,19 +21,21 @@ if (!defined('SESSION_IDLE_TIMEOUT')) {
 function init_session(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
-        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
-                   (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        if (!headers_sent()) {
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                       (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
 
-        session_name(AUTH_SESSION_NAME);
-        session_set_cookie_params([
-            'lifetime' => 0,              // Valid until browser session ends
-            'path'     => '/',
-            'domain'   => '',
-            'secure'   => $isHttps,
-            'httponly' => true,           // Protect against XSS session theft
-            'samesite' => 'Lax'           // Protect against CSRF
-        ]);
-        session_start();
+            session_name(AUTH_SESSION_NAME);
+            session_set_cookie_params([
+                'lifetime' => 0,              // Valid until browser session ends
+                'path'     => '/',
+                'domain'   => '',
+                'secure'   => $isHttps,
+                'httponly' => true,           // Protect against XSS session theft
+                'samesite' => 'Lax'           // Protect against CSRF
+            ]);
+        }
+        @session_start();
     }
 }
 
@@ -309,4 +311,121 @@ function get_client_ip(): string
 {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
     return substr($ip, 0, 45);
+}
+
+/**
+ * 2FA Rate limit check: blocks after 5 failed 2FA attempts within 15 minutes.
+ */
+function is_2fa_rate_limited(int $userId, string $ip, PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) 
+              FROM two_factor_attempts 
+             WHERE user_id = ? 
+               AND ip_address = ?
+               AND success = 0 
+               AND attempt_time > DATE_SUB(NOW(), INTERVAL 15 MINUTE)
+        ");
+        $stmt->execute([$userId, $ip]);
+        $fails = (int) $stmt->fetchColumn();
+        return $fails >= 5;
+    } catch (Throwable $e) {
+        error_log('[CafeFlow 2FA RateLimit] ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Records a 2FA verification attempt.
+ */
+function record_2fa_attempt(int $userId, string $ip, string $attemptType, bool $success, PDO $pdo): void
+{
+    try {
+        $validType = in_array($attemptType, ['totp', 'recovery'], true) ? $attemptType : 'totp';
+        $stmt = $pdo->prepare('INSERT INTO two_factor_attempts (user_id, ip_address, attempt_type, success) VALUES (?, ?, ?, ?)');
+        $stmt->execute([$userId, $ip, $validType, $success ? 1 : 0]);
+        if ($success) {
+            $del = $pdo->prepare('DELETE FROM two_factor_attempts WHERE user_id = ? AND ip_address = ? AND success = 0');
+            $del->execute([$userId, $ip]);
+        }
+    } catch (Throwable $e) {
+        error_log('[CafeFlow 2FA RateLimit] ' . $e->getMessage());
+    }
+}
+
+/**
+ * Records an entry in the security audit log.
+ */
+function log_security_audit(PDO $pdo, ?int $actorUserId, ?int $targetUserId, string $action, ?array $metadata = null): void
+{
+    try {
+        $ip = get_client_ip();
+        $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? 'CLI/Unknown', 0, 255);
+        $metaJson = $metadata !== null ? json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
+
+        $stmt = $pdo->prepare('
+            INSERT INTO security_audit_log (actor_user_id, target_user_id, action, ip_address, user_agent, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ');
+        $stmt->execute([$actorUserId, $targetUserId, $action, $ip, $userAgent, $metaJson]);
+    } catch (Throwable $e) {
+        error_log('[CafeFlow Audit] ' . $e->getMessage());
+    }
+}
+
+/**
+ * Returns pending 2FA state from session, or null if not pending or expired (5 min).
+ */
+function get_pending_2fa(): ?array
+{
+    init_session();
+    if (empty($_SESSION['pending_2fa']) || !is_array($_SESSION['pending_2fa'])) {
+        return null;
+    }
+    $pending = $_SESSION['pending_2fa'];
+    $createdAt = (int) ($pending['created_at'] ?? 0);
+    // Strict 5-minute expiration
+    if (time() - $createdAt > 300) {
+        clear_pending_2fa();
+        return null;
+    }
+    return $pending;
+}
+
+/**
+ * Clears pending 2FA authentication state from session.
+ */
+function clear_pending_2fa(): void
+{
+    init_session();
+    unset($_SESSION['pending_2fa']);
+}
+
+/**
+ * Returns pending password reset state from session, or null if not pending or expired (5 min).
+ */
+function get_pending_password_reset(): ?array
+{
+    init_session();
+    if (empty($_SESSION['pending_password_reset']) || !is_array($_SESSION['pending_password_reset'])) {
+        return null;
+    }
+    $pending = $_SESSION['pending_password_reset'];
+    $createdAt = (int) ($pending['created_at'] ?? 0);
+    // Strict 5-minute expiration
+    if (time() - $createdAt > 300) {
+        clear_pending_password_reset();
+        return null;
+    }
+    return $pending;
+}
+
+/**
+ * Clears pending password reset state from session.
+ */
+function clear_pending_password_reset(): void
+{
+    init_session();
+    unset($_SESSION['pending_password_reset']);
 }

@@ -13,4 +13,10 @@
   .stats { grid-template-columns: repeat(3, 1fr) !important; }
   .stat { border: 1px solid #ccc !important; box-shadow: none !important; }
   .stat.big { background: #2c1a0e !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .sales-kpi-grid, .waste-kpi-grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 10px !important; margin-bottom: 14px !important; }
+  .sales-kpi-card, .waste-kpi-card { border: 1px solid #ccc !important; box-shadow: none !important; break-inside: avoid; background: #fff !important; color: #000 !important; }
+  .sales-kpi-val, .waste-kpi-val { color: #000 !important; }
+  .tx-table, .waste-table { width: 100% !important; border-collapse: collapse !important; }
+  .tx-table th, .tx-table td, .waste-table th, .waste-table td { border-bottom: 1px solid #ddd !important; color: #000 !important; }
+  .tx-view-btn { display: none !important; }
 }

@@ -12,12 +12,13 @@ window.CafeFlow = window.CafeFlow || {};
   const currentUser = (window.CafeFlow.config && window.CafeFlow.config.currentUser) || window.currentUser || { role: 'manager' };
   const api = window.CafeFlow.api;
 
-  let _wastePeriod = 'daily'; // 'hourly' | 'daily' | 'weekly' | 'yearly'
+  let _wastePeriod = 'daily'; // 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly'
   let _activeViewTab = 'overview'; // 'overview' | 'materials' | 'incomeloss' | 'log'
 
   const now = new Date();
   let _selectedDate = toIsoDate(now);
   let _selectedWeekStart = toIsoDate(addDays(now, -6));
+  let _selectedMonth = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}`;
   let _selectedYear = now.getFullYear();
 
   let _cachedData = null;
@@ -416,6 +417,8 @@ window.CafeFlow = window.CafeFlow || {};
       url += `&date=${encodeURIComponent(_selectedDate)}`;
     } else if (_wastePeriod === 'weekly') {
       url += `&week=${encodeURIComponent(_selectedWeekStart)}`;
+    } else if (_wastePeriod === 'monthly') {
+      url += `&month=${encodeURIComponent(_selectedMonth)}`;
     } else if (_wastePeriod === 'yearly') {
       url += `&year=${encodeURIComponent(_selectedYear)}`;
     }
@@ -436,6 +439,9 @@ window.CafeFlow = window.CafeFlow || {};
     const weeklyGrp = $('#wasteWeeklyPickerGroup');
     if (weeklyGrp) weeklyGrp.hidden = _wastePeriod !== 'weekly';
 
+    const monthlyGrp = $('#wasteMonthlyPickerGroup');
+    if (monthlyGrp) monthlyGrp.hidden = _wastePeriod !== 'monthly';
+
     const yearlyGrp = $('#wasteYearlyPickerGroup');
     if (yearlyGrp) yearlyGrp.hidden = _wastePeriod !== 'yearly';
 
@@ -447,6 +453,18 @@ window.CafeFlow = window.CafeFlow || {};
 
     const wDatePicker = $('#wasteWeeklyDatePicker');
     if (wDatePicker) wDatePicker.value = _selectedWeekStart;
+
+    const mPicker = $('#wasteMonthPicker');
+    if (mPicker) mPicker.value = _selectedMonth;
+
+    const mBadge = $('#wasteMonthlyBadge');
+    if (mBadge) {
+      const parts = (_selectedMonth || '').split('-');
+      if (parts.length === 2) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, 1);
+        mBadge.textContent = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      }
+    }
 
     const wBadge = $('#wasteWeeklyBadge');
     if (wBadge) {
@@ -620,19 +638,21 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'Income Loss (₱)',
             data: trendData.income_losses || [],
-            backgroundColor: 'rgba(184, 50, 38, 0.75)',
-            borderColor: '#b83226',
+            backgroundColor: 'rgba(220, 38, 38, 0.82)',
+            borderColor: '#dc2626',
             borderWidth: 1.5,
-            borderRadius: 4,
+            borderRadius: 5,
+            borderSkipped: false,
             yAxisID: 'y'
           },
           {
             label: 'Material Cost Loss (₱)',
             data: trendData.material_costs || [],
-            backgroundColor: 'rgba(232, 98, 58, 0.65)',
-            borderColor: '#e8623a',
+            backgroundColor: 'rgba(234, 88, 12, 0.82)',
+            borderColor: '#ea580c',
             borderWidth: 1.5,
-            borderRadius: 4,
+            borderRadius: 5,
+            borderSkipped: false,
             yAxisID: 'y'
           },
           {
@@ -640,11 +660,14 @@ window.CafeFlow = window.CafeFlow || {};
             label: 'Waste Events',
             data: trendData.waste_events || [],
             borderColor: '#162318',
-            backgroundColor: '#162318',
-            borderWidth: 2,
-            pointRadius: 3,
-            pointHoverRadius: 5,
-            tension: 0.25,
+            backgroundColor: '#ffffff',
+            borderWidth: 2.4,
+            pointBackgroundColor: '#ffffff',
+            pointBorderColor: '#162318',
+            pointBorderWidth: 2.2,
+            pointRadius: 3.5,
+            pointHoverRadius: 6.5,
+            tension: 0.35,
             yAxisID: 'y1'
           }
         ]
@@ -654,27 +677,52 @@ window.CafeFlow = window.CafeFlow || {};
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11, family: 'system-ui' } } },
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              padding: 14,
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
+            }
+          },
           tooltip: {
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               label: (ctx) => {
                 const label = ctx.dataset.label || '';
                 if (label.includes('₱')) {
-                  return `${label}: ₱${Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return `  ${label}: ₱${Number(ctx.parsed.y).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 }
-                return `${label}: ${ctx.parsed.y} event${ctx.parsed.y === 1 ? '' : 's'}`;
+                return `  ${label}: ${ctx.parsed.y} event${ctx.parsed.y === 1 ? '' : 's'}`;
               }
             }
           }
         },
         scales: {
-          x: { grid: { display: false } },
+          x: {
+            grid: { display: false },
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
+              color: '#5a7a63'
+            }
+          },
           y: {
             type: 'linear',
             position: 'left',
             beginAtZero: true,
+            grid: { color: 'rgba(22, 35, 24, 0.06)' },
             ticks: {
-              callback: (v) => '₱' + v
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
+              callback: (v) => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString())
             }
           },
           y1: {
@@ -682,7 +730,11 @@ window.CafeFlow = window.CafeFlow || {};
             position: 'right',
             beginAtZero: true,
             grid: { drawOnChartArea: false },
-            ticks: { precision: 0 }
+            ticks: {
+              font: { family: "'Work Sans', sans-serif", size: 11 },
+              color: '#5a7a63',
+              precision: 0
+            }
           }
         }
       }
@@ -705,23 +757,41 @@ window.CafeFlow = window.CafeFlow || {};
         datasets: [{
           data: costs,
           backgroundColor: [
-            '#e8623a', '#2a9b52', '#1a5ecb', '#b83226',
-            '#f07348', '#52C96E', '#8b5cf6', '#d97706'
+            '#e8623a', '#2a9b52', '#0284c7', '#dc2626',
+            '#d97706', '#8b5cf6', '#14b8a6', '#64748b'
           ],
-          borderWidth: 1.5,
-          borderColor: '#ffffff'
+          borderWidth: 2,
+          borderColor: '#ffffff',
+          spacing: 2
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '66%',
         plugins: {
-          legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } },
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 10,
+              padding: 12,
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
+            }
+          },
           tooltip: {
+            backgroundColor: '#162318',
+            titleColor: '#ffffff',
+            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            padding: 10,
+            cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               label: (ctx) => {
                 const val = Number(ctx.parsed);
-                return ` ${ctx.label}: ₱${val.toFixed(2)}`;
+                return `  ${ctx.label}: ₱${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
               }
             }
           }
@@ -864,18 +934,34 @@ window.CafeFlow = window.CafeFlow || {};
     const logs = data.logs || [];
 
     const card = h('div', { class: 'waste-table-card' });
+    
+    const reasonFilter = h('select', { class: 'waste-select-filter', 'aria-label': 'Filter by reason' },
+      h('option', { value: '', text: 'All Waste Reasons' }),
+      h('option', { value: 'cancel', text: 'Cancelled Orders' }),
+      h('option', { value: 'expire', text: 'Expired / Spoilage' }),
+      h('option', { value: 'spill', text: 'Spill / Damage' }),
+      h('option', { value: 'burnt', text: 'Burnt / Failed Batch' }),
+      h('option', { value: 'manual', text: 'Manual Waste Entry' })
+    );
+
+    const searchInput = h('input', {
+      type: 'search',
+      class: 'search-input',
+      placeholder: 'Search receipt, supply, product, staff...',
+      style: 'height: 36px; font-size: 13px; width: 240px;'
+    });
+
     const headerRow = h('div', { class: 'waste-table-header-row' },
       h('div', { class: 'waste-table-title-group' },
         h('h3', { text: `Waste Event Audit Log (${logs.length} logged record${logs.length === 1 ? '' : 's'})` }),
         h('span', { class: 'waste-table-subtitle', text: 'Real-time granular audit trail of all cancelled orders, raw supplies, and responsible staff' })
       ),
-      h('div', { class: 'waste-table-search-box' },
-        h('span', { text: '🔍' }),
-        h('input', {
-          type: 'search',
-          placeholder: 'Search receipt, supply, product, staff...',
-          oninput: (e) => filterTable(tbody, e.target.value)
-        })
+      h('div', { class: 'waste-table-controls' },
+        reasonFilter,
+        h('div', { class: 'waste-table-search-box' },
+          h('span', { text: '🔍' }),
+          searchInput
+        )
       )
     );
     card.append(headerRow);
@@ -896,6 +982,7 @@ window.CafeFlow = window.CafeFlow || {};
       h('thead', {}, h('tr', {},
         h('th', { text: 'Type / Order #' }),
         h('th', { text: 'Timestamp' }),
+        h('th', { text: 'Severity' }),
         h('th', { text: 'Menu Product' }),
         h('th', { text: 'Size' }),
         h('th', { class: 'num', text: 'Qty' }),
@@ -914,9 +1001,21 @@ window.CafeFlow = window.CafeFlow || {};
         ? h('span', { class: 'waste-pill', style: 'background: var(--parchment-mid); color: var(--muted); font-weight: 700;', text: 'Manual Waste' })
         : h('span', { style: 'font-family: monospace; font-weight: 700; color: var(--espresso);', text: log.receipt_no });
 
-      const tr = h('tr', {},
+      const costVal = parseFloat(log.estimated_cost_php || log.cost_php || 0);
+      let severityClass = 'low';
+      let severityLabel = 'Low (<₱50)';
+      if (costVal >= 200) {
+        severityClass = 'critical';
+        severityLabel = 'Critical (>₱200)';
+      } else if (costVal >= 50) {
+        severityClass = 'moderate';
+        severityLabel = 'Moderate (₱50-₱200)';
+      }
+
+      const tr = h('tr', { dataset: { reason: (log.reason || '').toLowerCase() } },
         h('td', {}, receiptCell),
         h('td', { style: 'white-space: nowrap;', text: log.formatted_datetime }),
+        h('td', {}, h('span', { class: 'severity-badge ' + severityClass, text: severityLabel })),
         h('td', { style: 'font-weight: 600;', text: log.product_name }),
         h('td', {}, h('span', { class: 'waste-pill unit', text: log.size_label || '—' })),
         h('td', { class: 'num', text: String(log.quantity) }),
@@ -928,6 +1027,20 @@ window.CafeFlow = window.CafeFlow || {};
       );
       tbody.append(tr);
     });
+
+    function filterLogs() {
+      const q = searchInput.value.trim().toLowerCase();
+      const r = reasonFilter.value.toLowerCase();
+      Array.from(tbody.querySelectorAll('tr')).forEach(row => {
+        const text = row.textContent.toLowerCase();
+        const rowReason = (row.dataset.reason || '').toLowerCase();
+        const matchesQuery = !q || text.includes(q);
+        const matchesReason = !r || rowReason.includes(r);
+        row.hidden = !(matchesQuery && matchesReason);
+      });
+    }
+    searchInput.addEventListener('input', filterLogs);
+    reasonFilter.addEventListener('change', filterLogs);
 
     tableWrap.append(table);
     card.append(tableWrap);
@@ -949,6 +1062,18 @@ window.CafeFlow = window.CafeFlow || {};
   function stepPeriod(delta) {
     if (_wastePeriod === 'yearly') {
       _selectedYear += delta;
+    } else if (_wastePeriod === 'monthly') {
+      const parts = (_selectedMonth || '').split('-');
+      let y = parseInt(parts[0], 10) || (new Date()).getFullYear();
+      let m = (parseInt(parts[1], 10) || ((new Date()).getMonth() + 1)) + delta;
+      if (m > 12) {
+        y += Math.floor((m - 1) / 12);
+        m = ((m - 1) % 12) + 1;
+      } else if (m < 1) {
+        y += Math.floor((m - 12) / 12);
+        m = 12 + (m % 12);
+      }
+      _selectedMonth = `${y}-${pad2(m)}`;
     } else if (_wastePeriod === 'weekly') {
       _selectedWeekStart = toIsoDate(addDays(parseIsoDate(_selectedWeekStart), delta * 7));
     } else {
@@ -1008,6 +1133,14 @@ window.CafeFlow = window.CafeFlow || {};
       loadWasteReport();
     });
 
+    const mPicker = $('#wasteMonthPicker');
+    if (mPicker) mPicker.addEventListener('change', (e) => {
+      if (e.target.value) {
+        _selectedMonth = e.target.value;
+        loadWasteReport();
+      }
+    });
+
     const ySelect = $('#wasteYearSelect');
     if (ySelect) ySelect.addEventListener('change', (e) => {
       _selectedYear = Number(e.target.value);
@@ -1030,6 +1163,13 @@ window.CafeFlow = window.CafeFlow || {};
     const jumpThisWeek = $('#wasteJumpThisWeekBtn');
     if (jumpThisWeek) jumpThisWeek.addEventListener('click', () => {
       _selectedWeekStart = toIsoDate(addDays(new Date(), -6));
+      loadWasteReport();
+    });
+
+    const jumpThisMonth = $('#wasteJumpThisMonthBtn');
+    if (jumpThisMonth) jumpThisMonth.addEventListener('click', () => {
+      const d = new Date();
+      _selectedMonth = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
       loadWasteReport();
     });
 

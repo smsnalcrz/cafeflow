@@ -110,9 +110,17 @@ window.CafeFlow = window.CafeFlow || {};
   }
 
   async function deleteInventoryItem(id, name) {
-    if (!confirm(`Are you sure you want to delete "${name}" from inventory? Any linked products will become unlinked.`)) {
-      return;
-    }
+    const confirmFn = (window.CafeFlow.utils && window.CafeFlow.utils.confirmDialog) || window.confirm;
+    const ok = await confirmFn({
+      title: 'Delete Inventory Supply',
+      subtitle: 'Inventory & Recipe Impact',
+      message: `Are you sure you want to delete "${name}" from inventory?`,
+      hint: 'Any menu products linked to this supply item via Bill of Materials (BOM) will become unlinked.',
+      confirmText: 'Delete Supply',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
     try {
       await api('inventory_api.php', { action: 'delete', item_id: id });
       toast(`Deleted "${name}" from inventory`);

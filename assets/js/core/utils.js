@@ -137,6 +137,139 @@ window.CafeFlow = window.CafeFlow || {};
   };
 
   /* ------------------------------------------------------------------ *
+   *  Universal Promise-Based Confirmation Dialog
+   * ------------------------------------------------------------------ */
+  function confirmDialog(options) {
+    return new Promise(resolve => {
+      const modal = $('#customConfirmModal');
+      if (!modal) {
+        const msg = typeof options === 'string' ? options : (options.message || 'Are you sure?');
+        return resolve(window.confirm(msg));
+      }
+
+      const opts = typeof options === 'string' ? { message: options } : (options || {});
+      const title = opts.title || 'Confirm Action';
+      const message = opts.message || 'Are you sure you want to proceed?';
+      const hint = opts.hint || '';
+      const confirmText = opts.confirmText || 'Confirm';
+      const cancelText = opts.cancelText || 'Cancel';
+      const type = opts.type || 'danger'; // 'danger' | 'warning' | 'primary' | 'success'
+
+      // Title & Subtitle
+      const titleEl = $('#confirmDialogTitle');
+      if (titleEl) titleEl.textContent = title;
+      const subEl = $('#confirmDialogSubtitle');
+      if (subEl) subEl.textContent = opts.subtitle || (type === 'danger' ? 'Confirmation Required' : 'Action Confirmation');
+
+      // Icon wrap theme & SVG icon
+      const iconWrap = $('#confirmDialogIconWrap');
+      if (iconWrap) {
+        iconWrap.className = 'confirm-dialog-icon-wrap ' + type;
+        if (type === 'success') {
+          iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>';
+        } else if (type === 'warning' || type === 'danger') {
+          iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+        } else {
+          iconWrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>';
+        }
+      }
+
+      // Message with @username and "quotes" bold highlighting
+      const msgEl = $('#confirmDialogMessage');
+      if (msgEl) {
+        const formatted = escapeHtml(message).replace(/(@[a-zA-Z0-9_\-]+|&quot;[^&]+&quot;)/g, '<strong>$1</strong>');
+        msgEl.innerHTML = formatted;
+      }
+
+      // Optional Hint
+      const hintEl = $('#confirmDialogHint');
+      if (hintEl) {
+        if (hint) {
+          hintEl.textContent = hint;
+          hintEl.hidden = false;
+        } else {
+          hintEl.hidden = true;
+          hintEl.textContent = '';
+        }
+      }
+
+      // Buttons
+      const cancelBtn = $('#confirmDialogCancelBtn');
+      const confirmBtn = $('#confirmDialogConfirmBtn');
+      const closeBtn = $('#confirmDialogCloseBtn');
+
+      if (cancelBtn) cancelBtn.textContent = cancelText;
+      if (confirmBtn) {
+        confirmBtn.textContent = confirmText;
+        confirmBtn.className = 'btn ' + (type === 'danger' ? 'danger' : (type === 'success' ? 'primary' : (type === 'warning' ? 'danger' : 'primary')));
+        if (type === 'success') {
+          confirmBtn.style.background = 'var(--green)';
+          confirmBtn.style.borderColor = 'var(--green)';
+          confirmBtn.style.color = '#ffffff';
+        } else {
+          confirmBtn.style.background = '';
+          confirmBtn.style.borderColor = '';
+          confirmBtn.style.color = '';
+        }
+      }
+
+      // Open Modal
+      modal.hidden = false;
+      modal.style.display = 'flex';
+      if (confirmBtn) confirmBtn.focus();
+
+      function cleanup(result) {
+        modal.hidden = true;
+        modal.style.display = 'none';
+        window.removeEventListener('keydown', onKeyDown);
+        if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+        if (confirmBtn) confirmBtn.removeEventListener('click', onConfirm);
+        if (closeBtn) closeBtn.removeEventListener('click', onCancel);
+        modal.removeEventListener('click', onBackdrop);
+        resolve(result);
+      }
+
+      function onConfirm() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+      function onBackdrop(e) { if (e.target === modal) cleanup(false); }
+      function onKeyDown(e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          cleanup(false);
+        } else if (e.key === 'Enter' && e.target !== cancelBtn) {
+          e.preventDefault();
+          cleanup(true);
+        }
+      }
+
+      if (cancelBtn) cancelBtn.addEventListener('click', onCancel);
+      if (confirmBtn) confirmBtn.addEventListener('click', onConfirm);
+      if (closeBtn) closeBtn.addEventListener('click', onCancel);
+      modal.addEventListener('click', onBackdrop);
+      window.addEventListener('keydown', onKeyDown);
+    });
+  }
+
+  // Failsafe initialization: ensure confirm modal is hidden and has emergency dismissal bindings
+  function initConfirmModalFailsafe() {
+    const m = $('#customConfirmModal');
+    if (!m) return;
+    m.hidden = true;
+    m.style.display = 'none';
+    const cBtn = $('#confirmDialogCancelBtn');
+    const xBtn = $('#confirmDialogCloseBtn');
+    const dismiss = () => { m.hidden = true; m.style.display = 'none'; };
+    if (cBtn && !cBtn._cfInit) { cBtn._cfInit = true; cBtn.addEventListener('click', dismiss); }
+    if (xBtn && !xBtn._cfInit) { xBtn._cfInit = true; xBtn.addEventListener('click', dismiss); }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initConfirmModalFailsafe);
+  } else {
+    initConfirmModalFailsafe();
+  }
+
+  /* ------------------------------------------------------------------ *
    *  Export to CafeFlow Namespace
    * ------------------------------------------------------------------ */
   window.CafeFlow.utils = {
@@ -148,6 +281,7 @@ window.CafeFlow = window.CafeFlow || {};
     h,
     emptyState,
     toast,
+    confirmDialog,
     tickClock,
     pad2,
     toIsoDate,

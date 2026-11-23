@@ -137,21 +137,28 @@ CREATE TABLE IF NOT EXISTS transaction_items (
 --  7. User Accounts & RBAC Authentication
 -- ------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (
-  user_id       INT UNSIGNED  NOT NULL AUTO_INCREMENT,
-  full_name     VARCHAR(100)  NOT NULL,
-  username      VARCHAR(50)   NOT NULL,
-  email         VARCHAR(100)  NULL DEFAULT NULL,
-  password_hash VARCHAR(255)  NOT NULL,
-  role          ENUM('barista', 'manager') NOT NULL DEFAULT 'barista',
-  status        ENUM('active', 'inactive', 'pending') NOT NULL DEFAULT 'active',
-  created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  last_login    DATETIME      NULL DEFAULT NULL,
+  user_id                     INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  full_name                   VARCHAR(100)  NOT NULL,
+  username                    VARCHAR(50)   NOT NULL,
+  email                       VARCHAR(100)  NULL DEFAULT NULL,
+  password_hash               VARCHAR(255)  NOT NULL,
+  role                        ENUM('barista', 'manager') NOT NULL DEFAULT 'barista',
+  status                      ENUM('active', 'inactive', 'pending') NOT NULL DEFAULT 'active',
+  created_at                  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at                  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_login                  DATETIME      NULL DEFAULT NULL,
+  two_factor_secret           VARCHAR(255)  NULL DEFAULT NULL,
+  two_factor_enabled          TINYINT(1)    NOT NULL DEFAULT 0,
+  two_factor_confirmed_at     DATETIME      NULL DEFAULT NULL,
+  two_factor_recovery_codes   TEXT          NULL DEFAULT NULL,
+  two_factor_last_used_step   BIGINT        NULL DEFAULT NULL,
+  two_factor_reenroll_required TINYINT(1)   NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_users_username (username),
   UNIQUE KEY uq_users_email (email),
   KEY idx_users_role (role),
-  KEY idx_users_status (status)
+  KEY idx_users_status (status),
+  KEY idx_users_2fa (two_factor_enabled)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
@@ -166,6 +173,32 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   PRIMARY KEY (id),
   KEY idx_attempt_ip (ip_address, attempt_time),
   KEY idx_attempt_user (username, attempt_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS two_factor_attempts (
+  id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id      INT UNSIGNED NOT NULL,
+  ip_address   VARCHAR(45)  NOT NULL,
+  attempt_type ENUM('totp', 'recovery') NOT NULL DEFAULT 'totp',
+  success      TINYINT(1)   NOT NULL DEFAULT 0,
+  attempt_time DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_2fa_attempts (user_id, ip_address, attempt_time, success)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS security_audit_log (
+  audit_id       INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  actor_user_id  INT UNSIGNED NULL DEFAULT NULL,
+  target_user_id INT UNSIGNED NULL DEFAULT NULL,
+  action         VARCHAR(50)  NOT NULL,
+  ip_address     VARCHAR(45)  NOT NULL,
+  user_agent     VARCHAR(255) NULL DEFAULT NULL,
+  metadata       TEXT         NULL DEFAULT NULL,
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (audit_id),
+  KEY idx_audit_actor (actor_user_id),
+  KEY idx_audit_target (target_user_id),
+  KEY idx_audit_action (action, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

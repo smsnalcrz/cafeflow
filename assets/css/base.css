@@ -41,6 +41,10 @@ h2, h3 { margin: 0; }
 /* ======================================================================
    BUTTONS
    ====================================================================== */
+[hidden] {
+  display: none !important;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -60,6 +64,13 @@ h2, h3 { margin: 0; }
   box-shadow: 0 2px 8px rgba(192,124,46,.3);
 }
 .btn.primary:not(:disabled):hover { filter: brightness(1.1); }
+.btn.danger {
+  background: var(--rose, #e05252);
+  color: #fff;
+  border: 1.5px solid var(--rose, #e05252);
+  box-shadow: 0 2px 8px rgba(224, 82, 82, 0.28);
+}
+.btn.danger:not(:disabled):hover { filter: brightness(1.08); }
 .btn.ghost {
   background: var(--parchment-mid);
   color: var(--ink);
