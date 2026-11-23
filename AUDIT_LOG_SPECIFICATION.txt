@@ -1,0 +1,343 @@
+================================================================================
+   CAFEFLOW POS - AUDIT LOG & USER ACTIVITY TRACKING SYSTEM
+   Master Architectural Specification & Implementation Prompt
+   Date: November 24, 2026
+   Target Branch: integration/main-onat
+================================================================================
+
+## 1. OBJECTIVE & EXECUTIVE OVERVIEW
+
+Implement a robust, tamper-resistant, high-performance Audit Logging and User 
+Activity Tracking Engine for the CafeFlow POS platform.
+
+The system must automatically record an immutable audit trail of user sessions, 
+view/tab transitions, administrative actions, financial transactions, and 
+security-sensitive events. The interface and underlying data must be strictly 
+isolated to users with the `manager` role.
+
+### Core Capabilities:
+1. Precise Timestamps: Microsecond-precision (`DATETIME(3)`) event recording 
+   calibrated to the store's configured timezone (`Asia/Manila`, UTC+08:00).
+2. Tab & View Navigation Tracking: Records every view visit (POS, Sales Reports, 
+   Waste Reports, Predictive Analytics, Inventory Modal, Account Management, 
+   Security & 2FA), including entry time, exit time, and duration on page.
+3. Critical Action Execution Trail: Tracks state-changing actions across the POS 
+   (order checkout, cancellation/voiding, inventory adjustments, recipe edits, 
+   account status toggling, password resets, and 2FA enrollments/resets).
+4. Session Duration & Heartbeat Monitoring: Tracks exact user login timestamps, 
+   logout timestamps, active session duration, and idle timeouts using an 
+   efficient client heartbeat mechanism.
+5. Strict Role-Based Access Control (RBAC): Audit log endpoints, UI views, and 
+   exports must be completely inaccessible to the `barista` role (HTTP 403) and 
+   exclusive to `manager` accounts.
+
+================================================================================
+2. DATABASE ARCHITECTURE (MYSQL / MARIADB SCHEMA)
+================================================================================
+
+The audit subsystem consists of two dedicated relational tables:
+1. `user_sessions`: Tracks login lifecycles, active duration, IP, and client metadata.
+2. `audit_logs`: Append-only chronological trail of system actions and tab visits.
+
+```sql
+-- -----------------------------------------------------------------------------
+-- Table 1: user_sessions (Session lifecycle & duration tracking)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+    `session_id` VARCHAR(64) NOT NULL PRIMARY KEY,
+    `user_id` INT UNSIGNED NOT NULL,
+    `ip_address` VARCHAR(45) NOT NULL,
+    `user_agent` VARCHAR(255) NOT NULL,
+    `auth_method` ENUM('password', 'password_2fa', 'direct_2fa') NOT NULL DEFAULT 'password',
+    `login_at` DATETIME(3) NOT NULL,
+    `last_heartbeat_at` DATETIME(3) NOT NULL,
+    `logout_at` DATETIME(3) NULL DEFAULT NULL,
+    `duration_seconds` INT UNSIGNED NOT NULL DEFAULT 0,
+    `logout_reason` ENUM('user_logout', 'timeout', 'revoked', 'session_expired') NULL DEFAULT NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_sessions_user_login` (`user_id`, `login_at`),
+    INDEX `idx_sessions_last_heartbeat` (`last_heartbeat_at`),
+    CONSTRAINT `fk_sessions_user` FOREIGN KEY (`user_id`) 
+        REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- Table 2: audit_logs (Granular activity & action trail)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+    `log_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    `session_id` VARCHAR(64) NULL,
+    `user_id` INT UNSIGNED NOT NULL,
+    `username_snapshot` VARCHAR(50) NOT NULL,
+    `user_role_snapshot` VARCHAR(20) NOT NULL,
+    `category` ENUM('navigation', 'pos_order', 'inventory', 'catalog', 'account', 'security', 'system') NOT NULL,
+    `action` VARCHAR(64) NOT NULL,
+    `description` VARCHAR(255) NOT NULL,
+    `target_type` VARCHAR(50) NULL DEFAULT NULL,
+    `target_id` VARCHAR(64) NULL DEFAULT NULL,
+    `metadata_json` JSON NULL DEFAULT NULL,
+    `ip_address` VARCHAR(45) NOT NULL,
+    `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    INDEX `idx_audit_created` (`created_at` DESC),
+    INDEX `idx_audit_user_created` (`user_id`, `created_at` DESC),
+    INDEX `idx_audit_category_created` (`category`, `created_at` DESC),
+    INDEX `idx_audit_action` (`action`),
+    INDEX `idx_audit_session` (`session_id`),
+    CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`) 
+        REFERENCES `users` (`user_id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+================================================================================
+3. SYSTEM ACTION TAXONOMY & AUDIT CATALOG
+================================================================================
+
+Every action logged in `audit_logs` must adhere to the standardized event schema:
+
+| Category | Action Key | Description Template | Sample Metadata JSON |
+|---|---|---|---|
+| `navigation` | `tab_view` | Viewed {tab_name} | `{"from_view": "pos", "to_view": "reports", "duration_prev_ms": 45000}` |
+| `security` | `auth_login` | Signed in successfully via {method} | `{"auth_method": "password_2fa", "ip": "127.0.0.1"}` |
+| `security` | `auth_logout` | User signed out | `{"reason": "user_logout", "session_duration_sec": 3840}` |
+| `security` | `auth_2fa_enabled` | Two-Factor Authentication enabled | `{"method": "totp"}` |
+| `security` | `auth_2fa_disabled` | Two-Factor Authentication disabled | `{"disabled_by": "self"}` |
+| `security` | `auth_2fa_reset` | Reset 2FA for employee @{username} | `{"target_user_id": 3, "manager_user_id": 1}` |
+| `account` | `user_create` | Created staff account @{username} | `{"role": "barista", "target_user_id": 4}` |
+| `account` | `user_status_toggle` | Set account @{username} to {status} | `{"old_status": "active", "new_status": "inactive"}` |
+| `account` | `password_reset` | Reset password for @{username} | `{"target_user_id": 3}` |
+| `pos_order` | `order_checkout` | Ring up Order #{tx_id} ({method}) | `{"tx_id": 154, "total": 280.00, "items_count": 2, "discount_type": "none"}` |
+| `pos_order` | `order_complete` | Completed Order #{tx_id} in Barista Queue | `{"tx_id": 154, "deducted_supplies": 4}` |
+| `pos_order` | `order_cancel` | Cancelled pending Order #{tx_id} | `{"tx_id": 154, "reason": "Customer changed mind"}` |
+| `pos_order` | `order_void` | Voided completed Order #{tx_id} | `{"tx_id": 152, "reason": "Accidental duplicate", "reversed_items": 3}` |
+| `inventory` | `stock_restock` | Restocked {qty} {unit} of {item_name} | `{"item_id": 12, "amount": 5000, "new_stock": 12400}` |
+| `inventory` | `stock_adjustment` | Adjusted stock of {item_name} | `{"item_id": 12, "old_stock": 20, "new_stock": 15}` |
+| `inventory` | `waste_manual` | Recorded manual waste: {qty} {unit} {item} | `{"cost_php": 45.00, "reason": "Spilled during rush"}` |
+| `catalog` | `product_create` | Added new menu product: {product_name} | `{"category": "Coffee", "price": 120.00, "has_sizes": 1}` |
+| `catalog` | `product_update` | Updated menu product: {product_name} | `{"changed_fields": ["price_16oz", "sizes"]}` |
+| `catalog` | `product_delete` | Deleted menu product: {product_name} | `{"product_id": 18}` |
+
+================================================================================
+4. BACKEND IMPLEMENTATION SPECIFICATION
+================================================================================
+
+### 4.1 Central Audit Helper (`core/audit.php`)
+Create `core/audit.php` to provide thread-safe, non-blocking logging utilities:
+
+```php
+<?php
+// core/audit.php
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth.php';
+
+function audit_log(
+    string $category,
+    string $action,
+    string $description,
+    ?string $targetType = null,
+    ?string $targetId = null,
+    ?array $metadata = null,
+    ?PDO $existingPdo = null
+): void {
+    try {
+        $pdo = $existingPdo ?: db();
+        $user = current_user();
+        if (!$user) return;
+
+        $userId = (int) $user['user_id'];
+        $username = $user['username'] ?? 'unknown';
+        $role = $user['role'] ?? 'unknown';
+        $sessionId = session_id();
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+
+        // Redact any sensitive passwords or tokens from metadata
+        if (is_array($metadata)) {
+            unset($metadata['password'], $metadata['confirm_password'], $metadata['secret'], $metadata['recovery_code']);
+        }
+
+        $stmt = $pdo->prepare('
+            INSERT INTO audit_logs (
+                session_id, user_id, username_snapshot, user_role_snapshot,
+                category, action, description, target_type, target_id,
+                metadata_json, ip_address, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(3))
+        ');
+        $stmt->execute([
+            $sessionId,
+            $userId,
+            $username,
+            $role,
+            $category,
+            $action,
+            substr($description, 0, 255),
+            $targetType,
+            $targetId ? (string)$targetId : null,
+            $metadata ? json_encode($metadata, JSON_UNESCAPED_SLASHES) : null,
+            $ip
+        ]);
+    } catch (Throwable $e) {
+        // Logging failure must never crash core POS operations; log to system error log
+        error_log('[CafeFlow Audit Log Failure] ' . $e->getMessage());
+    }
+}
+```
+
+### 4.2 Session Duration & Heartbeat Tracker (`api/heartbeat.php`)
+- Client pings `POST api/heartbeat.php` every 60 seconds (or on `visibilitychange`).
+- The server updates `user_sessions`:
+  `UPDATE user_sessions SET last_heartbeat_at = NOW(3), duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)) WHERE session_id = ?`
+- On explicit logout (`core/auth.php` -> `logout_user()`):
+  `UPDATE user_sessions SET logout_at = NOW(3), duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)), logout_reason = 'user_logout' WHERE session_id = ?`
+
+### 4.3 Manager Audit Log API (`api/audit_api.php`)
+- **GET `api/audit_api.php`**
+  - Strictly requires `require_role('manager')`.
+  - Supports filters:
+    * `user_id`: Filter by specific barista or manager.
+    * `category`: `navigation`, `pos_order`, `inventory`, `catalog`, `account`, `security`.
+    * `date_from`, `date_to`: ISO date range.
+    * `search`: Fulltext keyword search against description, username, and target ID.
+    * `limit`, `offset`: High-speed pagination.
+  - Returns:
+    * `logs`: Paginated array of audit items with formatted timestamps.
+    * `session_metrics`: Total active sessions today, average session duration, currently online users.
+    * `category_breakdown`: Count of actions per category.
+- **GET `api/audit_api.php?export=csv`**
+  - Generates downloadable CSV audit report formatted for Excel / compliance reporting.
+
+================================================================================
+5. FRONTEND NAVIGATION & CLIENT HOOK SPECIFICATION
+================================================================================
+
+### 5.1 Tab & View Navigation Tracking Hook (`assets/js/modules/navigation.js`)
+Hook into `showView(viewName)`:
+```javascript
+let currentViewStartTime = Date.now();
+let lastActiveView = 'pos';
+
+function trackViewVisit(newView) {
+  const now = Date.now();
+  const timeSpentMs = now - currentViewStartTime;
+
+  // Dispatch batched navigation beacon
+  if (navigator.sendBeacon) {
+    const payload = JSON.stringify({
+      category: 'navigation',
+      action: 'tab_view',
+      description: `Switched from ${lastActiveView} to ${newView}`,
+      metadata: { from_view: lastActiveView, to_view: newView, duration_prev_ms: timeSpentMs },
+      csrf_token: currentUser.csrf_token
+    });
+    navigator.sendBeacon('api/audit_beacon.php', payload);
+  }
+
+  lastActiveView = newView;
+  currentViewStartTime = now;
+}
+```
+
+### 5.2 Client Heartbeat Timer (`assets/js/core/session.js`)
+```javascript
+// Ping heartbeat every 60 seconds while window is active
+setInterval(() => {
+  if (document.visibilityState === 'visible' && currentUser && currentUser.user_id) {
+    fetch('api/heartbeat.php', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ csrf_token: currentUser.csrf_token })
+    }).catch(() => {});
+  }
+}, 60000);
+```
+
+================================================================================
+6. MANAGER AUDIT LOG USER INTERFACE SPECIFICATION
+================================================================================
+
+### 6.1 UI Placement & Role Isolation
+- **Top Navigation Bar:** Add an "Audit Log" button to the manager topbar lockup:
+  `[Inventory] [Sales Report] [Waste Reports] [Predictive Analytics] [Audit Log]`
+  (Rendered conditionally in `index.php` ONLY if `$user['role'] === 'manager'`).
+- **Audit View Container (`#viewAuditLogs`):**
+  1. **Header & KPI Bar:**
+     - Active Users Currently Online (Live status badge)
+     - Total Staff Sessions Today
+     - Total System Actions Logged Today
+     - Average Shift / Login Duration (e.g. `4h 32m`)
+  2. **Filter Controls:**
+     - Date Range Picker (Today, Yesterday, Last 7 Days, Custom Date Span)
+     - Staff Filter (All Staff, @manager, @barista, etc.)
+     - Event Category Filter Pills: `[All Events]` `[Navigation / Views]` `[Orders & Void]` `[Inventory & Waste]` `[Security & Accounts]`
+     - Search Box: Live instant filtering by keyword
+     - Export Action: `[Export Audit CSV]`
+  3. **Chronological Activity Feed / Table:**
+     - Columns:
+       * **Timestamp:** `Nov 24, 2026, 03:45:12 PM` (Relative time tooltip: `5 mins ago`)
+       * **User:** Staff pill with avatar initial + role badge (`@maria_barista` `BARISTA`)
+       * **Category:** Icon badge (e.g. green for Sales, amber for Inventory, red for Security)
+       * **Action & Description:** Clear human-readable summary (e.g. `Voided completed Order #142 (Accidental duplicate)`)
+       * **Session Duration:** Active time elapsed in current session (`2h 15m`)
+       * **IP Address:** Client IP (e.g. `192.168.1.15`)
+       * **Inspect Details:** Expandable drawer to view raw JSON metadata (cup size, items deducted, old vs new values)
+
+================================================================================
+7. SECURITY, PRIVACY & RETENTION REQUIREMENTS
+================================================================================
+
+1. Strict Redaction:
+   - PASSWORDS, PASSWORD HASHES, TOTP SECRETS, RECOVERY CODES, AND PAYMENT
+     CREDENTIALS MUST NEVER BE RECORDED IN AUDIT LOGS.
+2. Immutability:
+   - The `audit_logs` table must be strictly APPEND-ONLY.
+   - The `api/audit_api.php` file must NOT implement `UPDATE` or `DELETE` endpoints.
+   - Even managers cannot alter historical logs.
+3. Automated Retention & Archival:
+   - Provide a background maintenance script (`tools/cleanup_audit_logs.php`) that 
+     archives logs older than 180 days to compressed storage if required.
+4. Barista Quarantine:
+   - If any user with `role === 'barista'` attempts to call `api/audit_api.php`, 
+     the server immediately terminates with HTTP 403 Forbidden and logs a 
+     security warning event.
+
+================================================================================
+8. STEP-BY-STEP IMPLEMENTATION CHECKLIST
+================================================================================
+
+[ ] Step 1: Database Migration
+    [ ] Create `database/migrations/004_create_audit_tables.sql`.
+    [ ] Run schema migration to instantiate `user_sessions` and `audit_logs` tables.
+    [ ] Verify indexes on `created_at`, `user_id`, and `session_id`.
+
+[ ] Step 2: Backend Logging Helper
+    [ ] Implement `core/audit.php` with `audit_log()`.
+    [ ] Integrate `audit_log()` into:
+        - `api/auth_api.php`: login, logout, 2FA verify, password reset.
+        - `api/checkout.php`: order creation, payment tender, discount availment.
+        - `api/complete_order.php`: order queue completion & inventory consumption.
+        - `api/cancel_order.php`: order cancellation & voiding.
+        - `api/inventory_api.php`: restock, stock edit, supply deletion.
+        - `api/manual_waste.php`: waste logging.
+        - `api/products_api.php`: catalog modifications.
+        - `api/accounts_api.php`: user activation, deactivation, password reset, 2FA reset.
+
+[ ] Step 3: Session Lifecycle & Duration Tracking
+    [ ] Update `core/auth.php` (`login_user()` and `logout_user()`) to insert and close `user_sessions`.
+    [ ] Implement `api/heartbeat.php` with CSRF validation.
+    [ ] Implement client heartbeat in `assets/js/core/session.js`.
+
+[ ] Step 4: Navigation Tracking Hook
+    [ ] Create lightweight beacon endpoint `api/audit_beacon.php`.
+    [ ] Bind view transitions in `assets/js/modules/navigation.js` to log tab visits.
+
+[ ] Step 5: Manager Audit Log View & API
+    [ ] Implement `api/audit_api.php` with filtering, pagination, and CSV export.
+    [ ] Add "Audit Log" navigation tab to topbar in `index.php` (Manager role only).
+    [ ] Create `assets/js/modules/audit.js` and `assets/css/audit.css`.
+    [ ] Render audit timeline table, filter controls, live online indicator, and detail inspector.
+
+[ ] Step 6: Automated Test Verification
+    [ ] Create `tools/test_audit_suite.php`.
+    [ ] Assert Barista receives HTTP 403.
+    [ ] Assert Manager receives HTTP 200 with formatted session & audit logs.
+    [ ] Assert navigation tab visits record proper entry/exit durations.
+    [ ] Assert critical actions (void, checkout, restock) log accurate payloads.
+================================================================================
