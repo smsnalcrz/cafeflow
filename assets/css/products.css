@@ -434,7 +434,7 @@
   align-items: center;
   padding: 3px 9px;
   background: var(--parchment);
-  color: var(--espresso);
+  color: var(--ink);
   font-size: 11px;
   font-weight: 700;
   border-radius: 999px;
@@ -583,7 +583,7 @@
 .supply-name {
   font-weight: 700;
   font-size: 14.5px;
-  color: var(--espresso);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -641,7 +641,7 @@
 .supply-unit-lbl {
   font-size: 12px;
   font-weight: 700;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .supply-empty-msg {
   padding: 24px 16px;
@@ -686,7 +686,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  color: var(--espresso);
+  color: var(--ink);
   font-size: 13px;
   font-weight: 800;
   border-bottom: 1px solid var(--line);
@@ -721,4 +721,40 @@
   justify-content: flex-end;
   gap: 8px;
   margin-top: 4px;
+}
+
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR PRODUCT RECIPE & INGREDIENT MODALS
+   ====================================================================== */
+[data-theme="dark"] .quick-add-supply-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .quick-add-supply-card input {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+[data-theme="dark"] .supply-item {
+  background: var(--surface-raised) !important;
+  border-color: var(--line) !important;
+}
+[data-theme="dark"] .supply-item.selected {
+  background: var(--surface) !important;
+  border-color: var(--caramel) !important;
+}
+[data-theme="dark"] .supply-deduct-box {
+  background: var(--surface) !important;
+  border-color: var(--line) !important;
+}
+[data-theme="dark"] .supply-deduct-inp {
+  background: var(--surface-raised) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+[data-theme="dark"] .supply-count-badge {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
 }

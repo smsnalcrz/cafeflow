@@ -139,6 +139,13 @@ window.CafeFlow = window.CafeFlow || {};
         }
       });
     }
+
+    window.addEventListener('cafeflow:themechange', () => {
+      const mgrDashboard = $('#managerDashboard');
+      if (mgrDashboard && !mgrDashboard.hidden) {
+        loadManagerDashboard();
+      }
+    });
   }
 
   window.CafeFlow.dashboard = {

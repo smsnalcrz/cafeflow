@@ -130,13 +130,14 @@
     transform: scale(0.96);
   }
   .mob-pay-cash {
-    background: linear-gradient(135deg, #2b4532, #182a1d);
+    background: linear-gradient(135deg, #2E7D5B, #236548);
     color: #ffffff;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 6px rgba(46, 125, 91, 0.35);
   }
   .mob-pay-gcash {
-    background: linear-gradient(135deg, #1a5ecb, #1048a0);
+    background: linear-gradient(135deg, #7B5EA7, #674B92);
     color: #ffffff;
+    box-shadow: 0 2px 6px rgba(123, 94, 167, 0.35);
   }
 }
 

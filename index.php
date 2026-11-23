@@ -37,6 +37,16 @@ $cssModules = [
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#162318">
+  <script>
+    (function() {
+      try {
+        var s = localStorage.getItem('cafeflow_theme');
+        var t = s || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', t);
+        if (t === 'dark') document.documentElement.classList.add('dark-mode');
+      } catch (e) {}
+    })();
+  </script>
   <title>CafeFlow · DK Cafe</title>
   <?php foreach ($cssModules as $css): ?>
   <link rel="stylesheet" href="<?= $css ?>?v=<?= $ver($css) ?>">
@@ -93,6 +103,17 @@ $cssModules = [
       </button>
       <?php endif; ?>
 
+      <!-- Theme Toggle Button (Dark / Light Mode) -->
+      <div class="theme-toggle-wrap">
+        <button type="button" class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch Theme (Dark / Light)" title="Switch Theme (Dark / Light)" aria-pressed="false">
+          <span class="theme-icon-slot">
+            <svg class="theme-icon icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            <svg class="theme-icon icon-moon" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+          </span>
+          <span class="theme-toggle-text" id="themeToggleText">Dark</span>
+        </button>
+      </div>
+
       <!-- Profile Button in Topbar (Positioned between Sales Report and Clock) -->
       <div class="user-profile-wrap" id="userProfileWrap">
         <button type="button" class="profile-btn" id="profileBtn" aria-expanded="false" aria-haspopup="true" title="User Profile">
@@ -123,6 +144,12 @@ $cssModules = [
             </div>
           </div>
           <div class="profile-dropdown-menu">
+            <button type="button" class="dropdown-item" id="dropdownThemeToggle">
+              <span class="dropdown-item-icon">
+                <svg class="dropdown-svg" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+              </span>
+              <span id="dropdownThemeLabel">Switch to Dark Mode</span>
+            </button>
             <?php if ($currentRole === 'manager'): ?>
             <button type="button" class="dropdown-item" id="openAccountsBtn">
               <span class="dropdown-item-icon">
@@ -608,6 +635,7 @@ $cssModules = [
         <div class="modal-actions">
           <button type="button" class="btn small" id="toggleCalBtn" title="Open or close visual calendar">Calendar</button>
           <button type="button" class="btn small primary" id="exportExcelBtn" title="Export transactions to Excel spreadsheet">Export Excel (.xlsx)</button>
+          <button type="button" class="btn small" id="printReportBtn" title="Print executive report or export to PDF">🖨️ Print / PDF</button>
           <button type="button" class="btn ghost" data-close>Close</button>
         </div>
       </div>
@@ -1204,6 +1232,7 @@ $cssModules = [
   <script src="assets/js/vendor/chart.umd.min.js"></script>
   <script src="assets/js/core/config.js?v=<?= $ver('assets/js/core/config.js') ?>" defer></script>
   <script src="assets/js/core/utils.js?v=<?= $ver('assets/js/core/utils.js') ?>" defer></script>
+  <script src="assets/js/core/theme.js?v=<?= $ver('assets/js/core/theme.js') ?>" defer></script>
   <script src="assets/js/core/state.js?v=<?= $ver('assets/js/core/state.js') ?>" defer></script>
   <script src="assets/js/core/api.js?v=<?= $ver('assets/js/core/api.js') ?>" defer></script>
   <script src="assets/js/modules/icons.js?v=<?= $ver('assets/js/modules/icons.js') ?>" defer></script>

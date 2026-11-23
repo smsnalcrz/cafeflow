@@ -24,6 +24,11 @@ window.CafeFlow = window.CafeFlow || {};
   const { initWasteEvents } = window.CafeFlow.waste || {};
 
   function initApp() {
+    // 0. Initialize theme (dark / light mode)
+    if (window.CafeFlow.theme && window.CafeFlow.theme.initTheme) {
+      window.CafeFlow.theme.initTheme();
+    }
+
     // 1. Initialize event listeners across modules
     initNavEvents();
     initMenuEvents();

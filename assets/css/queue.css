@@ -97,7 +97,7 @@
 .ticket-no {
   font-size: 19px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .ticket-age {
@@ -118,8 +118,8 @@
   text-transform: uppercase;
   letter-spacing: .4px;
 }
-.pill-pay.cash  { background: var(--espresso); }
-.pill-pay.gcash { background: var(--blue); }
+.pill-pay.cash  { background: var(--green); }
+.pill-pay.gcash { background: var(--violet); }
 
 .ticket ul {
   margin: 0 0 12px;
@@ -154,8 +154,29 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  box-shadow: 0 3px 10px rgba(30,126,74,.3);
+  box-shadow: 0 3px 10px rgba(46, 125, 91, 0.3);
 }
 .complete::before { content: "✓"; font-size: 14px; }
 .complete:not(:disabled):hover { filter: brightness(1.1); }
 .complete:not(:disabled):active { transform: scale(.97); }
+
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR BARISTA QUEUE
+   ====================================================================== */
+[data-theme="dark"] .pill {
+  background: var(--caramel);
+  color: #ffffff;
+}
+[data-theme="dark"] .ticket {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .ticket-no {
+  color: var(--ink);
+}
+[data-theme="dark"] .ticket-age {
+  color: var(--muted);
+}
+[data-theme="dark"] .ticket ul {
+  color: var(--ink);
+}

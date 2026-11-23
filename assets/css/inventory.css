@@ -74,7 +74,7 @@
 .sheet-card h3 {
   font-size: 20px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   letter-spacing: -.3px;
 }
 .sheet-card label {
@@ -146,4 +146,30 @@
   color: var(--red);
   font-weight: 600;
   font-size: 14px;
+}
+
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR INVENTORY SHEETS
+   ====================================================================== */
+[data-theme="dark"] .sheet-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .sheet-card h3 {
+  color: var(--ink) !important;
+}
+[data-theme="dark"] .sheet-card label {
+  color: var(--muted) !important;
+}
+[data-theme="dark"] .sheet-card input,
+[data-theme="dark"] .sheet-card select,
+[data-theme="dark"] .sheet-card textarea {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+[data-theme="dark"] .sheet-card select option {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
 }

@@ -130,7 +130,7 @@ $csrfToken = get_csrf_token();
     .auth-card-title {
       font-size: 19px;
       font-weight: 800;
-      color: var(--espresso);
+      color: var(--ink);
       margin: 0 0 4px 0;
       letter-spacing: -0.3px;
     }
@@ -213,7 +213,7 @@ $csrfToken = get_csrf_token();
       display: block;
       font-size: 13px;
       font-weight: 700;
-      color: var(--espresso);
+      color: var(--ink);
       margin-bottom: 6px;
     }
     .auth-input-box {

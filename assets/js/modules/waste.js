@@ -912,7 +912,7 @@ window.CafeFlow = window.CafeFlow || {};
       const isManual = log.is_manual || log.receipt_no === 'Manual' || !log.transaction_id;
       const receiptCell = isManual
         ? h('span', { class: 'waste-pill', style: 'background: var(--parchment-mid); color: var(--muted); font-weight: 700;', text: 'Manual Waste' })
-        : h('span', { style: 'font-family: monospace; font-weight: 700; color: var(--espresso);', text: log.receipt_no });
+        : h('span', { style: 'font-family: monospace; font-weight: 700; color: var(--ink);', text: log.receipt_no });
 
       const tr = h('tr', {},
         h('td', {}, receiptCell),

@@ -62,7 +62,7 @@
   width: 28px;
 }
 .profile-avatar.role-manager {
-  background: #2b6cb0;
+  background: var(--violet);
 }
 
 .profile-meta {
@@ -96,7 +96,7 @@
   width: fit-content;
 }
 .profile-role-badge.role-manager {
-  background: #2b6cb0;
+  background: var(--violet);
   color: #fff;
 }
 .profile-role-badge.role-barista {
@@ -119,10 +119,10 @@
   top: calc(100% + 8px);
   right: 0;
   width: 250px;
-  background: #ffffff;
+  background: var(--surface-raised);
   color: var(--ink);
   border-radius: var(--radius);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-lg);
   border: 1px solid var(--line);
   padding: 8px 0;
   z-index: 1000;
@@ -154,7 +154,7 @@
   flex-shrink: 0;
 }
 .dropdown-avatar-lg.role-manager {
-  background: #2b6cb0;
+  background: var(--violet);
 }
 
 .dropdown-user-info {
@@ -165,7 +165,7 @@
 .dropdown-fullname {
   font-size: 14px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -190,7 +190,7 @@
   border-radius: 4px;
 }
 .dropdown-role-tag.role-barista { background: var(--caramel-soft); color: var(--caramel); }
-.dropdown-role-tag.role-manager { background: #ebf8ff; color: #2b6cb0; }
+.dropdown-role-tag.role-manager { background: var(--purple-light); color: var(--violet); }
 
 .profile-dropdown-menu {
   display: flex;
@@ -214,7 +214,7 @@
 }
 .dropdown-item:hover {
   background: var(--cream);
-  color: var(--espresso);
+  color: var(--ink);
 }
 .dropdown-item.danger {
   color: var(--red);
@@ -310,7 +310,7 @@
 .account-stat-card .stat-num {
   font-size: 24px;
   font-weight: 900;
-  color: var(--espresso);
+  color: var(--ink);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -332,7 +332,7 @@
   gap: 8px;
   padding: 10px 20px;
   border-bottom: 1px solid var(--line);
-  background: #ffffff;
+  background: var(--surface-card, #ffffff);
   overflow-x: auto;
 }
 .acc-filter-tab {
@@ -349,12 +349,12 @@
 }
 .acc-filter-tab:hover {
   background: var(--parchment);
-  color: var(--espresso);
+  color: var(--ink);
 }
 .acc-filter-tab.active {
-  background: var(--espresso);
+  background: var(--caramel, #C87D4B);
   color: #ffffff;
-  border-color: var(--espresso);
+  border-color: var(--caramel, #C87D4B);
 }
 
 /* Accounts Table & Tag Badges */
@@ -493,7 +493,7 @@
   background: var(--bg);
 }
 .mgr-welcome-banner {
-  background: linear-gradient(135deg, var(--espresso) 0%, #253d2b 100%);
+  background: linear-gradient(135deg, var(--espresso) 0%, var(--espresso-light) 100%);
   color: #ffffff;
   border-radius: var(--radius-lg);
   padding: 24px 28px;
@@ -501,25 +501,29 @@
   align-items: center;
   justify-content: space-between;
   box-shadow: var(--shadow);
+  border: 1.5px solid var(--espresso-light);
 }
 .mgr-welcome-banner h1 {
   margin: 0 0 6px;
   font-size: 24px;
   font-weight: 800;
   letter-spacing: -0.4px;
+  color: #FAF7F2;
 }
 .mgr-welcome-banner p {
   margin: 0;
   font-size: 14.5px;
-  opacity: 0.85;
+  opacity: 0.90;
+  color: #E0D5C9;
 }
 .mgr-banner-badge {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--caramel-soft);
+  color: #FAF7F2;
   padding: 6px 14px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--caramel);
 }
 
 .mgr-cards-grid {
@@ -529,11 +533,11 @@
 }
 .mgr-card.mgr-card-featured {
   grid-column: 1 / -1;
-  background: linear-gradient(135deg, #ffffff 0%, var(--parchment, #fbf7ee) 100%);
-  border-left: 4px solid var(--caramel, #e8623a);
+  background: linear-gradient(135deg, var(--surface-raised) 0%, var(--parchment-mid) 100%);
+  border-left: 4px solid var(--caramel);
 }
 .mgr-card {
-  background: #ffffff;
+  background: var(--surface-raised);
   border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   padding: 22px 24px;
@@ -542,11 +546,12 @@
   flex-direction: column;
   justify-content: space-between;
   min-height: 165px;
-  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast), border-color var(--dur-fast);
 }
 .mgr-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow);
+  border-color: rgba(200, 125, 75, 0.45);
 }
 .mgr-card-header {
   display: flex;
@@ -567,8 +572,8 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(45, 106, 79, 0.08);
-  color: var(--forest);
+  background: var(--caramel-soft);
+  color: var(--caramel);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -576,7 +581,8 @@
   transition: background var(--dur-fast), transform var(--dur-fast);
 }
 .mgr-card:hover .mgr-card-icon-badge {
-  background: rgba(45, 106, 79, 0.14);
+  background: var(--caramel);
+  color: #ffffff;
   transform: scale(1.05);
 }
 .mgr-card-icon-badge svg {
@@ -591,13 +597,23 @@
 .mgr-card-value {
   font-size: 32px;
   font-weight: 900;
-  color: var(--espresso);
+  color: var(--ink);
   margin: 8px 0;
   font-variant-numeric: tabular-nums;
 }
 .mgr-card-btn {
   margin-top: 10px;
   width: 100%;
+  background: var(--caramel);
+  border-color: var(--caramel);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(200, 125, 75, 0.25);
+  transition: all var(--dur-fast) ease;
+}
+.mgr-card-btn:hover {
+  background: var(--caramel-hover);
+  border-color: var(--caramel-hover);
+  box-shadow: 0 2px 8px rgba(176, 106, 59, 0.35);
 }
 
 @media (max-width: 900px) {
@@ -614,4 +630,50 @@
     grid-template-columns: 1fr;
     gap: 14px;
   }
+}
+
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR MANAGER HOME DASHBOARD
+   ====================================================================== */
+[data-theme="dark"] .manager-dashboard-container {
+  background: var(--bg);
+}
+[data-theme="dark"] .mgr-welcome-banner {
+  background: linear-gradient(135deg, var(--espresso) 0%, var(--espresso-light) 100%);
+  border: 1.5px solid var(--line);
+}
+[data-theme="dark"] .mgr-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .mgr-card.mgr-card-featured {
+  background: linear-gradient(135deg, var(--surface-raised) 0%, var(--surface) 100%);
+  border-left-color: var(--caramel);
+}
+[data-theme="dark"] .mgr-card-value {
+  color: var(--ink);
+}
+[data-theme="dark"] .mgr-card-title {
+  color: var(--muted);
+}
+[data-theme="dark"] .mgr-card-icon-badge {
+  background: var(--caramel-soft);
+  color: var(--caramel);
+}
+[data-theme="dark"] .mgr-chart-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .mgr-chart-card-head {
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme="dark"] .mgr-chart-card-title {
+  color: var(--ink);
+}
+[data-theme="dark"] .mgr-charts-title {
+  color: var(--ink);
+}
+[data-theme="dark"] .mgr-charts-subtitle {
+  color: var(--muted);
 }
