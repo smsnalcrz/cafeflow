@@ -41,6 +41,28 @@ window.CafeFlow = window.CafeFlow || {};
   let _forecastChart   = null;
   let _categoryChart   = null;
 
+  function getPredChartColors() {
+    const isDark = (document.documentElement.getAttribute('data-theme') === 'dark') || document.body.classList.contains('dark-mode');
+    return {
+      isDark,
+      caramel: isDark ? '#D98F5E' : '#C87D4B',
+      caramelHover: isDark ? '#E5A170' : '#B06A3B',
+      caramelSoft: isDark ? 'rgba(217, 143, 94, 0.22)' : 'rgba(200, 125, 75, 0.14)',
+      caramelPale: isDark ? 'rgba(217, 143, 94, 0.08)' : 'rgba(200, 125, 75, 0.04)',
+      green: isDark ? '#389B72' : '#2E7D5B',
+      blue: isDark ? '#7096E8' : '#2563EB',
+      violet: isDark ? '#A285D4' : '#7B5EA7',
+      text: isDark ? '#FAF7F2' : '#2C1E16',
+      muted: isDark ? '#B8A89A' : '#6F5E53',
+      grid: isDark ? 'rgba(250, 247, 242, 0.08)' : 'rgba(44, 30, 22, 0.08)',
+      tooltipBg: isDark ? '#1F150F' : '#2C1E16',
+      tooltipBorder: isDark ? '#3D2A1F' : 'rgba(255, 255, 255, 0.15)',
+      cardBg: isDark ? '#2C211A' : '#FFFFFF',
+      surface: isDark ? '#221913' : '#FAF7F2',
+      pointBg: isDark ? '#2C211A' : '#FFFFFF'
+    };
+  }
+
   function destroyAllPredCharts() {
     if (_rushChart) {
       try { _rushChart.destroy(); } catch (_) {}
@@ -481,9 +503,10 @@ window.CafeFlow = window.CafeFlow || {};
         return 45; // 3 baristas evening
       });
 
+      const colors = getPredChartColors();
       const grad = ctx.createLinearGradient(0, 0, 0, 280);
-      grad.addColorStop(0, 'rgba(192, 124, 46, 0.35)');
-      grad.addColorStop(1, 'rgba(192, 124, 46, 0.02)');
+      grad.addColorStop(0, colors.isDark ? 'rgba(217, 143, 94, 0.35)' : 'rgba(200, 125, 75, 0.32)');
+      grad.addColorStop(1, colors.isDark ? 'rgba(217, 143, 94, 0.02)' : 'rgba(200, 125, 75, 0.02)');
 
       _rushChart = new Chart(ctx, {
         type: 'line',
@@ -494,8 +517,8 @@ window.CafeFlow = window.CafeFlow || {};
               type: 'bar',
               label: 'Projected Sales (₱)',
               data: sales,
-              backgroundColor: 'rgba(192, 124, 46, 0.82)',
-              borderColor: '#c07c2e',
+              backgroundColor: colors.isDark ? 'rgba(217, 143, 94, 0.82)' : 'rgba(200, 125, 75, 0.82)',
+              borderColor: colors.caramel,
               borderWidth: 1.2,
               borderRadius: 5,
               borderSkipped: false,
@@ -505,13 +528,13 @@ window.CafeFlow = window.CafeFlow || {};
               type: 'line',
               label: 'Expected Orders',
               data: orders,
-              borderColor: '#2a9b52',
-              backgroundColor: '#ffffff',
+              borderColor: colors.green,
+              backgroundColor: colors.pointBg,
               borderWidth: 2.4,
               pointRadius: 3.5,
               pointHoverRadius: 6,
-              pointBackgroundColor: '#ffffff',
-              pointBorderColor: '#2a9b52',
+              pointBackgroundColor: colors.pointBg,
+              pointBorderColor: colors.green,
               pointBorderWidth: 2,
               tension: 0.35,
               fill: false,
@@ -521,7 +544,7 @@ window.CafeFlow = window.CafeFlow || {};
               type: 'line',
               label: 'Shift Service Capacity',
               data: capacityOrders,
-              borderColor: 'rgba(37, 99, 235, 0.75)',
+              borderColor: colors.blue,
               borderWidth: 1.8,
               borderDash: [5, 4],
               pointRadius: 0,
@@ -541,18 +564,19 @@ window.CafeFlow = window.CafeFlow || {};
               labels: {
                 boxWidth: 12,
                 padding: 14,
+                color: colors.muted,
                 font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
               }
             },
             tooltip: {
-              backgroundColor: '#162318',
-              titleColor: '#ffffff',
+              backgroundColor: colors.tooltipBg,
+              titleColor: colors.text,
               titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-              bodyColor: 'rgba(255,255,255,0.9)',
+              bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
               bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
               padding: 10,
               cornerRadius: 8,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: colors.tooltipBorder,
               borderWidth: 1,
               callbacks: {
                 label: (c) => c.dataset.label.indexOf('Sales') >= 0 ? `  Sales: ${money(c.parsed.y)}` : `  ${c.dataset.label}: ${c.parsed.y} orders/hr`
@@ -562,14 +586,14 @@ window.CafeFlow = window.CafeFlow || {};
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: '#5a7a63' }
+              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: colors.text }
             },
             y: {
               beginAtZero: true,
-              grid: { color: 'rgba(22, 35, 24, 0.06)' },
+              grid: { color: colors.grid },
               ticks: {
                 font: { family: "'Work Sans', sans-serif", size: 11 },
-                color: '#5a7a63',
+                color: colors.muted,
                 callback: v => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString())
               }
             },
@@ -577,7 +601,7 @@ window.CafeFlow = window.CafeFlow || {};
               position: 'right',
               beginAtZero: true,
               grid: { drawOnChartArea: false },
-              ticks: { font: { family: "'Work Sans', sans-serif", size: 11 }, color: '#5a7a63', precision: 0 }
+              ticks: { font: { family: "'Work Sans', sans-serif", size: 11 }, color: colors.muted, precision: 0 }
             }
           }
         }
@@ -706,6 +730,7 @@ window.CafeFlow = window.CafeFlow || {};
       const upper = days.map(d => d.confidence_upper * simMult);
       const lower = days.map(d => d.confidence_lower * simMult);
 
+      const colors = getPredChartColors();
       _forecastChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -714,21 +739,21 @@ window.CafeFlow = window.CafeFlow || {};
             {
               label: 'Projected Sales (₱)',
               data: sales,
-              borderColor: '#c07c2e',
-              backgroundColor: 'rgba(192, 124, 46, 0.14)',
+              borderColor: colors.caramel,
+              backgroundColor: colors.caramelSoft,
               borderWidth: 2.4,
               fill: true,
               tension: 0.28,
               pointRadius: 4,
               pointHoverRadius: 6.5,
-              pointBackgroundColor: '#ffffff',
-              pointBorderColor: '#c07c2e',
+              pointBackgroundColor: colors.pointBg,
+              pointBorderColor: colors.caramel,
               pointBorderWidth: 2.2
             },
             {
               label: 'Upper Confidence (₱)',
               data: upper,
-              borderColor: 'rgba(192, 124, 46, 0.4)',
+              borderColor: colors.isDark ? 'rgba(217, 143, 94, 0.45)' : 'rgba(200, 125, 75, 0.4)',
               borderDash: [4, 4],
               borderWidth: 1.4,
               fill: false,
@@ -738,7 +763,7 @@ window.CafeFlow = window.CafeFlow || {};
             {
               label: 'Lower Confidence (₱)',
               data: lower,
-              borderColor: 'rgba(192, 124, 46, 0.4)',
+              borderColor: colors.isDark ? 'rgba(217, 143, 94, 0.45)' : 'rgba(200, 125, 75, 0.4)',
               borderDash: [4, 4],
               borderWidth: 1.4,
               fill: false,
@@ -756,18 +781,19 @@ window.CafeFlow = window.CafeFlow || {};
               labels: {
                 boxWidth: 12,
                 padding: 14,
+                color: colors.muted,
                 font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
               }
             },
             tooltip: {
-              backgroundColor: '#162318',
-              titleColor: '#ffffff',
+              backgroundColor: colors.tooltipBg,
+              titleColor: colors.text,
               titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-              bodyColor: 'rgba(255,255,255,0.9)',
+              bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
               bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
               padding: 10,
               cornerRadius: 8,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: colors.tooltipBorder,
               borderWidth: 1,
               callbacks: { label: c => `  ${c.dataset.label}: ${money(c.parsed.y)}` }
             }
@@ -775,14 +801,14 @@ window.CafeFlow = window.CafeFlow || {};
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: '#5a7a63' }
+              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: colors.text }
             },
             y: {
               beginAtZero: false,
-              grid: { color: 'rgba(22, 35, 24, 0.06)' },
+              grid: { color: colors.grid },
               ticks: {
                 font: { family: "'Work Sans', sans-serif", size: 11 },
-                color: '#5a7a63',
+                color: colors.muted,
                 callback: v => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString())
               }
             }
@@ -1051,11 +1077,12 @@ window.CafeFlow = window.CafeFlow || {};
       const ctx = canvas.getContext('2d');
       const labels = months.map(m => m.month_name);
       const sales = months.map(m => m.projected_sales * simMult);
+      const colors = getPredChartColors();
       const bgColors = months.map(m => {
-        if (m.month_num >= 3 && m.month_num <= 5) return 'rgba(192, 124, 46, 0.85)'; // Summer peak
-        if (m.month_num >= 6 && m.month_num <= 8) return 'rgba(42, 120, 155, 0.75)'; // Monsoon lull
-        if (m.month_num >= 9 && m.month_num <= 12) return 'rgba(42, 155, 82, 0.85)'; // Holiday surge
-        return 'rgba(90, 110, 96, 0.75)'; // Baseline
+        if (m.month_num >= 3 && m.month_num <= 5) return colors.isDark ? 'rgba(217, 143, 94, 0.85)' : 'rgba(200, 125, 75, 0.85)'; // Summer peak
+        if (m.month_num >= 6 && m.month_num <= 8) return colors.isDark ? 'rgba(112, 150, 232, 0.80)' : 'rgba(43, 108, 176, 0.75)'; // Monsoon lull
+        if (m.month_num >= 9 && m.month_num <= 12) return colors.isDark ? 'rgba(56, 155, 114, 0.85)' : 'rgba(46, 125, 91, 0.85)'; // Holiday surge
+        return colors.isDark ? 'rgba(184, 168, 154, 0.70)' : 'rgba(111, 94, 83, 0.75)'; // Baseline
       });
 
       _forecastChart = new Chart(ctx, {
@@ -1070,7 +1097,7 @@ window.CafeFlow = window.CafeFlow || {};
               borderRadius: 6,
               borderSkipped: false,
               borderWidth: 1,
-              borderColor: 'transparent'
+              borderColor: colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'transparent'
             }
           ]
         },
@@ -1080,14 +1107,14 @@ window.CafeFlow = window.CafeFlow || {};
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: '#162318',
-              titleColor: '#ffffff',
+              backgroundColor: colors.tooltipBg,
+              titleColor: colors.text,
               titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-              bodyColor: 'rgba(255,255,255,0.9)',
+              bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
               bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
               padding: 10,
               cornerRadius: 8,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: colors.tooltipBorder,
               borderWidth: 1,
               callbacks: {
                 label: c => `  Projected: ${money(c.parsed.y)} (${Math.round((months[c.dataIndex]?.projected_orders || 0) * simMult).toLocaleString()} orders)`
@@ -1097,14 +1124,14 @@ window.CafeFlow = window.CafeFlow || {};
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '700' }, color: '#5a7a63' }
+              ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '700' }, color: colors.text }
             },
             y: {
               beginAtZero: true,
-              grid: { color: 'rgba(22, 35, 24, 0.06)' },
+              grid: { color: colors.grid },
               ticks: {
                 font: { family: "'Work Sans', sans-serif", size: 11 },
-                color: '#5a7a63',
+                color: colors.muted,
                 callback: v => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString())
               }
             }
@@ -1185,6 +1212,7 @@ window.CafeFlow = window.CafeFlow || {};
 
     // Render Doughnut Chart
     requestAnimationFrame(() => {
+      const colors = getPredChartColors();
       const ctx = catCanvas.getContext('2d');
       const catKeys = Object.keys(macroCats);
       const shares = catKeys.map(k => macroCats[k].share_pct);
@@ -1195,14 +1223,19 @@ window.CafeFlow = window.CafeFlow || {};
           labels: catKeys,
           datasets: [{
             data: shares,
-            backgroundColor: [
-              '#c07c2e', // Coffee Caramel
-              '#2b6cb0', // Milk Blue
-              '#2a9b52', // Fruit Green
-              '#8c5314'  // Pastry Deep
+            backgroundColor: colors.isDark ? [
+              '#D98F5E', // Warm Caramel
+              '#7096E8', // Milk Blue
+              '#389B72', // Fruit Green
+              '#A285D4'  // Pastry Violet
+            ] : [
+              '#C87D4B', // Coffee Caramel
+              '#2563EB', // Milk Blue
+              '#2E7D5B', // Fruit Green
+              '#7B5EA7'  // Pastry Deep
             ],
             borderWidth: 2,
-            borderColor: '#ffffff',
+            borderColor: colors.cardBg,
             spacing: 2
           }]
         },
@@ -1215,18 +1248,19 @@ window.CafeFlow = window.CafeFlow || {};
               labels: {
                 boxWidth: 10,
                 padding: 12,
+                color: colors.text,
                 font: { family: "'Work Sans', sans-serif", size: 10.5, weight: '600' }
               }
             },
             tooltip: {
-              backgroundColor: '#162318',
-              titleColor: '#ffffff',
+              backgroundColor: colors.tooltipBg,
+              titleColor: colors.text,
               titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-              bodyColor: 'rgba(255,255,255,0.9)',
+              bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
               bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
               padding: 10,
               cornerRadius: 8,
-              borderColor: 'rgba(255,255,255,0.12)',
+              borderColor: colors.tooltipBorder,
               borderWidth: 1,
               callbacks: { label: c => `  ${c.label}: ${c.parsed}% share` }
             }
@@ -1619,6 +1653,15 @@ window.CafeFlow = window.CafeFlow || {};
         window.CafeFlow.nav.showView('predictive');
       });
     }
+
+    // Dynamic theme change listener: re-render predictive analytics when dark/light mode toggles
+    window.addEventListener('cafeflow:themechange', () => {
+      const predModal = $('#predictiveModal');
+      const container = $('#predictiveBody');
+      if (predModal && !predModal.hidden && container && _activeData) {
+        renderPredictiveDashboard(container, _activeData);
+      }
+    });
   }
 
   window.CafeFlow.predictive = {
