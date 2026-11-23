@@ -1,40 +1,52 @@
 /* ======================================================================
-   DESIGN TOKENS & SYSTEM VARIABLES
+   DESIGN TOKENS & SYSTEM VARIABLES (LIGHT & DARK THEMES)
    ====================================================================== */
-/* ======================================================================
-   DESIGN TOKENS
-   ====================================================================== */
+
+/* ----------------------------------------------------------------------
+   LIGHT THEME (DEFAULT)
+   ---------------------------------------------------------------------- */
 :root {
-  /* Brand palette — derived from DK Cafe logo
-     Orange flame : #E8623A  |  Green leaf : #52C96E  |  Dark forest : #162318 */
-  --espresso:       #162318;   /* deep forest green  (replaces dark brown) */
-  --espresso-light: #1f3325;   /* slightly lighter forest */
-  --caramel:        #e8623a;   /* logo orange flame  (replaces caramel) */
-  --caramel-mid:    #f07348;   /* lighter orange     */
-  --caramel-soft:   #fde8e0;   /* pale orange tint   */
-  --caramel-pale:   #fff5f1;   /* very pale orange   */
-  --cream:          #f5faf6;   /* very light green-tinted white */
-  --parchment:      #edf5ef;   /* light sage parchment */
-  --parchment-mid:  #d9ece0;   /* mid sage */
+  /* Brand palette — 60-30-10 Interior Coffee Design Rule
+     60% Canvas & Cards: #FAF7F2 (steamed-milk cream), #FFFFFF (cards & modals), #E6DDD3 (subtle oat borders)
+     30% Espresso Structure: #2C1E16 (dark espresso headers & text), #6F5E53 (mocha secondary labels)
+     10% Signature Accent: #C87D4B (warm caramel, hover #B06A3B, active tabs, focus ring)
+     Artisan Accent: #7B5EA7 (artisan violet for digital GCash & executive metrics)
+     Status Badges: #2E7D5B (fresh/completed), #D9822B (low stock/degassing), #C93B3B (expired/wastage) */
+  --espresso:       #2C1E16;   /* 30% Dark espresso primary structure */
+  --espresso-light: #3D2B20;   /* elevated espresso structure */
+  --caramel:        #C87D4B;   /* 10% Warm signature caramel accent */
+  --caramel-hover:  #B06A3B;   /* warm caramel hover */
+  --caramel-mid:    #D68F60;   /* lighter warm caramel */
+  --caramel-soft:   rgba(200, 125, 75, 0.14); /* pale caramel tint */
+  --caramel-pale:   rgba(200, 125, 75, 0.08); /* very pale caramel */
+  --cream:          #FAF7F2;   /* steamed-milk cream */
+  --parchment:      #FAF7F2;   /* 60% steamed-milk cream canvas */
+  --parchment-mid:  #F2ECE4;   /* mid oat tint */
 
   /* Semantic surfaces */
-  --bg:             var(--parchment);
-  --surface:        #fafefc;
-  --surface-raised: #ffffff;
-  --ink:            #0e1e12;   /* very dark green-black */
-  --ink-mid:        #1f3b28;
-  --muted:          #5a7a63;   /* muted sage */
-  --line:           #cde5d4;
+  --bg:             #FAF7F2;   /* 60% steamed-milk cream background */
+  --surface:        #FAF7F2;   /* steamed-milk surface */
+  --surface-raised: #FFFFFF;   /* pure white cards & modals */
+  --surface-card:   #FFFFFF;
+  --ink:            #2C1E16;   /* dark espresso primary text */
+  --ink-mid:        #4A392F;   /* espresso secondary */
+  --muted:          #6F5E53;   /* mocha secondary labels */
+  --line:           #E6DDD3;   /* subtle oat-milk borders */
+  --line-subtle:    #EFE7DE;
 
-  /* State colours */
-  --green:          #2a9b52;   /* logo leaf green, boosted */
-  --green-light:    #e4f7ec;
-  --blue:           #1a5ecb;
-  --blue-light:     #e8f0fc;
-  --red:            #b83226;
-  --red-light:      #fcecea;
-  --amber:          #e8623a;   /* reuse logo orange for amber/warn */
-  --amber-light:    #fde8e0;
+  /* State colours & Badges */
+  --green:          #2E7D5B;   /* fresh / in-stock / completed / cash */
+  --green-light:    rgba(46, 125, 91, 0.12);
+  --blue:           #7B5EA7;   /* artisan violet for digital GCash tender */
+  --blue-light:     rgba(123, 94, 167, 0.12);
+  --red:            #C93B3B;   /* expired / wastage / out-of-stock / loss */
+  --red-light:      rgba(201, 59, 59, 0.12);
+  --amber:          #D9822B;   /* low stock / bean degassing window / pending */
+  --amber-light:    rgba(217, 130, 43, 0.12);
+  --purple:         #7B5EA7;   /* artisan violet */
+  --purple-light:   rgba(123, 94, 167, 0.12);
+  --violet:         #7B5EA7;
+  --forest:         #2C1E16;
 
   /* Layout */
   --topbar-h:   80px;
@@ -44,11 +56,11 @@
   --radius-xl:  24px;
 
   /* Elevation */
-  --shadow-xs:  0 1px 3px rgba(22,35,24,.08);
-  --shadow-sm:  0 2px 8px rgba(22,35,24,.10);
-  --shadow:     0 4px 16px rgba(22,35,24,.12);
-  --shadow-lg:  0 8px 32px rgba(22,35,24,.16);
-  --shadow-xl:  0 16px 48px rgba(22,35,24,.22);
+  --shadow-xs:  0 1px 3px rgba(44,30,22,.06);
+  --shadow-sm:  0 2px 8px rgba(44,30,22,.08);
+  --shadow:     0 4px 16px rgba(44,30,22,.10);
+  --shadow-lg:  0 8px 32px rgba(44,30,22,.14);
+  --shadow-xl:  0 16px 48px rgba(44,30,22,.20);
 
   /* Transitions */
   --dur-fast:   120ms;
@@ -57,4 +69,95 @@
   --ease:       cubic-bezier(.25,.46,.45,.94);
   --ease-out:   cubic-bezier(0, 0, .2, 1);
   --ease-spring:cubic-bezier(.34,1.56,.64,1);
+
+  color-scheme: light;
+}
+
+/* ----------------------------------------------------------------------
+   DARK THEME (ESPRESSO ROASTERY NIGHT)
+   ---------------------------------------------------------------------- */
+:root[data-theme="dark"],
+[data-theme="dark"],
+body.dark-mode {
+  /* Brand palette in Dark Mode — Espresso Roastery Night */
+  --espresso:       #120D09;   /* deep espresso roastery base */
+  --espresso-light: #251B14;   /* elevated espresso roastery */
+  --caramel:        #D98F5E;   /* luminous warm caramel */
+  --caramel-hover:  #C87D4B;
+  --caramel-mid:    #E8A678;
+  --caramel-soft:   rgba(217, 143, 94, 0.22);
+  --caramel-pale:   rgba(217, 143, 94, 0.12);
+  --cream:          #221913;
+  --parchment:      #18120D;
+  --parchment-mid:  #251B14;
+
+  /* Semantic surfaces in Dark Mode */
+  --bg:             #18120D;   /* 60% espresso night canvas */
+  --surface:        #221913;   /* dark card surface */
+  --surface-raised: #2C211A;   /* elevated roastery cards */
+  --surface-card:   #2C211A;
+  --ink:            #FAF7F2;   /* crisp steamed-milk text for high legibility */
+  --ink-mid:        #E0D5C9;   /* soft steamed-milk secondary */
+  --muted:          #B8A89A;   /* warm mocha labels with WCAG AA contrast */
+  --line:           #453429;   /* roasted oat structural border */
+  --line-subtle:    #382A21;
+
+  /* State colours in Dark Mode */
+  --green:          #389B72;   /* luminous fresh green */
+  --green-light:    rgba(56, 155, 114, 0.20);
+  --blue:           #A285D4;   /* luminous artisan violet */
+  --blue-light:     rgba(162, 133, 212, 0.20);
+  --red:            #E05353;   /* luminous alert red */
+  --red-light:      rgba(224, 83, 83, 0.20);
+  --amber:          #E59846;   /* luminous warm amber */
+  --amber-light:    rgba(229, 152, 70, 0.20);
+  --purple:         #A285D4;   /* luminous violet */
+  --purple-light:   rgba(162, 133, 212, 0.20);
+  --violet:         #A285D4;
+  --forest:         #FAF7F2;
+
+  /* Elevation in Dark Mode */
+  --shadow-xs:  0 1px 3px rgba(0, 0, 0, 0.45);
+  --shadow-sm:  0 2px 8px rgba(0, 0, 0, 0.55);
+  --shadow:     0 4px 16px rgba(0, 0, 0, 0.65);
+  --shadow-lg:  0 8px 32px rgba(0, 0, 0, 0.75);
+  --shadow-xl:  0 16px 48px rgba(0, 0, 0, 0.85);
+
+  color-scheme: dark;
+}
+
+/* ----------------------------------------------------------------------
+   GLOBAL THEME TRANSITIONS & DARK MODE REFINEMENTS
+   ---------------------------------------------------------------------- */
+body {
+  transition: background-color var(--dur) var(--ease),
+              color var(--dur) var(--ease);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] textarea {
+  color-scheme: dark;
+  background-color: var(--surface-raised);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }

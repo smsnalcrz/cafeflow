@@ -392,20 +392,28 @@ window.CafeFlow = window.CafeFlow || {};
 
 
   /* ------------------------------------------------------------------ *
-
-   *  Chart.js helpers — shared palette matching CafeFlow CSS tokens
-
+   *  Chart.js helpers — 60-30-10 Artisan Espresso & Roastery Palette
+   *  60% Canvas & Cards:      #FAF7F2 (canvas), #FFFFFF (cards), #E6DDD3 (borders)
+   *  30% Espresso Structure:  #2C1E16 (espresso text/headings), #6F5E53 (mocha labels)
+   *  10% Signature Accent:    #C87D4B (warm caramel), #B06A3B (hover), #7B5EA7 (violet)
+   *  Status Badges:           #2E7D5B (completed), #D9822B (pending), #C93B3B (loss)
    * ------------------------------------------------------------------ */
 
-  const CF_ORANGE      = '#e8623a';
-
-  const CF_ORANGE_MID  = '#f07348';
-
-  const CF_GREEN       = '#2a9b52';
-
-  const CF_ESPRESSO    = '#162318';
-  const CF_MUTED       = '#5a7a63';
-  const CF_LINE        = '#cde5d4';
+  const CF_ORANGE        = '#e8623a';
+  const CF_ORANGE_MID    = '#f07348';
+  const CF_CARAMEL       = '#C87D4B'; // 10% Signature Warm Caramel Accent
+  const CF_CARAMEL_HOVER = '#B06A3B';
+  const CF_VIOLET        = '#7B5EA7'; // Artisan Violet Accent
+  const CF_GREEN         = '#2a9b52'; // Fresh / Completed / Cash
+  const CF_AMBER         = '#D9822B'; // Low Stock / Bean Degassing / Pending
+  const CF_RED           = '#C93B3B'; // Wastage / Expired / Loss
+  const CF_ESPRESSO      = '#162318'; // 30% Dark Espresso Primary Structure
+  const CF_MOCHA         = '#6F5E53'; // Mocha Secondary Labels & Meta
+  const CF_MUTED         = '#5a7a63';
+  const CF_LINE          = '#cde5d4';
+  const CF_OAT_BORDER    = '#E6DDD3'; // Subtle Oat-Milk Borders
+  const CF_STEAMED_MILK  = '#FAF7F2'; // 60% Steamed-Milk Cream Canvas
+  const CF_WHITE         = '#FFFFFF'; // White Cards & Modals
 
   function getThemeColors() {
     return {
@@ -417,29 +425,36 @@ window.CafeFlow = window.CafeFlow || {};
     };
   }
 
-
-
-  // Fill all 24 hours with zero so the line chart never has gaps
-
-  function buildHourlyDataset(byHour) {
-
-    const totals = new Array(24).fill(0);
-
-    const orders = new Array(24).fill(0);
-
-    (byHour || []).forEach(function(h) {
-
-      totals[h.hour] = h.total;
-
-      orders[h.hour] = h.orders;
-
-    });
-
-    return { totals, orders };
-
+  function getChartColors() {
+    var isDark = (document.documentElement.getAttribute('data-theme') === 'dark') || document.body.classList.contains('dark-mode');
+    return {
+      isDark: isDark,
+      caramel: isDark ? '#D98F5E' : CF_CARAMEL,
+      caramelHover: isDark ? '#E5A170' : CF_CARAMEL_HOVER,
+      violet: isDark ? '#9A7FC4' : CF_VIOLET,
+      green: isDark ? '#389B72' : CF_GREEN,
+      amber: isDark ? '#E5933C' : CF_AMBER,
+      red: isDark ? '#DE4E4E' : CF_RED,
+      text: isDark ? '#FAF7F2' : CF_ESPRESSO,
+      muted: isDark ? '#B8A89A' : CF_MOCHA,
+      line: isDark ? '#453429' : CF_OAT_BORDER,
+      grid: isDark ? 'rgba(250, 247, 242, 0.08)' : 'rgba(44, 30, 22, 0.08)',
+      tooltipBg: isDark ? '#1F150F' : CF_ESPRESSO,
+      tooltipBorder: isDark ? '#3D2A1F' : 'rgba(255, 255, 255, 0.15)',
+      cardBg: isDark ? '#2C211A' : CF_WHITE
+    };
   }
 
-
+  // Fill all 24 hours with zero so the line chart never has gaps
+  function buildHourlyDataset(byHour) {
+    const totals = new Array(24).fill(0);
+    const orders = new Array(24).fill(0);
+    (byHour || []).forEach(function(h) {
+      totals[h.hour] = h.total;
+      orders[h.hour] = h.orders;
+    });
+    return { totals, orders };
+  }
 
   // Global chart instance references so we can destroy before re-creating
   var _reportLineChart     = null;
@@ -460,26 +475,16 @@ window.CafeFlow = window.CafeFlow || {};
   var _topCategory    = 'drinks'; // 'drinks' | 'snacks' | 'all'
   var _topLimit       = 5;        // 5 | 10
 
-
-
   function destroyChart(ref) {
-
     if (ref) { try { ref.destroy(); } catch (e) {} }
-
     return null;
-
   }
 
-
-
   function buildChartDefaults() {
-
     if (typeof Chart === 'undefined') return;
-
+    var colors = getChartColors();
     Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-
-    Chart.defaults.color = CF_MUTED;
-
+    Chart.defaults.color = colors.muted;
   }
 
   buildChartDefaults();
@@ -487,11 +492,9 @@ window.CafeFlow = window.CafeFlow || {};
 
 
   function renderLineChart(canvas, data) {
-
     if (typeof Chart === 'undefined' || !canvas) return null;
-
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
-
     var grad = ctx.createLinearGradient(0, 0, 0, 240);
     grad.addColorStop(0, 'rgba(232,98,58,0.28)');
     grad.addColorStop(1, 'rgba(232,98,58,0.00)');
@@ -503,32 +506,26 @@ window.CafeFlow = window.CafeFlow || {};
         datasets: [{
           label: 'Sales (\u20b1)',
           data: data.totals,
-          borderColor: CF_ORANGE,
+          borderColor: colors.caramel,
           backgroundColor: grad,
-          borderWidth: 2.6,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: CF_ORANGE,
-          pointBorderWidth: 2.4,
-          pointRadius: 3.5,
-          pointHoverRadius: 6.5,
-          pointHoverBackgroundColor: CF_ORANGE,
-          pointHoverBorderColor: '#ffffff',
-          pointHoverBorderWidth: 2,
-          tension: 0.38,
+          borderWidth: 2.5,
+          pointBackgroundColor: colors.tooltipBg,
+          pointBorderColor: colors.caramel,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          tension: 0.4,
           fill: true,
           yAxisID: 'y'
         }, {
           label: 'Orders',
           data: data.orders,
-          borderColor: CF_GREEN,
+          borderColor: colors.green,
           backgroundColor: 'transparent',
           borderWidth: 2,
-          pointBackgroundColor: '#ffffff',
-          pointBorderColor: CF_GREEN,
-          pointBorderWidth: 2,
+          pointBackgroundColor: colors.green,
           pointRadius: 3,
-          pointHoverRadius: 5.5,
-          tension: 0.38,
+          pointHoverRadius: 5,
+          tension: 0.4,
           fill: false,
           borderDash: [5, 3],
           yAxisID: 'y2'
@@ -539,76 +536,49 @@ window.CafeFlow = window.CafeFlow || {};
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: {
-            position: 'top',
-            labels: {
-              boxWidth: 12,
-              padding: 16,
-              font: { family: "'Work Sans', sans-serif", size: 12, weight: '600' }
-            }
-          },
+          legend: { position: 'top', labels: { boxWidth: 12, padding: 16, color: colors.text, font: { size: 12 } } },
           tooltip: {
-            backgroundColor: '#162318',
-            titleColor: '#ffffff',
-            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-            bodyColor: 'rgba(255,255,255,0.9)',
-            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            backgroundColor: colors.tooltipBg,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.85)',
+            borderColor: colors.tooltipBorder,
+            borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
-            borderColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1,
             callbacks: {
               label: function(c) {
                 return c.dataset.yAxisID === 'y'
-                  ? '  \u20b1' + Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  ? '  \u20b1' + Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })
                   : '  ' + c.parsed.y + ' orders';
               }
             }
           }
         },
         scales: {
-          x: {
-            grid: { display: false },
-            ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '500' },
-              color: '#5a7a63',
-              maxRotation: 45
-            }
-          },
+          x: { grid: { color: colors.grid }, ticks: { color: colors.muted, font: { size: 11 }, maxRotation: 45 } },
           y: {
-            position: 'left',
-            grid: { color: 'rgba(22, 35, 24, 0.06)' },
-            ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
-              callback: function(v) { return '\u20b1' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString('en-PH')); }
-            }
+            position: 'left', grid: { color: colors.grid },
+            ticks: { color: colors.muted, font: { size: 11 }, callback: function(v) { return '\u20b1' + Number(v).toLocaleString('en-PH', { minimumFractionDigits: 0 }); } }
           },
           y2: {
-            position: 'right',
-            grid: { drawOnChartArea: false },
-            ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
-              stepSize: 1,
-              precision: 0
-            }
+            position: 'right', grid: { drawOnChartArea: false },
+            ticks: { color: colors.muted, font: { size: 11 }, stepSize: 1, precision: 0 }
           }
         }
       }
     });
-
   }
 
 
 
   function renderBarChart(canvas, data) {
     if (typeof Chart === 'undefined' || !canvas) return null;
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
     var n = data.labels.length;
     var barColors = data.labels.map(function(_, i) {
       var alpha = 1 - (i / Math.max(n, 1)) * 0.45;
-      return 'rgba(232,98,58,' + alpha + ')';
+      return colors.isDark ? 'rgba(217,143,94,' + alpha + ')' : 'rgba(200,125,75,' + alpha + ')'; // warm caramel #C87D4B
     });
     return new Chart(ctx, {
       type: 'bar',
@@ -631,11 +601,11 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#162318',
-            titleColor: '#ffffff',
-            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-            bodyColor: 'rgba(255,255,255,0.9)',
-            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            backgroundColor: colors.tooltipBg,
+            titleColor: '#fff',
+            bodyColor: 'rgba(255,255,255,0.85)',
+            borderColor: colors.tooltipBorder,
+            borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
             borderColor: 'rgba(255,255,255,0.12)',
@@ -649,8 +619,8 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
-              color: '#5a7a63',
+              color: colors.text,
+              font: { size: 11, weight: '600' },
               maxRotation: 35,
               minRotation: 0,
               callback: function(val) {
@@ -661,10 +631,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(22, 35, 24, 0.06)' },
+            grid: { color: colors.grid },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
+              color: colors.muted,
+              font: { size: 11 },
               precision: 0,
               stepSize: 1
             }
@@ -676,13 +646,14 @@ window.CafeFlow = window.CafeFlow || {};
 
   function renderTopSellersVerticalChart(canvas, items) {
     if (typeof Chart === 'undefined' || !canvas) return null;
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
     var labels = items.map(function(it) { return it.name; });
     var qtys = items.map(function(it) { return it.qty; });
     var n = labels.length;
     var barColors = labels.map(function(_, i) {
       var alpha = 1 - (i / Math.max(n, 1)) * 0.45;
-      return 'rgba(42,155,82,' + alpha + ')'; // Fresh CafeFlow green
+      return colors.isDark ? 'rgba(56,155,114,' + alpha + ')' : 'rgba(46,125,91,' + alpha + ')'; // fresh green #2E7D5B
     });
     return new Chart(ctx, {
       type: 'bar',
@@ -705,11 +676,11 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: '#162318',
-            titleColor: '#ffffff',
-            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            backgroundColor: colors.tooltipBg,
+            titleColor: '#fff',
             bodyColor: 'rgba(255,255,255,0.9)',
-            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            borderColor: colors.tooltipBorder,
+            borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
             borderColor: 'rgba(255,255,255,0.12)',
@@ -730,8 +701,8 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
-              color: '#5a7a63',
+              color: colors.text,
+              font: { size: 11, weight: '600' },
               maxRotation: 30,
               minRotation: 0,
               callback: function(val) {
@@ -742,10 +713,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(22, 35, 24, 0.06)' },
+            grid: { color: colors.grid },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
+              color: colors.muted,
+              font: { size: 11 },
               precision: 0,
               stepSize: 1
             }
@@ -757,6 +728,7 @@ window.CafeFlow = window.CafeFlow || {};
 
   function renderYearlyMonthlyBarChart(canvas, months) {
     if (typeof Chart === 'undefined' || !canvas || !months || !months.length) return null;
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
     var labels = months.map(function(m) { return m.month_name; });
     var cashTotals = months.map(function(m) { return m.cash || 0; });
@@ -771,20 +743,16 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'GCash Sales (₱)',
             data: gcashTotals,
-            backgroundColor: 'rgba(2, 132, 199, 0.85)',
-            borderColor: '#0284c7',
-            borderWidth: 1.2,
-            borderRadius: 5,
+            backgroundColor: colors.isDark ? 'rgba(154, 127, 196, 0.85)' : 'rgba(123, 94, 167, 0.85)', // Artisan violet #7B5EA7
+            borderRadius: 4,
             stack: 'sales',
             yAxisID: 'y'
           },
           {
             label: 'Cash Sales (₱)',
             data: cashTotals,
-            backgroundColor: 'rgba(42, 155, 82, 0.88)',
-            borderColor: '#2a9b52',
-            borderWidth: 1.2,
-            borderRadius: 5,
+            backgroundColor: colors.isDark ? 'rgba(56, 155, 114, 0.85)' : 'rgba(46, 125, 91, 0.85)', // Fresh green #2E7D5B
+            borderRadius: 4,
             stack: 'sales',
             yAxisID: 'y'
           },
@@ -792,12 +760,9 @@ window.CafeFlow = window.CafeFlow || {};
             type: 'line',
             label: 'Orders Count',
             data: orders,
-            borderColor: '#e8623a',
-            backgroundColor: '#ffffff',
-            borderWidth: 2.4,
-            pointBackgroundColor: '#ffffff',
-            pointBorderColor: '#e8623a',
-            pointBorderWidth: 2.2,
+            borderColor: colors.caramel,
+            backgroundColor: colors.caramel,
+            borderWidth: 2.5,
             pointRadius: 4,
             pointHoverRadius: 6.5,
             tension: 0.35,
@@ -812,18 +777,14 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: {
             position: 'top',
-            labels: {
-              boxWidth: 12,
-              padding: 14,
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
-            }
+            labels: { color: colors.text, boxWidth: 12, font: { size: 11, weight: '600' } }
           },
           tooltip: {
-            backgroundColor: '#162318',
-            titleColor: '#ffffff',
-            titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+            backgroundColor: colors.tooltipBg,
+            titleColor: '#fff',
             bodyColor: 'rgba(255,255,255,0.9)',
-            bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+            borderColor: colors.tooltipBorder,
+            borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
             borderColor: 'rgba(255,255,255,0.12)',
@@ -849,17 +810,14 @@ window.CafeFlow = window.CafeFlow || {};
         scales: {
           x: {
             grid: { display: false },
-            ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '700' },
-              color: '#5a7a63'
-            }
+            ticks: { color: colors.text, font: { size: 11, weight: '700' } }
           },
           y: {
             beginAtZero: true,
-            grid: { color: 'rgba(22, 35, 24, 0.06)' },
+            grid: { color: colors.grid },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
+              color: colors.muted,
+              font: { size: 11 },
               callback: function(v) { return '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v); }
             }
           },
@@ -867,11 +825,7 @@ window.CafeFlow = window.CafeFlow || {};
             beginAtZero: true,
             position: 'right',
             grid: { drawOnChartArea: false },
-            ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
-              precision: 0
-            }
+            ticks: { color: colors.muted, font: { size: 11 }, precision: 0 }
           }
         }
       }
@@ -880,6 +834,7 @@ window.CafeFlow = window.CafeFlow || {};
 
   function renderYearlyDailyLineChart(canvas, days, onSelectDate) {
     if (typeof Chart === 'undefined' || !canvas || !days || !days.length) return null;
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
     var revDays = days.slice().reverse(); // Chronological Jan 1 -> Dec 31
     var labels = revDays.map(function(d) { return d.day; });
@@ -887,8 +842,8 @@ window.CafeFlow = window.CafeFlow || {};
     var orders = revDays.map(function(d) { return d.orders; });
 
     var grad = ctx.createLinearGradient(0, 0, 0, 300);
-    grad.addColorStop(0, 'rgba(192, 124, 46, 0.35)');
-    grad.addColorStop(1, 'rgba(192, 124, 46, 0.02)');
+    grad.addColorStop(0, 'rgba(200, 125, 75, 0.32)');
+    grad.addColorStop(1, 'rgba(200, 125, 75, 0.02)');
 
     return new Chart(ctx, {
       type: 'line',
@@ -898,7 +853,7 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'Daily Sales (₱)',
             data: totals,
-            borderColor: '#c07c2e',
+            borderColor: colors.caramel,
             backgroundColor: grad,
             borderWidth: 1.8,
             fill: true,
@@ -910,7 +865,7 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'Daily Orders',
             data: orders,
-            borderColor: '#2a9b52',
+            borderColor: colors.green,
             borderWidth: 1.2,
             borderDash: [3, 3],
             fill: false,
@@ -938,12 +893,14 @@ window.CafeFlow = window.CafeFlow || {};
         plugins: {
           legend: {
             position: 'top',
-            labels: { boxWidth: 12, font: { size: 11, weight: '600' } }
+            labels: { color: colors.text, boxWidth: 12, font: { size: 11, weight: '600' } }
           },
           tooltip: {
-            backgroundColor: CF_ESPRESSO,
+            backgroundColor: colors.tooltipBg,
             titleColor: '#fff',
             bodyColor: 'rgba(255,255,255,0.9)',
+            borderColor: colors.tooltipBorder,
+            borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
             callbacks: {
@@ -962,6 +919,7 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
+              color: colors.text,
               maxTicksLimit: 12,
               font: { size: 10 },
               callback: function(val) {
@@ -972,8 +930,9 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: CF_LINE },
+            grid: { color: colors.grid },
             ticks: {
+              color: colors.muted,
               font: { size: 11 },
               callback: function(v) { return '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v); }
             }
@@ -982,7 +941,7 @@ window.CafeFlow = window.CafeFlow || {};
             beginAtZero: true,
             position: 'right',
             grid: { drawOnChartArea: false },
-            ticks: { font: { size: 10 }, precision: 0 }
+            ticks: { color: colors.muted, font: { size: 10 }, precision: 0 }
           }
         }
       }
@@ -1387,6 +1346,46 @@ window.CafeFlow = window.CafeFlow || {};
       var narrativeText = generateTopSellersNarrative(sliced, r, _topCategory, _topLimit, role);
       var narrativeDiv = createNarrativeBody(narrativeText, 'summary-narrative-text');
 
+      var leaderboardWrap = h('div', { class: 'top-sellers-table-wrap' });
+      if (sliced.length > 0) {
+        var maxQty = Math.max.apply(null, sliced.map(function(it) { return it.qty; })) || 1;
+        var totalCatRev = filtered.reduce(function(a, b) { return a + (b.revenue || 0); }, 0);
+
+        var lbTable = h('table', { class: 'ts-table' },
+          h('thead', {},
+            h('tr', {},
+              h('th', { style: 'width: 60px;', text: 'Rank' }),
+              h('th', { text: 'Item' }),
+              h('th', { class: 'num', style: 'width: 65px;', text: 'Units' }),
+              h('th', { style: 'width: 90px;', text: 'Velocity' }),
+              h('th', { class: 'num', style: 'width: 85px;', text: 'Revenue' })
+            )
+          ),
+          h('tbody', {},
+            sliced.map(function(it, idx) {
+              var rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : 'default';
+              var rankText = idx === 0 ? '🥇 #1' : idx === 1 ? '🥈 #2' : idx === 2 ? '🥉 #3' : `#${idx + 1}`;
+              var pct = Math.min(100, Math.round((it.qty / maxQty) * 100));
+
+              return h('tr', {},
+                h('td', {}, h('span', { class: 'ts-rank-pill ' + rankClass, text: rankText })),
+                h('td', { class: 'ts-item-name', text: it.name }),
+                h('td', { class: 'num', style: 'font-weight: 700;', text: String(it.qty) }),
+                h('td', {},
+                  h('div', { class: 'ts-prog-bar-wrap', title: `${pct}% relative demand` },
+                    h('div', { class: 'ts-prog-bar' },
+                      h('div', { class: 'ts-prog-fill', style: `width: ${pct}%;` })
+                    )
+                  )
+                ),
+                h('td', { class: 'num', text: money(it.revenue || 0) })
+              );
+            })
+          )
+        );
+        leaderboardWrap.append(lbTable);
+      }
+
       var chipsDiv = h('div', { class: 'summary-stat-chips' });
       if (sliced.length > 0) {
         var top1 = sliced[0];
@@ -1471,173 +1470,92 @@ window.CafeFlow = window.CafeFlow || {};
 
 
   function renderDonutChart(canvas, data) {
-
     if (typeof Chart === 'undefined' || !canvas) return null;
-
+    var colors = getChartColors();
     var ctx = canvas.getContext('2d');
 
-
-
-    // Color mapper: GCash is blue (#007DFE), Cash is green (#2a9b52)
-
+    // Color mapper: GCash is artisan violet (#7B5EA7), Cash is fresh green (#2E7D5B)
     function getPaymentColor(label, idx) {
-
       var l = String(label || '').toLowerCase();
-
-      if (l === 'cash') return '#2a9b52';      // Green for Cash
-
-      if (l === 'gcash') return '#007DFE';     // Blue for GCash
-
-      var fallbacks = ['#2a9b52', '#007DFE', '#8b5cf6', '#e8623a', '#d97706'];
-
+      if (l === 'cash') return colors.green; // #2E7D5B
+      if (l === 'gcash') return colors.violet; // #7B5EA7 (artisan violet)
+      var fallbacks = [colors.green, colors.violet, colors.caramel, colors.amber, colors.red];
       return fallbacks[idx % fallbacks.length];
-
     }
 
-
-
     var sliceColors = data.labels.map(function(lbl, i) {
-
       return getPaymentColor(lbl, i);
-
     });
-
-
 
     var totalVal = data.values.reduce(function(a, b) { return a + b; }, 0);
 
-
-
     function formatMoneyShort(val) {
-
       var num = Number(val || 0);
-
       var dec = (num % 1 !== 0) ? 2 : 0;
-
       return '\u20b1' + num.toLocaleString('en-PH', { minimumFractionDigits: dec, maximumFractionDigits: dec });
-
     }
 
-
-
     // Chart.js plugin to draw amount and label perfectly centered in the donut hole with hover feedback
-
     var centerTextPlugin = {
-
       id: 'donutCenterDynamicText',
-
       afterDraw: function(chart) {
-
         var meta = chart.getDatasetMeta(0);
-
         if (!meta || !meta.data || !meta.data.length) return;
 
-
-
         var arc = meta.data[0];
-
         var centerX = (arc && arc.x != null) ? arc.x : (chart.chartArea.left + chart.chartArea.right) / 2;
-
         var centerY = (arc && arc.y != null) ? arc.y : (chart.chartArea.top + chart.chartArea.bottom) / 2;
-
         var innerRadius = (arc && arc.innerRadius) ? arc.innerRadius : (Math.min(chart.chartArea.right - chart.chartArea.left, chart.chartArea.bottom - chart.chartArea.top) * 0.31);
 
-
-
         var c = chart.ctx;
-
         c.save();
 
-
-
         var hIdx = chart._hoveredSliceIndex;
-
         var displayAmount, displaySub, displayColor;
 
-
-
         if (hIdx != null && data.values[hIdx] != null) {
-
           displayAmount = formatMoneyShort(data.values[hIdx]);
-
           var pct = totalVal > 0 ? Math.round(data.values[hIdx] / totalVal * 100) : 0;
-
           displaySub    = String(data.labels[hIdx] || '').toUpperCase() + ' (' + pct + '%)';
-
-          displayColor  = sliceColors[hIdx] || CF_ESPRESSO;
-
+          displayColor  = sliceColors[hIdx] || colors.text;
         } else {
-
           displayAmount = formatMoneyShort(totalVal);
-
           displaySub    = 'TOTAL SALES';
-
-          displayColor  = CF_ESPRESSO;
-
+          displayColor  = colors.text;
         }
 
-
-
         c.textAlign = 'center';
-
         c.textBaseline = 'middle';
 
-
-
         // Responsive font sizes scaled to the donut hole
-
         var amountSize = Math.max(13, Math.min(22, Math.round(innerRadius * 0.38)));
-
         var subSize    = Math.max(9, Math.min(11, Math.round(amountSize * 0.52)));
 
-
-
         // 1. Amount
-
         c.font = '800 ' + amountSize + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-
         c.fillStyle = displayColor;
-
         c.fillText(displayAmount, centerX, centerY - Math.round(subSize * 0.7));
 
-
-
         // 2. Sub-label
-
         c.font = '700 ' + subSize + 'px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-
-        c.fillStyle = (hIdx != null) ? displayColor : CF_MUTED;
-
+        c.fillStyle = (hIdx != null) ? displayColor : colors.muted;
         c.fillText(displaySub, centerX, centerY + Math.round(amountSize * 0.75));
 
-
-
         c.restore();
-
       }
-
     };
 
-
-
     var chartInstance = new Chart(ctx, {
-
       type: 'doughnut',
-
       plugins: [centerTextPlugin],
-
       data: {
-
         labels: data.labels,
-
         datasets: [{
-
           data: data.values,
           backgroundColor: sliceColors,
-          borderColor: '#ffffff',
-          borderWidth: 2.5,
-          spacing: 2,
-          hoverOffset: 6
+          borderColor: colors.cardBg,
+          borderWidth: 3,
+          hoverOffset: 8
         }]
       },
       options: {
@@ -1677,81 +1595,47 @@ window.CafeFlow = window.CafeFlow || {};
               }
             },
             labels: {
-              boxWidth: 12,
-              boxHeight: 12,
+              boxWidth: 14,
+              boxHeight: 14,
               borderRadius: 3,
               useBorderRadius: true,
-              padding: 14,
-              font: { family: "'Work Sans', sans-serif", size: 12, weight: '600' },
-
+              padding: 16,
+              color: colors.text,
+              font: { size: 12, weight: '600' },
               generateLabels: function(ch) {
-
                 var ds = ch.data.datasets[0];
-
                 return ch.data.labels.map(function(lbl, i) {
-
                   var total = ds.data.reduce(function(a, b) { return a + b; }, 0);
-
                   var pct = total > 0 ? Math.round(ds.data[i] / total * 100) : 0;
-
                   return {
-
                     text: lbl + ' (' + pct + '%)',
-
                     fillStyle: sliceColors[i] || '#ccc',
-
-                    strokeStyle: '#ffffff',
-
+                    strokeStyle: colors.cardBg,
                     lineWidth: 1,
-
                     hidden: false,
-
                     index: i
-
                   };
-
                 });
-
               }
-
             }
-
           },
-
           tooltip: {
-
             enabled: false // Dynamic center text in donut hole acts as the indicator
-
           }
-
         }
-
       }
-
     });
-
-
 
     // Reset when mouse leaves canvas
-
     canvas.addEventListener('mouseleave', function() {
-
       if (chartInstance && chartInstance._hoveredSliceIndex != null) {
-
         chartInstance._hoveredSliceIndex = null;
-
         chartInstance.canvas.style.cursor = 'default';
-
         chartInstance.draw();
-
       }
-
     });
 
-
-
     return chartInstance;
-
   }
 
   function renderYearlyAnalyticsView(body, r) {
@@ -2009,7 +1893,7 @@ window.CafeFlow = window.CafeFlow || {};
                 ? (m.mom_growth_pct >= 0 ? ('+' + m.mom_growth_pct + '%') : (m.mom_growth_pct + '%'))
                 : '—';
               var momColor = m.mom_growth_pct !== null
-                ? (m.mom_growth_pct >= 0 ? '#2a9b52' : '#e8623a')
+                ? (m.mom_growth_pct >= 0 ? CF_GREEN : CF_RED)
                 : 'inherit';
 
               return h('tr', {},
@@ -2253,8 +2137,8 @@ window.CafeFlow = window.CafeFlow || {};
               datasets: [{
                 label: 'Material Cost (₱)',
                 data: trendRows.map(t => Number(t.cost_php || 0)),
-                backgroundColor: 'rgba(232, 98, 58, 0.85)',
-                borderColor: '#e8623a',
+                backgroundColor: 'rgba(201, 59, 59, 0.75)', // Wastage status red #C93B3B
+                borderColor: '#C93B3B',
                 borderWidth: 1.5,
                 borderRadius: 5,
                 borderSkipped: false
@@ -2385,17 +2269,21 @@ window.CafeFlow = window.CafeFlow || {};
 
   async function renderReport(r) {
 
-    const s = r.summary;
+    body.append(grid);
+  }
 
+  async function renderReport(r) {
+    const s = r.summary || {};
     const body = $('#reportBody');
-
     body.textContent = '';
-
-
 
     $('#reportStatusPeriod').textContent = r.label;
 
-
+    // Route to Dedicated Manager Annual View for full-year scope
+    if (r.range === 'year' && currentUser && currentUser.role === 'manager') {
+      renderYearlyAnalyticsView(body, r);
+      return;
+    }
 
     // Destroy any previous report charts to free canvas contexts
     _reportLineChart     = destroyChart(_reportLineChart);
@@ -2429,13 +2317,35 @@ window.CafeFlow = window.CafeFlow || {};
       metaText += ' · Simulated Historical Dataset';
     }
 
-    body.append(h('div', { class: 'report-banner' },
+    // Executive Header Banner
+    const bannerPrintBtn = h('button', {
+      type: 'button',
+      class: 'btn small ghost print-btn',
+      id: 'bannerPrintBtn',
+      title: 'Print official report or save to PDF',
+      onclick: () => window.print()
+    }, '🖨️ Print / PDF');
 
-      h('h3', { text: r.label }),
+    const bannerExcelBtn = h('button', {
+      type: 'button',
+      class: 'btn small primary',
+      id: 'bannerExcelBtn',
+      title: 'Export executive presentation to Excel (.xlsx)',
+      onclick: () => exportTransactions(r.start_date, r.end_date)
+    }, '📊 Export Excel');
 
-      h('span', { class: 'report-banner-meta', text: metaText })
+    const banner = h('div', { class: 'report-banner' },
+      h('div', { class: 'report-banner-left' },
+        h('span', { class: 'report-banner-tag', text: 'DK CAFE · FINANCIAL & OPERATIONAL REPORT' }),
+        h('h3', { class: 'report-banner-title', text: r.label }),
+        h('span', { class: 'report-banner-meta', text: metaText })
+      ),
+      h('div', { class: 'report-banner-actions' }, bannerPrintBtn, bannerExcelBtn)
+    );
+    body.append(banner);
 
-    ));
+    // 6-Card Executive Financial Summary (KPI Dashboard)
+    renderExecutiveKpiGrid(body, r, s);
 
     // Render Executive 5-Card KPI Summary
     body.append(renderExecutiveKpiGrid(r));
@@ -2920,7 +2830,7 @@ window.CafeFlow = window.CafeFlow || {};
     const searchInput = h('input', {
       type: 'text',
       class: 'tx-search-input',
-      placeholder: 'Search receipt #, item, payment, status, reference...',
+      placeholder: 'Search receipt #, items, reference, status...',
       value: '',
       autocomplete: 'off',
       'aria-label': 'Search transaction history'
@@ -2968,51 +2878,92 @@ window.CafeFlow = window.CafeFlow || {};
     );
     container.append(toolbar);
 
-    // Scrollable Table Container
-    const tableContainer = h('div', { class: 'tx-table-container' });
+    // Helpers to create identical table structure
+    function makeTableHeader() {
+      return h('thead', {},
+        h('tr', {},
+          h('th', { text: 'RECEIPT #' }),
+          h('th', { text: 'DATE & TIME' }),
+          h('th', { text: 'ITEMS ORDERED' }),
+          h('th', { text: 'STATUS' }),
+          h('th', { class: 'num', text: 'TOTAL' }),
+          h('th', { class: 'act', text: 'RECEIPT' })
+        )
+      );
+    }
 
-    const tbody = h('tbody');
-    const table = h('table', { class: 'tx-table' },
-      h('thead', {}, h('tr', {},
-        h('th', { text: 'Receipt #' }),
-        h('th', { text: isMultiDay ? 'Date & Time' : 'Time' }),
-        h('th', { text: 'Items Ordered' }),
-        h('th', { text: 'Payment' }),
-        h('th', { text: 'Status' }),
-        h('th', { class: 'num', text: 'Total' }),
-        h('th', { class: 'act', text: 'Receipt' })
-      )),
-      tbody
-    );
-    tableContainer.append(table);
-
-    // No Results Message
-    const noResults = h('div', { class: 'tx-no-results' });
-    noResults.hidden = true;
-    tableContainer.append(noResults);
-
-    container.append(tableContainer);
-
-    function renderRow(tx) {
-      const statusClass = tx.status.toLowerCase();
-      const displayTime = isMultiDay ? (tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time}`.trim()) : tx.formatted_time;
+    function renderTxRow(tx) {
+      const statusClass = (tx.status || 'completed').toLowerCase();
+      const displayDateTime = tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time || ''}`.trim() || tx.formatted_time || '';
       return h('tr', {},
         h('td', { class: 'tx-no', text: tx.receipt_no }),
-        h('td', { text: displayTime, style: isMultiDay ? 'white-space: nowrap;' : '' }),
+        h('td', { class: 'tx-datetime', title: displayDateTime, text: displayDateTime }),
         h('td', { class: 'tx-items-summary', title: tx.items_summary, text: tx.items_summary || 'No items' }),
-        h('td', {}, h('span', { class: 'pill-pay ' + tx.payment_method.toLowerCase(), text: tx.payment_method })),
-        h('td', {}, h('span', { class: 'status-tag ' + statusClass, text: tx.status })),
+        h('td', {}, h('span', { class: 'status-tag ' + statusClass, text: tx.status || 'Completed' })),
         h('td', { class: 'num', style: 'font-weight:700;', text: money(tx.total_amount) }),
         h('td', { class: 'act' },
           h('button', {
             type: 'button',
             class: 'tx-view-btn',
             text: 'View Receipt',
+            title: `View E-Receipt for ${tx.receipt_no}`,
             onclick: () => viewReceipt(tx.transaction_id)
           })
         )
       );
     }
+
+    // Left Column: Cash Transactions Card
+    const cashTbody = h('tbody');
+    const cashTable = h('table', { class: 'tx-table' }, makeTableHeader(), cashTbody);
+    const cashEmpty = h('div', { class: 'tx-column-empty' });
+    cashEmpty.hidden = true;
+    const cashTableWrap = h('div', { class: 'tx-table-container' }, cashTable, cashEmpty);
+
+    const cashCountEl = h('span', { class: 'tx-split-count', text: '0 Orders' });
+    const cashSubtotalEl = h('span', { class: 'tx-split-subtotal', text: '₱0.00' });
+    const cashCard = h('div', { class: 'tx-split-card tx-split-cash' },
+      h('div', { class: 'tx-split-card-head' },
+        h('div', { class: 'tx-split-title-group' },
+          h('h4', { class: 'tx-split-title', text: 'Cash Transactions' }),
+          h('span', { class: 'pill-pay cash', text: 'CASH' })
+        ),
+        h('div', { class: 'tx-split-meta' },
+          cashCountEl,
+          h('span', { class: 'tx-split-divider', text: '·' }),
+          cashSubtotalEl
+        )
+      ),
+      cashTableWrap
+    );
+
+    // Right Column: GCash Transactions Card
+    const gcashTbody = h('tbody');
+    const gcashTable = h('table', { class: 'tx-table' }, makeTableHeader(), gcashTbody);
+    const gcashEmpty = h('div', { class: 'tx-column-empty' });
+    gcashEmpty.hidden = true;
+    const gcashTableWrap = h('div', { class: 'tx-table-container' }, gcashTable, gcashEmpty);
+
+    const gcashCountEl = h('span', { class: 'tx-split-count', text: '0 Orders' });
+    const gcashSubtotalEl = h('span', { class: 'tx-split-subtotal', text: '₱0.00' });
+    const gcashCard = h('div', { class: 'tx-split-card tx-split-gcash' },
+      h('div', { class: 'tx-split-card-head' },
+        h('div', { class: 'tx-split-title-group' },
+          h('h4', { class: 'tx-split-title', text: 'GCash Transactions' }),
+          h('span', { class: 'pill-pay gcash', text: 'GCASH' })
+        ),
+        h('div', { class: 'tx-split-meta' },
+          gcashCountEl,
+          h('span', { class: 'tx-split-divider', text: '·' }),
+          gcashSubtotalEl
+        )
+      ),
+      gcashTableWrap
+    );
+
+    // Two Side-by-Side Containers Grid
+    const dualGrid = h('div', { class: 'tx-dual-grid' }, cashCard, gcashCard);
+    container.append(dualGrid);
 
     function applyFilter(q) {
       const filtered = records.filter(tx => {
@@ -3023,7 +2974,7 @@ window.CafeFlow = window.CafeFlow || {};
         const pay = (tx.payment_method || '').toLowerCase();
         const status = (tx.status || '').toLowerCase();
         const ref = (tx.reference_number || '').toLowerCase();
-        const dt = (tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time}`).toLowerCase();
+        const dt = (tx.formatted_datetime || `${tx.formatted_date || ''} ${tx.formatted_time || ''}`).toLowerCase();
         const total = String(tx.total_amount || '');
 
         return receiptNo.includes(q) ||
@@ -3036,38 +2987,65 @@ window.CafeFlow = window.CafeFlow || {};
                total.includes(q);
       });
 
-      tbody.textContent = '';
-      if (filtered.length > 0) {
-        table.hidden = false;
-        noResults.hidden = true;
-        filtered.forEach(tx => tbody.append(renderRow(tx)));
+      const cashList = [];
+      const gcashList = [];
+      let cashTotal = 0;
+      let gcashTotal = 0;
+
+      filtered.forEach(tx => {
+        const isGCash = String(tx.payment_method || '').toLowerCase().includes('gcash');
+        const amt = Number(tx.total_amount) || 0;
+        if (isGCash) {
+          gcashList.push(tx);
+          gcashTotal += amt;
+        } else {
+          cashList.push(tx);
+          cashTotal += amt;
+        }
+      });
+
+      // Update Cash Section
+      cashCountEl.textContent = `${cashList.length} Order${cashList.length === 1 ? '' : 's'}`;
+      cashSubtotalEl.textContent = money(cashTotal);
+      cashTbody.textContent = '';
+      if (cashList.length > 0) {
+        cashTable.hidden = false;
+        cashEmpty.hidden = true;
+        cashList.forEach(tx => cashTbody.append(renderTxRow(tx)));
       } else {
-        table.hidden = true;
-        noResults.textContent = '';
-        noResults.append(
-          emptyState({
-            icon: '',
-            title: `No transactions match "${searchInput.value.trim()}"`,
-            desc: 'Search matches receipt #, drink names, payment method, or reference #.',
-            actionText: 'Clear Search Filter',
-            compact: true,
-            onAction: () => {
-              searchInput.value = '';
-              currentQuery = '';
-              clearBtn.hidden = true;
-              applyFilter('');
-              searchInput.focus();
-            }
-          })
+        cashTable.hidden = true;
+        cashEmpty.textContent = '';
+        cashEmpty.append(
+          h('p', { text: q ? `No Cash transactions match "${searchInput.value.trim()}"` : 'No Cash transactions recorded' }),
+          h('small', { text: q ? 'Try clearing or adjusting search filter.' : 'Cash orders will appear here once recorded.' })
         );
-        noResults.hidden = false;
+        cashEmpty.hidden = false;
       }
 
+      // Update GCash Section
+      gcashCountEl.textContent = `${gcashList.length} Order${gcashList.length === 1 ? '' : 's'}`;
+      gcashSubtotalEl.textContent = money(gcashTotal);
+      gcashTbody.textContent = '';
+      if (gcashList.length > 0) {
+        gcashTable.hidden = false;
+        gcashEmpty.hidden = true;
+        gcashList.forEach(tx => gcashTbody.append(renderTxRow(tx)));
+      } else {
+        gcashTable.hidden = true;
+        gcashEmpty.textContent = '';
+        gcashEmpty.append(
+          h('p', { text: q ? `No GCash transactions match "${searchInput.value.trim()}"` : 'No GCash transactions recorded' }),
+          h('small', { text: q ? 'Try clearing or adjusting search filter.' : 'GCash orders will appear here once recorded.' })
+        );
+        gcashEmpty.hidden = false;
+      }
+
+      // Update Toolbar Count
       if (q) {
-        filterBadge.textContent = `Showing ${filtered.length} of ${records.length} order${records.length === 1 ? '' : 's'}`;
+        filterBadge.textContent = `Showing ${filtered.length} of ${records.length} orders (${cashList.length} Cash · ${gcashList.length} GCash)`;
         headTitle.textContent = `Transaction History (${filtered.length} found)`;
       } else {
-        filterBadge.textContent = `${records.length} order${records.length === 1 ? '' : 's'} total`;
+        filterBadge.textContent = `${records.length} order${records.length === 1 ? '' : 's'} total (${cashList.length} Cash · ${gcashList.length} GCash)`;
         headTitle.textContent = `Transaction History (${records.length} order${records.length === 1 ? '' : 's'})`;
       }
     }
@@ -3347,6 +3325,23 @@ window.CafeFlow = window.CafeFlow || {};
         }
       });
     }
+
+    // Dedicated Print button in report header modal
+    const printReportBtn = $('#printReportBtn');
+    if (printReportBtn) {
+      printReportBtn.addEventListener('click', () => {
+        window.print();
+      });
+    }
+
+    // Dynamic theme change listener: re-render charts with dark/light colors if report is visible
+    window.addEventListener('cafeflow:themechange', () => {
+      buildChartDefaults();
+      const reportModal = $('#reportModal');
+      if (reportModal && !reportModal.hidden) {
+        loadReport();
+      }
+    });
 
     // Historical CSV export removed (standardized on enterprise multi-sheet .xlsx)
   }

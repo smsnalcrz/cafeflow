@@ -29,7 +29,7 @@
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -.2px;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .cart-head .btn { margin-left: auto; }
 
@@ -87,7 +87,7 @@
   font-size: 20px;
   font-weight: 700;
   line-height: 1;
-  color: var(--espresso);
+  color: var(--ink);
   border: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -160,12 +160,12 @@
   flex-shrink: 0;
 }
 .pay.cash {
-  background: linear-gradient(135deg, var(--espresso-light), var(--espresso));
-  box-shadow: 0 4px 14px rgba(44,26,14,.35);
+  background: linear-gradient(135deg, #2E7D5B, #236548);
+  box-shadow: 0 4px 14px rgba(46, 125, 91, 0.35);
 }
 .pay.gcash {
-  background: linear-gradient(135deg, #1a5ecb, #1048a0);
-  box-shadow: 0 4px 14px rgba(26,94,203,.35);
+  background: linear-gradient(135deg, #7B5EA7, #674B92);
+  box-shadow: 0 4px 14px rgba(123, 94, 167, 0.35);
 }
 .pay:not(:disabled):hover { filter: brightness(1.12); }
 .pay:not(:disabled):active { transform: scale(.97); filter: brightness(1.0); }
@@ -201,7 +201,7 @@
   -moz-appearance: textfield;
 }
 .pay-due span { font-weight: 700; color: var(--muted); text-transform: uppercase; font-size: 13px; }
-.pay-due strong { font-size: 24px; font-weight: 900; color: var(--espresso); }
+.pay-due strong { font-size: 24px; font-weight: 900; color: var(--ink); }
 .quick-amounts {
   display: flex;
   gap: 8px;
@@ -216,7 +216,7 @@
   border: 1.5px solid var(--line);
   font-size: 13px;
   font-weight: 700;
-  color: var(--espresso);
+  color: var(--ink);
   cursor: pointer;
   touch-action: manipulation;
   transition: all var(--dur-fast) var(--ease);
@@ -224,7 +224,7 @@
 .quick-amt-btn:hover {
   background: var(--caramel-soft);
   border-color: var(--caramel);
-  color: var(--espresso);
+  color: var(--caramel);
 }
 .quick-amt-btn.active {
   background: var(--caramel);
@@ -239,8 +239,8 @@
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   background: var(--green-light);
-  border: 1.5px solid #bce6ca;
-  color: #13612d;
+  border: 1.5px solid rgba(46, 125, 91, 0.3);
+  color: var(--green);
 }
 .pay-change span { font-weight: 700; font-size: 13px; text-transform: uppercase; }
 .pay-change strong { font-size: 22px; font-weight: 900; }
@@ -252,3 +252,79 @@
   display: none;
 }
 
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR CURRENT ORDER CART & TENDER DIALOG
+   ====================================================================== */
+[data-theme="dark"] .cart {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .cart-head {
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme="dark"] .cart-head h2 {
+  color: var(--ink);
+}
+[data-theme="dark"] .line {
+  border-color: var(--line);
+}
+[data-theme="dark"] .line-name {
+  color: var(--ink);
+}
+[data-theme="dark"] .line-total {
+  color: var(--caramel);
+}
+[data-theme="dark"] .stepper b {
+  color: var(--ink);
+}
+[data-theme="dark"] .stepper button {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .stepper button:hover {
+  background: var(--caramel-soft);
+  border-color: var(--caramel);
+  color: var(--caramel);
+}
+[data-theme="dark"] .cart-foot {
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme="dark"] .total-row strong {
+  color: var(--ink);
+}
+[data-theme="dark"] .pay-dialog {
+  background: var(--surface-raised);
+  border: 1.5px solid var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .pay-due {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .pay-due strong {
+  color: var(--caramel);
+}
+[data-theme="dark"] .quick-amt-btn {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .quick-amt-btn:hover {
+  background: var(--surface-raised);
+  border-color: var(--caramel);
+  color: var(--caramel);
+}
+[data-theme="dark"] .quick-amt-btn.active {
+  background: var(--caramel);
+  border-color: var(--caramel);
+  color: #ffffff;
+}
+[data-theme="dark"] .pay-change {
+  background: var(--green-light);
+  border-color: rgba(56, 155, 114, 0.4);
+  color: var(--green);
+}

@@ -28,51 +28,40 @@ function reportTest(string $desc, bool $ok, string $detail = ''): void {
 }
 
 // -----------------------------------------------------------------------------
-// 1. Dark Mode Complete Removal Verification
+// 1. Dark & Light Mode Cohesive System & Token Verification
 // -----------------------------------------------------------------------------
-echo "--- 1. Testing Complete Removal of Dark Mode & Preservation of Light Theme ---\n";
+echo "--- 1. Testing Cohesive Dark/Light Theme System & Token Integration ---\n";
 $variablesCss = file_get_contents(__DIR__ . '/../assets/css/variables.css');
-reportTest("variables.css DOES NOT contain :root[data-theme=\"dark\"]", !str_contains($variablesCss, ':root[data-theme="dark"]'));
-reportTest("Brand tokens preserve --bg: var(--parchment)", str_contains($variablesCss, 'var(--parchment)'));
-reportTest("Brand tokens preserve --caramel: #e8623a", str_contains($variablesCss, '#e8623a') || str_contains($variablesCss, '#E8623A'));
-reportTest("Brand tokens preserve --green: #2a9b52", str_contains($variablesCss, '#2a9b52') || str_contains($variablesCss, '#2A9B52'));
+reportTest("variables.css defines :root[data-theme=\"dark\"]", str_contains($variablesCss, ':root[data-theme="dark"]'));
+reportTest("Brand tokens preserve --bg canvas", str_contains($variablesCss, '--bg:'));
+reportTest("Brand tokens preserve --caramel accent", str_contains($variablesCss, '--caramel:'));
+reportTest("Brand tokens preserve --green status", str_contains($variablesCss, '--green:'));
 
 $indexPhp = file_get_contents(__DIR__ . '/../index.php');
-reportTest("index.php DOES NOT have #themeToggleBtn", !str_contains($indexPhp, 'id="themeToggleBtn"'));
-reportTest("index.php cleans up legacy theme storage", str_contains($indexPhp, "localStorage.removeItem('cafeflow_theme')"));
-reportTest("index.php removes any data-theme attribute", str_contains($indexPhp, "removeAttribute('data-theme')"));
+reportTest("index.php contains #themeToggleBtn", str_contains($indexPhp, 'id="themeToggleBtn"'));
+reportTest("index.php contains #dropdownThemeToggle", str_contains($indexPhp, 'id="dropdownThemeToggle"'));
+reportTest("index.php includes core/theme.js", str_contains($indexPhp, 'assets/js/core/theme.js'));
 
 $topbarCss = file_get_contents(__DIR__ . '/../assets/css/topbar.css');
-reportTest("topbar.css DOES NOT have .theme-toggle-btn styling", !str_contains($topbarCss, '.theme-toggle-btn'));
-reportTest("topbar.css DOES NOT have dark mode rules", !str_contains($topbarCss, 'data-theme="dark"'));
+reportTest("topbar.css contains .theme-toggle-btn styling", str_contains($topbarCss, '.theme-toggle-btn'));
+reportTest("topbar.css contains dark mode rules", str_contains($topbarCss, 'data-theme="dark"'));
 
-$utilsJs = file_get_contents(__DIR__ . '/../assets/js/core/utils.js');
-reportTest("utils.js DOES NOT have toggleTheme", !str_contains($utilsJs, 'toggleTheme'));
-reportTest("utils.js DOES NOT have isDarkMode", !str_contains($utilsJs, 'isDarkMode'));
-
-// Check all css files in assets/css for any data-theme
-$cssFiles = glob(__DIR__ . '/../assets/css/*.css');
-$foundDataThemeInCss = false;
-foreach ($cssFiles as $file) {
-    $content = file_get_contents($file);
-    if (str_contains($content, 'data-theme="dark"')) {
-        $foundDataThemeInCss = true;
-        break;
-    }
+$themeJsPath = __DIR__ . '/../assets/js/core/theme.js';
+reportTest("assets/js/core/theme.js exists", file_exists($themeJsPath));
+if (file_exists($themeJsPath)) {
+    $themeJs = file_get_contents($themeJsPath);
+    reportTest("theme.js dispatches cafeflow:themechange event", str_contains($themeJs, 'cafeflow:themechange'));
 }
-reportTest("All stylesheet files have zero data-theme=\"dark\" rules", !$foundDataThemeInCss);
 
-// Check all js files in assets/js for cafeflow-theme-change
-$jsFiles = glob(__DIR__ . '/../assets/js/modules/*.js');
-$foundThemeListener = false;
-foreach ($jsFiles as $file) {
-    $content = file_get_contents($file);
-    if (str_contains($content, 'cafeflow-theme-change')) {
-        $foundThemeListener = true;
-        break;
-    }
-}
-reportTest("All JavaScript modules have zero cafeflow-theme-change listeners", !$foundThemeListener);
+// Check css files in assets/css for data-theme support
+$reportsCss = file_get_contents(__DIR__ . '/../assets/css/reports.css');
+reportTest("reports.css contains data-theme=\"dark\" rules", str_contains($reportsCss, 'data-theme="dark"'));
+
+$wasteCss = file_get_contents(__DIR__ . '/../assets/css/waste.css');
+reportTest("waste.css contains data-theme=\"dark\" rules", str_contains($wasteCss, 'data-theme="dark"'));
+
+$modalsCss = file_get_contents(__DIR__ . '/../assets/css/modals.css');
+reportTest("modals.css contains data-theme=\"dark\" rules", str_contains($modalsCss, 'data-theme="dark"'));
 
 // -----------------------------------------------------------------------------
 // 2. Sales Report API Response Contract Verification

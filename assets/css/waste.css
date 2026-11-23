@@ -63,8 +63,8 @@
 }
 
 .waste-tab.active {
-  color: var(--espresso);
-  background: #ffffff;
+  color: var(--ink);
+  background: var(--surface-card, #ffffff);
   border-color: var(--line);
   box-shadow: var(--shadow-xs);
 }
@@ -78,8 +78,8 @@
 }
 
 .waste-kpi-card {
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: var(--surface-card, #ffffff);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
@@ -96,17 +96,17 @@
 
 .waste-kpi-card.loss-hero {
   border-left: 4px solid var(--red);
-  background: var(--surface);
+  background: linear-gradient(135deg, var(--surface-card, #ffffff) 0%, var(--red-light) 120%);
 }
 
 .waste-kpi-card.cost-hero {
   border-left: 4px solid var(--amber);
-  background: var(--surface);
+  background: linear-gradient(135deg, var(--surface-card, #ffffff) 0%, var(--amber-light) 120%);
 }
 
 .waste-kpi-label {
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--muted);
@@ -125,12 +125,13 @@
 }
 
 .waste-kpi-card.cost-hero .waste-kpi-val {
-  color: #c44d18;
+  color: var(--amber, #D9822B);
 }
 
 .waste-kpi-sub {
   font-size: 12px;
   color: var(--muted);
+  font-weight: 600;
 }
 
 /* Charts Grid */
@@ -142,8 +143,8 @@
 }
 
 .waste-chart-card {
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: var(--surface-card, #ffffff);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
@@ -161,7 +162,7 @@
 .waste-chart-title {
   font-size: 14px;
   font-weight: 700;
-  color: var(--espresso);
+  color: var(--ink);
 }
 
 .waste-chart-badge {
@@ -181,8 +182,8 @@
 
 /* Tables Styling */
 .waste-table-card {
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: var(--surface-card, #ffffff);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 18px;
   box-shadow: var(--shadow-xs);
@@ -201,7 +202,7 @@
 .waste-table-title-group h3 {
   margin: 0;
   font-size: 16px;
-  color: var(--espresso);
+  color: var(--ink);
 }
 
 .waste-table-subtitle {
@@ -246,7 +247,7 @@
   position: sticky;
   top: 0;
   background: var(--cream);
-  color: var(--espresso);
+  color: var(--muted);
   font-weight: 700;
   font-size: 12px;
   text-transform: uppercase;
@@ -305,8 +306,8 @@
 
 /* Reports Module Waste Card Section */
 .report-waste-section {
-  background: #ffffff;
-  border: 1px solid var(--line);
+  background: var(--surface-card, #ffffff);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius-lg);
   padding: 20px 24px;
   margin-top: 24px;
@@ -325,7 +326,7 @@
 .report-waste-title-group h3 {
   margin: 0 0 2px 0;
   font-size: 17px;
-  color: var(--espresso);
+  color: var(--ink);
 }
 
 .report-waste-subtitle {
@@ -814,6 +815,7 @@
 }
 
 /* ======================================================================
+/* ======================================================================
    SEVERITY BADGES & ENHANCED AUDIT CONTROLS
    ====================================================================== */
 .severity-badge {
@@ -862,3 +864,115 @@
   cursor: pointer;
 }
 
+/* ======================================================================
+   DARK MODE REFINEMENTS FOR WASTE REPORTS & KPI CARDS
+   ====================================================================== */
+[data-theme="dark"] #wasteModal .modal-card,
+[data-theme="dark"] .waste-view-wrap {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .waste-kpi-card {
+  background: #241E1B;
+  border: 1.5px solid #362E2A;
+  color: #FAF7F2;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+}
+
+[data-theme="dark"] .waste-kpi-card.loss-hero {
+  border-left: 4px solid #E05353;
+  background: linear-gradient(135deg, #241A17 0%, rgba(224, 83, 83, 0.16) 100%);
+  border-color: rgba(224, 83, 83, 0.35);
+}
+
+[data-theme="dark"] .waste-kpi-card.cost-hero {
+  border-left: 4px solid #E59846;
+  background: linear-gradient(135deg, #241D17 0%, rgba(229, 152, 70, 0.16) 100%);
+  border-color: rgba(229, 152, 70, 0.35);
+}
+
+[data-theme="dark"] .waste-kpi-label {
+  color: #B8A89A;
+  font-weight: 800;
+}
+
+[data-theme="dark"] .waste-kpi-val {
+  color: #FAF7F2;
+}
+
+[data-theme="dark"] .waste-kpi-card.loss-hero .waste-kpi-val {
+  color: #E05353;
+}
+
+[data-theme="dark"] .waste-kpi-card.cost-hero .waste-kpi-val {
+  color: #E59846;
+}
+
+[data-theme="dark"] .waste-kpi-sub {
+  color: #B8A89A;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .report-waste-section {
+  background: #241E1B;
+  border: 1.5px solid #362E2A;
+  color: #FAF7F2;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+[data-theme="dark"] .report-waste-title-group h3 {
+  color: #FAF7F2;
+}
+
+[data-theme="dark"] .report-waste-subtitle {
+  color: #B8A89A;
+}
+
+[data-theme="dark"] .waste-chart-card,
+[data-theme="dark"] .waste-table-card {
+  background: #241E1B;
+  border: 1.5px solid #362E2A;
+  color: #FAF7F2;
+}
+
+[data-theme="dark"] .waste-chart-title,
+[data-theme="dark"] .waste-table-title-group h3 {
+  color: #FAF7F2;
+}
+
+[data-theme="dark"] .waste-chart-badge,
+[data-theme="dark"] .waste-table-subtitle {
+  background: #18120D;
+  color: #B8A89A;
+}
+
+[data-theme="dark"] .waste-table thead th {
+  background: #1C1714;
+  color: #A6988D;
+  border-color: #362E2A;
+}
+
+[data-theme="dark"] .waste-table tbody td {
+  color: #FAF7F2;
+  border-color: #2B231F;
+}
+
+[data-theme="dark"] .waste-table tbody tr:hover td {
+  background: #201916;
+}
+
+[data-theme="dark"] .waste-table-search-box {
+  background: #18120D;
+  border-color: #362E2A;
+}
+
+[data-theme="dark"] .waste-table-search-box input {
+  color: #FAF7F2;
+}
+
+[data-theme="dark"] .manual-waste-sheet-card {
+  background: #241E1B !important;
+  color: #FAF7F2 !important;
+  border: 1.5px solid #362E2A !important;
+}
