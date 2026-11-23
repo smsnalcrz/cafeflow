@@ -399,17 +399,31 @@ window.CafeFlow = window.CafeFlow || {};
    *  Status Badges:           #2E7D5B (completed), #D9822B (pending), #C93B3B (loss)
    * ------------------------------------------------------------------ */
 
+  const CF_ORANGE        = '#e8623a';
+  const CF_ORANGE_MID    = '#f07348';
   const CF_CARAMEL       = '#C87D4B'; // 10% Signature Warm Caramel Accent
   const CF_CARAMEL_HOVER = '#B06A3B';
   const CF_VIOLET        = '#7B5EA7'; // Artisan Violet Accent
-  const CF_GREEN         = '#2E7D5B'; // Fresh / Completed / Cash
+  const CF_GREEN         = '#2a9b52'; // Fresh / Completed / Cash
   const CF_AMBER         = '#D9822B'; // Low Stock / Bean Degassing / Pending
   const CF_RED           = '#C93B3B'; // Wastage / Expired / Loss
-  const CF_ESPRESSO      = '#2C1E16'; // 30% Dark Espresso Primary Structure
+  const CF_ESPRESSO      = '#162318'; // 30% Dark Espresso Primary Structure
   const CF_MOCHA         = '#6F5E53'; // Mocha Secondary Labels & Meta
+  const CF_MUTED         = '#5a7a63';
+  const CF_LINE          = '#cde5d4';
   const CF_OAT_BORDER    = '#E6DDD3'; // Subtle Oat-Milk Borders
   const CF_STEAMED_MILK  = '#FAF7F2'; // 60% Steamed-Milk Cream Canvas
   const CF_WHITE         = '#FFFFFF'; // White Cards & Modals
+
+  function getThemeColors() {
+    return {
+      grid: '#cde5d4',
+      ticks: '#5a7a63',
+      text: '#0e1e12',
+      tooltipBg: '#162318',
+      tooltipBorder: 'rgba(255,255,255,0.1)'
+    };
+  }
 
   function getChartColors() {
     var isDark = (document.documentElement.getAttribute('data-theme') === 'dark') || document.body.classList.contains('dark-mode');
@@ -482,8 +496,8 @@ window.CafeFlow = window.CafeFlow || {};
     var colors = getChartColors();
     var ctx = canvas.getContext('2d');
     var grad = ctx.createLinearGradient(0, 0, 0, 240);
-    grad.addColorStop(0, 'rgba(200, 125, 75, 0.24)');
-    grad.addColorStop(1, 'rgba(200, 125, 75, 0.0)');
+    grad.addColorStop(0, 'rgba(232,98,58,0.28)');
+    grad.addColorStop(1, 'rgba(232,98,58,0.00)');
 
     return new Chart(ctx, {
       type: 'line',
@@ -594,6 +608,8 @@ window.CafeFlow = window.CafeFlow || {};
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               label: function(c) { return '  ' + c.parsed.y + ' units sold'; }
             }
@@ -635,10 +651,26 @@ window.CafeFlow = window.CafeFlow || {};
     var labels = items.map(function(it) { return it.name; });
     var qtys = items.map(function(it) { return it.qty; });
     var n = labels.length;
-    var barColors = labels.map(function(_, i) {
-      var alpha = 1 - (i / Math.max(n, 1)) * 0.45;
-      return colors.isDark ? 'rgba(56,155,114,' + alpha + ')' : 'rgba(46,125,91,' + alpha + ')'; // fresh green #2E7D5B
+
+    var barGradients = labels.map(function(_, i) {
+      var alphaTop = Math.max(0.45, 1 - (i / Math.max(n, 1)) * 0.4);
+      var alphaBtm = alphaTop * 0.55;
+      var grad = ctx.createLinearGradient(0, 0, 0, 240);
+      if (colors.isDark) {
+        grad.addColorStop(0, 'rgba(56, 155, 114, ' + alphaTop + ')');
+        grad.addColorStop(1, 'rgba(24, 70, 50, ' + alphaBtm + ')');
+      } else {
+        grad.addColorStop(0, 'rgba(46, 125, 91, ' + alphaTop + ')');
+        grad.addColorStop(1, 'rgba(30, 85, 62, ' + alphaBtm + ')');
+      }
+      return grad;
     });
+
+    var borderColors = labels.map(function(_, i) {
+      var alpha = Math.max(0.7, 1 - (i / Math.max(n, 1)) * 0.35);
+      return colors.isDark ? 'rgba(56, 155, 114, ' + alpha + ')' : 'rgba(46, 125, 91, ' + alpha + ')';
+    });
+
     return new Chart(ctx, {
       type: 'bar',
       data: {
@@ -646,8 +678,8 @@ window.CafeFlow = window.CafeFlow || {};
         datasets: [{
           label: 'Units Sold',
           data: qtys,
-          backgroundColor: barColors,
-          borderColor: barColors.map(function(c) { return c.replace(/[\d.]+\)$/, '1)'); }),
+          backgroundColor: barGradients,
+          borderColor: borderColors,
           borderWidth: 1.5,
           borderRadius: 6,
           borderSkipped: false
@@ -661,12 +693,13 @@ window.CafeFlow = window.CafeFlow || {};
           legend: { display: false },
           tooltip: {
             backgroundColor: colors.tooltipBg,
-            titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.9)',
+            titleColor: colors.text,
+            bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
             borderColor: colors.tooltipBorder,
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
+            boxPadding: 4,
             callbacks: {
               title: function(itemsList) {
                 return itemsList[0] ? itemsList[0].label : '';
@@ -695,7 +728,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: colors.grid },
+            grid: {
+              color: colors.grid,
+              drawBorder: false
+            },
             ticks: {
               color: colors.muted,
               font: { size: 11 },
@@ -746,7 +782,7 @@ window.CafeFlow = window.CafeFlow || {};
             backgroundColor: colors.caramel,
             borderWidth: 2.5,
             pointRadius: 4,
-            pointHoverRadius: 6,
+            pointHoverRadius: 6.5,
             tension: 0.35,
             yAxisID: 'y1'
           }
@@ -769,6 +805,8 @@ window.CafeFlow = window.CafeFlow || {};
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
+            borderColor: 'rgba(255,255,255,0.12)',
+            borderWidth: 1,
             callbacks: {
               afterBody: function(items) {
                 var idx = items[0] ? items[0].dataIndex : 0;
@@ -1278,7 +1316,8 @@ window.CafeFlow = window.CafeFlow || {};
 
     var summaryPanel = h('div', { class: 'top-sellers-summary-panel' });
     var body = h('div', { class: 'top-sellers-body' }, chartBox, summaryPanel);
-    card.append(head, body);
+    var leaderboardContainer = h('div', { class: 'top-sellers-leaderboard-container' });
+    card.append(head, body, leaderboardContainer);
     container.append(card);
 
     function updateTopView() {
@@ -1310,6 +1349,8 @@ window.CafeFlow = window.CafeFlow || {};
       }
 
       summaryPanel.innerHTML = '';
+      leaderboardContainer.innerHTML = '';
+
       var catLabel = _topCategory === 'drinks' ? 'Drinks Scope' : _topCategory === 'snacks' ? 'Snacks Scope' : 'All Categories Scope';
       var limitLabel = 'Top ' + _topLimit + ' Ranking';
 
@@ -1375,7 +1416,34 @@ window.CafeFlow = window.CafeFlow || {};
           h('div', { class: 'summary-chip' }, h('span', { text: 'Category Revenue:' }), h('strong', { text: money(totalCatRev) }))
         );
       }
-      summaryPanel.append(scopeHeader, narrativeDiv, leaderboardWrap, chipsDiv);
+
+      summaryPanel.append(scopeHeader, narrativeDiv, chipsDiv);
+
+      if (sliced.length > 0) {
+        var displayLimit = Math.min(sliced.length, _topLimit);
+        var leaderboardWrap = h('div', { class: 'top-sellers-leaderboard' },
+          h('h4', { class: 'leaderboard-title', text: 'Top ' + displayLimit + ' Bestselling Products Leaderboard' }),
+          h('div', { class: 'leaderboard-list' },
+            sliced.slice(0, displayLimit).map(function(item, idx) {
+              var rank = idx + 1;
+              var medalClass = rank === 1 ? 'rank-gold' : (rank === 2 ? 'rank-silver' : (rank === 3 ? 'rank-bronze' : 'rank-std'));
+              var medalIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : '#' + rank));
+              return h('div', { class: 'leaderboard-row ' + medalClass },
+                h('div', { class: 'leaderboard-rank' }, h('span', { text: medalIcon })),
+                h('div', { class: 'leaderboard-info' },
+                  h('strong', { class: 'leaderboard-name', text: item.name }),
+                  h('span', { class: 'leaderboard-cat', text: item.category || 'Beverage' })
+                ),
+                h('div', { class: 'leaderboard-stats' },
+                  h('span', { class: 'leaderboard-qty', text: item.qty + ' units' }),
+                  h('strong', { class: 'leaderboard-rev', text: money(item.revenue || 0) })
+                )
+              );
+            })
+          )
+        );
+        leaderboardContainer.append(leaderboardWrap);
+      }
     }
 
     [catBtnDrinks, catBtnSnacks, catBtnAll].forEach(function(btn) {
@@ -1511,7 +1579,7 @@ window.CafeFlow = window.CafeFlow || {};
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '62%',
+        cutout: '68%',
         onHover: function(event, elements, ch) {
           var prev = ch._hoveredSliceIndex;
           if (elements && elements.length > 0) {
@@ -2090,16 +2158,44 @@ window.CafeFlow = window.CafeFlow || {};
                 backgroundColor: 'rgba(201, 59, 59, 0.75)', // Wastage status red #C93B3B
                 borderColor: '#C93B3B',
                 borderWidth: 1.5,
-                borderRadius: 4
+                borderRadius: 5,
+                borderSkipped: false
               }]
             },
             options: {
               responsive: true,
               maintainAspectRatio: false,
-              plugins: { legend: { display: false } },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#162318',
+                  titleColor: '#ffffff',
+                  titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
+                  bodyColor: 'rgba(255,255,255,0.9)',
+                  bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
+                  padding: 10,
+                  cornerRadius: 8,
+                  borderColor: 'rgba(255,255,255,0.12)',
+                  borderWidth: 1,
+                  callbacks: {
+                    label: (c) => `  Material Waste: ₱${Number(c.parsed.y).toLocaleString('en-PH', { minimumFractionDigits: 2 })}`
+                  }
+                }
+              },
               scales: {
-                x: { grid: { display: false } },
-                y: { beginAtZero: true, ticks: { callback: v => '₱' + v } }
+                x: {
+                  grid: { display: false },
+                  ticks: { font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }, color: '#5a7a63' }
+                },
+                y: {
+                  beginAtZero: true,
+                  grid: { color: 'rgba(22, 35, 24, 0.06)' },
+                  ticks: {
+                    font: { family: "'Work Sans', sans-serif", size: 11 },
+                    color: '#5a7a63',
+                    callback: v => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)
+                  }
+                }
               }
             }
           });
@@ -2110,57 +2206,86 @@ window.CafeFlow = window.CafeFlow || {};
     body.append(section);
   }
 
-  function renderExecutiveKpiGrid(body, r, s) {
-    const total = s.total || 0;
-    const orders = s.orders || 0;
-    const cash = s.cash || 0;
-    const gcash = s.gcash || 0;
-    const aov = s.aov || (orders > 0 ? total / orders : 0);
-    const cashPct = total > 0 ? Math.round((cash / total) * 100) : 0;
-    const gcashPct = total > 0 ? Math.round((gcash / total) * 100) : 0;
-    const peakH = getPeakHour(r);
+  function renderExecutiveKpiGrid(r) {
+    const s = r.summary || {};
+    const totalSales = Number(s.total || 0);
+    const totalOrders = Number(s.orders || 0);
+    const cashSales = Number(s.cash || 0);
+    const gcashSales = Number(s.gcash || 0);
+    const aov = s.aov ? Number(s.aov) : (totalOrders > 0 ? totalSales / totalOrders : 0);
+    
+    // Operating days calculation for average pace
+    const opDays = (r.by_day && r.by_day.length > 0) ? r.by_day.length : 1;
+    const avgDailyOrders = opDays > 1 ? (totalOrders / opDays).toFixed(1) : totalOrders;
 
-    const grid = h('div', { class: 'report-kpi-grid' },
-      // 1. Gross Revenue Hero Card
-      h('div', { class: 'report-kpi-card hero' },
-        h('span', { class: 'report-kpi-label', text: 'Gross Revenue' }),
-        h('span', { class: 'report-kpi-val', text: money(total) }),
-        h('div', { class: 'report-kpi-tender-split' },
-          h('span', { class: 'tender-pill cash', text: `Cash: ${money(cash)} (${cashPct}%)` }),
-          h('span', { class: 'tender-pill gcash', text: `GCash: ${money(gcash)} (${gcashPct}%)` })
+    // Payment percentages
+    const totalTender = (cashSales + gcashSales) > 0 ? (cashSales + gcashSales) : 1;
+    const cashPct = Math.round((cashSales / totalTender) * 100);
+    const gcashPct = 100 - cashPct;
+
+    const grid = h('div', { class: 'sales-kpi-grid' },
+      // 1. Gross Sales Revenue
+      h('div', { class: 'sales-kpi-card hero-gross' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Gross Sales Revenue' }),
+          h('span', { class: 'sales-kpi-badge revenue', text: 'Total Settled' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(totalSales) }),
+        h('div', { class: 'sales-kpi-sub', text: `${totalOrders.toLocaleString()} completed customer ticket${totalOrders === 1 ? '' : 's'}` })
+      ),
+      // 2. Net Sales Revenue
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Net Realized Revenue' }),
+          h('span', { class: 'sales-kpi-badge net', text: '100% Retained' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(totalSales) }),
+        h('div', { class: 'sales-kpi-sub', text: '₱0.00 deductions · 100% net realization' })
+      ),
+      // 3. Transaction Volume
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Transaction Volume' }),
+          h('span', { class: 'sales-kpi-badge orders', text: `${opDays} Day${opDays === 1 ? '' : 's'}` })
+        ),
+        h('div', { class: 'sales-kpi-val', text: totalOrders.toLocaleString() }),
+        h('div', { class: 'sales-kpi-sub', text: opDays > 1 ? `Avg ${avgDailyOrders} tickets / trading day` : 'Single trading shift' })
+      ),
+      // 4. Average Ticket Value (ATV / AOV)
+      h('div', { class: 'sales-kpi-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Average Ticket Value (ATV)' }),
+          h('span', { class: 'sales-kpi-badge ticket', text: 'Per Order' })
+        ),
+        h('div', { class: 'sales-kpi-val', text: money(aov) }),
+        h('div', { class: 'sales-kpi-sub', text: 'Average customer order size' })
+      ),
+      // 5. Cash vs GCash Distribution
+      h('div', { class: 'sales-kpi-card pay-split-card' },
+        h('div', { class: 'sales-kpi-top' },
+          h('span', { class: 'sales-kpi-title', text: 'Cash vs. GCash Distribution' }),
+          h('span', { class: 'sales-kpi-badge split', text: 'Tender Split' })
+        ),
+        h('div', { class: 'pay-split-bar' },
+          h('div', { class: 'pay-split-seg cash', style: `width: ${cashPct}%;`, title: `Cash: ${cashPct}%` }),
+          h('div', { class: 'pay-split-seg gcash', style: `width: ${gcashPct}%;`, title: `GCash: ${gcashPct}%` })
+        ),
+        h('div', { class: 'pay-split-legend' },
+          h('span', { class: 'legend-item' },
+            h('span', { class: 'legend-dot cash' }),
+            h('span', { text: `Cash: ${money(cashSales)} (${cashPct}%)` })
+          ),
+          h('span', { class: 'legend-item' },
+            h('span', { class: 'legend-dot gcash' }),
+            h('span', { text: `GCash: ${money(gcashSales)} (${gcashPct}%)` })
+          )
         )
-      ),
-      // 2. Completed Orders
-      h('div', { class: 'report-kpi-card' },
-        h('span', { class: 'report-kpi-label', text: 'Completed Orders' }),
-        h('span', { class: 'report-kpi-val', text: orders.toLocaleString() }),
-        h('span', { class: 'report-kpi-sub', text: s.cancelled ? `${s.cancelled} cancelled tickets` : '100% register completion' })
-      ),
-      // 3. Average Order Value (AOV)
-      h('div', { class: 'report-kpi-card' },
-        h('span', { class: 'report-kpi-label', text: 'Average Ticket (AOV)' }),
-        h('span', { class: 'report-kpi-val', text: money(aov) }),
-        h('span', { class: 'report-kpi-sub', text: 'Customer basket expenditure' })
-      ),
-      // 4. Physical Cash Drawer Tender
-      h('div', { class: 'report-kpi-card' },
-        h('span', { class: 'report-kpi-label', text: 'Physical Cash Drawer' }),
-        h('span', { class: 'report-kpi-val', text: money(cash) }),
-        h('span', { class: 'report-kpi-sub', text: `${cashPct}% of total volume` })
-      ),
-      // 5. GCash Digital Settlement
-      h('div', { class: 'report-kpi-card' },
-        h('span', { class: 'report-kpi-label', text: 'GCash Digital Settlement' }),
-        h('span', { class: 'report-kpi-val', text: money(gcash) }),
-        h('span', { class: 'report-kpi-sub', text: `${gcashPct}% digital adoption` })
-      ),
-      // 6. Peak Trading Velocity
-      h('div', { class: 'report-kpi-card' },
-        h('span', { class: 'report-kpi-label', text: 'Peak Rush Velocity' }),
-        h('span', { class: 'report-kpi-val', style: peakH && peakH.total > 0 ? 'font-size: 20px;' : '', text: peakH && peakH.total > 0 ? peakH.time : 'Normal Flow' }),
-        h('span', { class: 'report-kpi-sub', text: peakH && peakH.total > 0 ? `${peakH.orders} orders (${money(peakH.total)})` : 'Steady customer flow' })
       )
     );
+    return grid;
+  }
+
+  async function renderReport(r) {
 
     body.append(grid);
   }
@@ -2239,6 +2364,9 @@ window.CafeFlow = window.CafeFlow || {};
 
     // 6-Card Executive Financial Summary (KPI Dashboard)
     renderExecutiveKpiGrid(body, r, s);
+
+    // Render Executive 5-Card KPI Summary
+    body.append(renderExecutiveKpiGrid(r));
 
     // ---- Chart Selector (Sales Trend / Top Products / Payment Breakdown / Compare All) ----
     var hasHourly  = r.by_hour && r.by_hour.length > 0;

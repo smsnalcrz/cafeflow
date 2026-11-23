@@ -147,8 +147,14 @@
     min-height: 58px;
     padding: 6px 12px;
     gap: 8px;
+    display: flex;
+    align-items: center;
+    position: relative;
   }
   .nav {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-left: 0;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -162,6 +168,30 @@
     height: 36px;
     white-space: nowrap;
     flex-shrink: 0;
+  }
+  .user-profile-wrap {
+    margin-left: auto;
+    flex-shrink: 0;
+    z-index: 105;
+  }
+  .profile-btn {
+    height: 36px;
+    padding: 0 10px 0 5px;
+    gap: 6px;
+  }
+  .profile-avatar {
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    flex: 0 0 26px;
+  }
+  .profile-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 250px;
+    max-width: calc(100vw - 20px);
+    z-index: 1000;
   }
   .modal-head {
     flex-wrap: wrap;
@@ -179,6 +209,24 @@
 }
 
 @media (max-width: 520px) {
+  .profile-role-badge {
+    display: none;
+  }
+  .profile-btn {
+    padding: 0 6px 0 4px;
+    gap: 4px;
+  }
+  .profile-chevron {
+    font-size: 10px;
+  }
+  .modal-card-2fa {
+    max-height: calc(100vh - 20px) !important;
+    width: 100% !important;
+    margin: auto 4px !important;
+  }
+  .modal-card-2fa .modal-body {
+    padding: 18px 14px 22px !important;
+  }
   .brand-lockup {
     gap: 2px;
   }

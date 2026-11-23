@@ -42,6 +42,9 @@ window.CafeFlow = window.CafeFlow || {};
     initDashboardEvents();
     if (initPredictiveEvents) initPredictiveEvents();
     if (initWasteEvents) initWasteEvents();
+    if (window.CafeFlow.security2fa && window.CafeFlow.security2fa.initSecurityEvents) {
+      window.CafeFlow.security2fa.initSecurityEvents();
+    }
 
     // 2. Global Brand Logo click behavior
     const brandEl = $('.brand');

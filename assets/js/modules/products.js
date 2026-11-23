@@ -1509,12 +1509,17 @@ window.CafeFlow = window.CafeFlow || {};
 
 
   async function deleteProduct(id, name) {
-
-    if (!confirm(`Are you sure you want to delete "${name}"? This will remove it from the menu.`)) {
-
-      return;
-
-    }
+    const confirmFn = (window.CafeFlow.utils && window.CafeFlow.utils.confirmDialog) || window.confirm;
+    const ok = await confirmFn({
+      title: 'Delete Menu Product',
+      subtitle: 'Menu Catalog Modification',
+      message: `Are you sure you want to delete "${name}"?`,
+      hint: 'This item will be removed from the POS catalog and baristas will no longer be able to ring it up.',
+      confirmText: 'Delete Product',
+      cancelText: 'Cancel',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     try {
 

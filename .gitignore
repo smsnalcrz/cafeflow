@@ -3,6 +3,10 @@
 Thumbs.db
 __pycache__/
 *.pyc
+.env
+.env.*
+.2fa_key
+core/.2fa_key
 
 # Local scratch directory & temporary test artifacts
 scratch/

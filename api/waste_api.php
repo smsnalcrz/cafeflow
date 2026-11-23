@@ -5,12 +5,12 @@
  * GET api/waste_api.php
  *
  * Supported query parameters:
- * - `period`: 'hourly', 'daily', 'weekly', 'yearly' (default 'daily')
+ * - `period`: 'hourly', 'daily', 'weekly', 'monthly', 'yearly' (default 'daily')
  * - `date`: YYYY-MM-DD for specific date (hourly/daily)
  * - `start`: YYYY-MM-DD
  * - `end`: YYYY-MM-DD
  * - `week`: YYYY-MM-DD (start of 7-day period)
- * - `month`: YYYY-MM
+ * - `month`: YYYY-MM (specific month)
  * - `year`: YYYY (e.g. 2026)
  * - `product_id`: filter by product ID
  * - `item_id`: filter by raw inventory item ID
@@ -61,7 +61,7 @@ $periodLabel = '';
 $startDateStr = '';
 $endDateStr = '';
 
-if ($period === 'yearly' || ($yearParam && preg_match('/^\d{4}$/', (string)$yearParam) && !$monthParam)) {
+if ($period === 'yearly' || ($yearParam && preg_match('/^\d{4}$/', (string)$yearParam) && !$monthParam && $period !== 'monthly')) {
     $period = 'yearly';
     $rawYear = (int) ($yearParam ?? $now->format('Y'));
     if ($rawYear < 2000 || $rawYear > 2100) {
@@ -72,6 +72,25 @@ if ($period === 'yearly' || ($yearParam && preg_match('/^\d{4}$/', (string)$year
     $lastDay = $dtEnd->modify('-1 day');
 
     $periodLabel  = sprintf('Year %04d (Annual Waste Analytics)', $rawYear);
+    $startDateStr = $dtStart->format('Y-m-d');
+    $endDateStr   = $lastDay->format('Y-m-d');
+} elseif ($period === 'monthly' || $monthParam) {
+    $period = 'monthly';
+    $rawMonth = $monthParam ?? $dateParam ?? $startParam;
+    if ($rawMonth && preg_match('/^(\d{4})-(\d{2})/', (string)$rawMonth, $m)) {
+        $rawYear = (int)$m[1];
+        $rawMonthNum = (int)$m[2];
+        if ($rawYear < 2000 || $rawYear > 2100 || $rawMonthNum < 1 || $rawMonthNum > 12) {
+            fail(400, 'Invalid month. Format must be YYYY-MM.');
+        }
+        $dtStart = DateTimeImmutable::createFromFormat('!Y-m-d', sprintf('%04d-%02d-01', $rawYear, $rawMonthNum), $tz);
+    } else {
+        $dtStart = DateTimeImmutable::createFromFormat('!Y-m-d', $now->format('Y-m-01'), $tz);
+    }
+    $dtEnd   = $dtStart->modify('+1 month');
+    $lastDay = $dtEnd->modify('-1 day');
+
+    $periodLabel  = $dtStart->format('F Y') . ' (Monthly Waste Audit)';
     $startDateStr = $dtStart->format('Y-m-d');
     $endDateStr   = $lastDay->format('Y-m-d');
 } elseif ($period === 'weekly' || $weekParam) {
@@ -480,6 +499,7 @@ send_json([
     'success' => true,
     'period'  => $period,
     'label'   => $periodLabel,
+    'month'   => $dtStart->format('Y-m'),
     'start_date' => $startDateStr,
     'end_date'   => $endDateStr,
     'summary' => [

@@ -425,7 +425,7 @@ if ($discountType === 'senior_pwd') {
         fail(422, 'Promotional discount amount must be greater than 0 and not exceed order subtotal.');
     }
     $discount = (float)$fixedAmt;
-    $discountRate = round(($discount / $subtotal) * 100, 2);
+    $discountRate = $subtotal > 0 ? round(($discount / $subtotal) * 100, 2) : 0.00;
     $discountedBase = max(0, $subtotal - $discount);
     $tax = 0.00; // No VAT
     $total = round($discountedBase, 2);

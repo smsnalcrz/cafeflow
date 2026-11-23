@@ -21,7 +21,8 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 // -----------------------------------------------------------------------------
 if ($method === 'GET') {
     $rows = $pdo->query('
-        SELECT user_id, full_name, username, email, role, status, created_at, updated_at, last_login
+        SELECT user_id, full_name, username, email, role, status, created_at, updated_at, last_login,
+               two_factor_enabled, two_factor_confirmed_at, two_factor_reenroll_required
           FROM users
          ORDER BY 
            CASE status 
@@ -52,17 +53,28 @@ if ($method === 'GET') {
         elseif ($uStatus === 'pending') $pending++;
         elseif ($uStatus === 'inactive') $inactive++;
 
+        $twoFactorStatus = 'disabled';
+        if (!empty($r['two_factor_reenroll_required'])) {
+            $twoFactorStatus = 're-enrollment';
+        } elseif (!empty($r['two_factor_enabled'])) {
+            $twoFactorStatus = 'enabled';
+        }
+
         $items[] = [
-            'user_id'    => (int) $r['user_id'],
-            'full_name'  => $r['full_name'],
-            'username'   => $r['username'],
-            'email'      => $r['email'] ?? '',
-            'role'       => $uRole,
-            'status'     => $uStatus,
-            'created_at' => $r['created_at'],
-            'updated_at' => $r['updated_at'],
-            'last_login' => $r['last_login'],
-            'is_self'    => ((int) $r['user_id'] === $currentUserId)
+            'user_id'                      => (int) $r['user_id'],
+            'full_name'                    => $r['full_name'],
+            'username'                     => $r['username'],
+            'email'                        => $r['email'] ?? '',
+            'role'                         => $uRole,
+            'status'                       => $uStatus,
+            'created_at'                   => $r['created_at'],
+            'updated_at'                   => $r['updated_at'],
+            'last_login'                   => $r['last_login'],
+            'two_factor_enabled'           => (bool) $r['two_factor_enabled'],
+            'two_factor_confirmed_at'      => $r['two_factor_confirmed_at'],
+            'two_factor_reenroll_required' => (bool) $r['two_factor_reenroll_required'],
+            'two_factor_status'            => $twoFactorStatus,
+            'is_self'                      => ((int) $r['user_id'] === $currentUserId)
         ];
     }
 
@@ -374,6 +386,72 @@ if ($action === 'delete') {
     send_json([
         'success' => true,
         'message' => "Account '{$target['username']}' deleted successfully."
+    ]);
+}
+
+// -----------------------------------------------------------------------------
+// 6. Action: Reset 2FA (Manager Authorization & Password Re-auth Required)
+// -----------------------------------------------------------------------------
+if ($action === 'reset_2fa') {
+    $targetId = as_int($data['user_id'] ?? null, 1, 4294967295);
+    if ($targetId === null) {
+        fail(422, 'Invalid user ID.');
+    }
+
+    $managerPassword = (string) ($data['manager_password'] ?? $data['password'] ?? '');
+    if ($managerPassword === '') {
+        fail(422, 'Manager password confirmation is required to reset employee Two-Factor Authentication.');
+    }
+
+    // Always re-authenticate current Manager against database hash
+    $mgrStmt = $pdo->prepare('SELECT password_hash FROM users WHERE user_id = ? LIMIT 1');
+    $mgrStmt->execute([$currentUserId]);
+    $mgrHash = (string) $mgrStmt->fetchColumn();
+
+    if (!password_verify($managerPassword, $mgrHash)) {
+        fail(401, 'Manager password verification failed. Please enter your correct password.');
+    }
+
+    $stmt = $pdo->prepare('SELECT user_id, username, full_name, role, status FROM users WHERE user_id = ? LIMIT 1');
+    $stmt->execute([$targetId]);
+    $target = $stmt->fetch();
+    if (!$target) {
+        fail(404, 'Employee account not found.');
+    }
+
+    // Reset 2FA credentials and flag for mandatory re-enrollment
+    $pdo->beginTransaction();
+    try {
+        $up = $pdo->prepare('
+            UPDATE users 
+               SET two_factor_secret = NULL,
+                   two_factor_enabled = 0,
+                   two_factor_confirmed_at = NULL,
+                   two_factor_recovery_codes = NULL,
+                   two_factor_last_used_step = NULL,
+                   two_factor_reenroll_required = 1
+             WHERE user_id = ?
+        ');
+        $up->execute([$targetId]);
+
+        // Clear any active failure counters
+        $del = $pdo->prepare('DELETE FROM two_factor_attempts WHERE user_id = ?');
+        $del->execute([$targetId]);
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        fail(500, 'Database error while resetting 2FA configuration.');
+    }
+
+    log_security_audit($pdo, $currentUserId, $targetId, 'admin_reset_2fa', [
+        'target_username' => $target['username'],
+        'target_role'     => $target['role']
+    ]);
+
+    send_json([
+        'success' => true,
+        'message' => "Two-Factor Authentication for '{$target['username']}' has been reset. The employee will be required to re-enroll upon their next sign-in."
     ]);
 }
 

@@ -128,7 +128,7 @@ window.CafeFlow = window.CafeFlow || {};
     if (filtered.length === 0) {
       const isSearch = Boolean(q);
       const tr = h('tr', {},
-        h('td', { colspan: '8' },
+        h('td', { colspan: '9' },
           emptyState({
             icon: '',
             title: isSearch ? `No accounts match "${q}"` : `No ${accountFilter !== 'all' ? accountFilter + ' ' : ''}accounts found`,
@@ -226,6 +226,18 @@ window.CafeFlow = window.CafeFlow || {};
 
       actWrap.append(resetPassBtn);
 
+      // Reset 2FA Button (for accounts that have 2FA enabled or re-enrollment required)
+      if (acc.two_factor_status === 'enabled' || acc.two_factor_status === 're-enrollment') {
+        const reset2faBtn = h('button', {
+          type: 'button',
+          class: 'acc-act-btn',
+          style: 'color: var(--amber); border-color: rgba(232,98,58,0.4);',
+          title: 'Reset Two-Factor Authentication for this employee',
+          onclick: () => openReset2faSheet(acc)
+        }, 'Reset 2FA');
+        actWrap.append(reset2faBtn);
+      }
+
 
 
       // Status Action (Approve / Deactivate / Activate)
@@ -308,7 +320,15 @@ window.CafeFlow = window.CafeFlow || {};
 
       const loginText = acc.last_login ? acc.last_login.replace('T', ' ').slice(0, 16) : 'Never';
 
-
+      // 2FA Status Badge
+      let twoFactorBadge;
+      if (acc.two_factor_status === 'enabled') {
+        twoFactorBadge = h('span', { class: 'status-badge active', style: 'background: var(--green-light); color: var(--green); border: 1px solid rgba(42,155,82,0.3); font-size: 11px; font-weight: 800;' }, 'ENABLED');
+      } else if (acc.two_factor_status === 're-enrollment') {
+        twoFactorBadge = h('span', { class: 'status-badge pending', style: 'background: var(--amber-light); color: var(--amber); border: 1px solid rgba(232,98,58,0.3); font-size: 11px; font-weight: 800;' }, 'RE-ENROLL');
+      } else {
+        twoFactorBadge = h('span', { class: 'status-badge inactive', style: 'font-size: 11px; opacity: 0.65;' }, 'DISABLED');
+      }
 
       const tr = h('tr', {},
 
@@ -321,6 +341,8 @@ window.CafeFlow = window.CafeFlow || {};
         h('td', {}, roleBadge),
 
         h('td', {}, statusBadge),
+
+        h('td', {}, twoFactorBadge),
 
         h('td', { style: 'font-size: 12.5px; color: var(--muted); white-space: nowrap;' }, formattedCreated),
 
@@ -508,36 +530,62 @@ window.CafeFlow = window.CafeFlow || {};
 
   }
 
+  function openReset2faSheet(acc) {
+    if ($('#reset2faUserId')) $('#reset2faUserId').value = acc.user_id;
+    if ($('#reset2faTargetUsername')) $('#reset2faTargetUsername').textContent = '@' + acc.username;
+    if ($('#reset2faTargetFullName')) $('#reset2faTargetFullName').textContent = acc.full_name;
+    if ($('#reset2faManagerPass')) $('#reset2faManagerPass').value = '';
+    const err = $('#reset2faError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+    const sheet = $('#reset2faSheet');
+    if (sheet) sheet.hidden = false;
+    const pass = $('#reset2faManagerPass');
+    if (pass) setTimeout(() => pass.focus(), 60);
+  }
+
+  function closeReset2faSheet() {
+    const sheet = $('#reset2faSheet');
+    if (sheet) sheet.hidden = true;
+    const err = $('#reset2faError');
+    if (err) { err.hidden = true; err.textContent = ''; }
+  }
+
 
 
   async function toggleAccountStatus(userId, newStatus, promptMsg) {
+    const isDeactivating = (newStatus === 'inactive');
+    const match = String(promptMsg || '').match(/@([a-zA-Z0-9_\-]+)/);
+    const targetHandle = match ? `@${match[1]}` : 'this account';
 
-    if (!confirm(promptMsg)) return;
+    const confirmFn = (window.CafeFlow.utils && window.CafeFlow.utils.confirmDialog) || window.confirm;
+    const ok = await confirmFn({
+      title: isDeactivating ? 'Deactivate Account' : 'Activate Account',
+      subtitle: isDeactivating ? 'Staff Access Revocation' : 'Staff Access Grant',
+      message: isDeactivating
+        ? `Are you sure you want to deactivate the account ${targetHandle}?`
+        : `Approve and activate system access for ${targetHandle}?`,
+      hint: isDeactivating
+        ? 'The user will immediately be barred from signing in to CafeFlow POS and cannot open or process shifts until reactivated by a Manager.'
+        : 'The user will immediately be granted permission to sign in and operate CafeFlow POS.',
+      confirmText: isDeactivating ? 'Deactivate Account' : 'Activate Account',
+      cancelText: 'Cancel',
+      type: isDeactivating ? 'danger' : 'success'
+    });
+
+    if (!ok) return;
 
     try {
-
       const res = await api('accounts_api.php', {
-
         action: 'toggle_status',
-
         user_id: userId,
-
         status: newStatus,
-
         csrf_token: currentUser.csrf_token
-
       });
-
       toast(res.message || 'Status updated.', 'success', 3000);
-
       loadAccounts();
-
     } catch (e) {
-
       toast(e.message, 'error', 4500);
-
     }
-
   }
 
 
@@ -975,6 +1023,8 @@ window.CafeFlow = window.CafeFlow || {};
     // Close Sheets
     const accCancelBtn = $('#accountSheetCancel');
     if (accCancelBtn) accCancelBtn.addEventListener('click', closeAccountSheet);
+    const accCloseIcon = $('#accountSheetCloseIcon');
+    if (accCloseIcon) accCloseIcon.addEventListener('click', closeAccountSheet);
     const accSheet = $('#accountSheet');
     if (accSheet) {
       accSheet.addEventListener('click', (e) => {
@@ -984,12 +1034,17 @@ window.CafeFlow = window.CafeFlow || {};
 
     const resetCancelBtn = $('#resetPassCancel');
     if (resetCancelBtn) resetCancelBtn.addEventListener('click', closeResetPassSheet);
+    const resetPassCloseIcon = $('#resetPassCloseIcon');
+    if (resetPassCloseIcon) resetPassCloseIcon.addEventListener('click', closeResetPassSheet);
     const resetSheet = $('#resetPassSheet');
     if (resetSheet) {
       resetSheet.addEventListener('click', (e) => {
         if (e.target === resetSheet) closeResetPassSheet();
       });
     }
+
+    const reset2faCloseIcon = $('#reset2faCloseIcon');
+    if (reset2faCloseIcon) reset2faCloseIcon.addEventListener('click', closeReset2faSheet);
 
     // Account Form Save
     const accForm = $('#accountForm');
@@ -1134,6 +1189,68 @@ window.CafeFlow = window.CafeFlow || {};
       });
     }
 
+    // Reset 2FA Form Submit
+    const reset2faCancel = $('#reset2faCancel');
+    if (reset2faCancel) reset2faCancel.addEventListener('click', closeReset2faSheet);
+
+    const reset2faSheet = $('#reset2faSheet');
+    if (reset2faSheet) {
+      reset2faSheet.addEventListener('click', (e) => {
+        if (e.target === reset2faSheet) closeReset2faSheet();
+      });
+    }
+
+    const reset2faForm = $('#reset2faForm');
+    if (reset2faForm) {
+      reset2faForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const errBox = $('#reset2faError');
+        if (errBox) {
+          errBox.hidden = true;
+          errBox.textContent = '';
+        }
+
+        const userId = $('#reset2faUserId') ? $('#reset2faUserId').value : '';
+        const mgrPass = $('#reset2faManagerPass') ? $('#reset2faManagerPass').value : '';
+
+        if (!mgrPass) {
+          if (errBox) {
+            errBox.textContent = 'Please enter your manager password to confirm.';
+            errBox.hidden = false;
+          }
+          return;
+        }
+
+        const saveBtn = $('#reset2faSubmitBtn');
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.textContent = 'Resetting…';
+        }
+
+        try {
+          const res = await api('accounts_api.php', {
+            action: 'reset_2fa',
+            user_id: parseInt(userId, 10),
+            manager_password: mgrPass,
+            csrf_token: currentUser.csrf_token
+          });
+          toast(res.message || '2FA reset successfully.', 'success', 4000);
+          closeReset2faSheet();
+          await loadAccounts();
+        } catch (err) {
+          if (errBox) {
+            errBox.textContent = err.message;
+            errBox.hidden = false;
+          }
+        } finally {
+          if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Confirm Reset 2FA';
+          }
+        }
+      });
+    }
+
     // Password Show/Hide Toggle Buttons
     $$('.btn-toggle-pass').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1161,6 +1278,8 @@ window.CafeFlow = window.CafeFlow || {};
     openResetPasswordSheet,
     openResetPassSheet: openResetPasswordSheet,
     closeResetPassSheet,
+    openReset2faSheet,
+    closeReset2faSheet,
     toggleAccountStatus,
     initAccountEvents
   };
