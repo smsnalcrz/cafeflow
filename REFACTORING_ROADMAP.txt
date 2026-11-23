@@ -1,0 +1,453 @@
+================================================================================
+   CAFEFLOW POS - COMPREHENSIVE REFACTORING ROADMAP & ARCHITECTURAL GUIDE
+   Target Execution Date: November 24, 2026
+   Target Branch: integration/main-onat
+================================================================================
+
+This document provides a complete, step-by-step refactoring blueprint for the 
+CafeFlow POS codebase. It details current bottlenecks, target files, exact line 
+numbers, code snippets (before/after), and an actionable implementation checklist.
+
+--------------------------------------------------------------------------------
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+1. Backend Architecture & API Layer
+   - 1.1 API Middleware Pipeline (Eliminate Boilerplate in api/*.php)
+   - 1.2 Database Schema Separation (Remove ensure_schema from core/db.php)
+   - 1.3 Service / Domain Layer Extraction (OrderService, InventoryService)
+2. View Componentization & Templating
+   - 2.1 Modularizing index.php (Split 1,392 lines into clean partials)
+   - 2.2 Purging Duplication in login.php (Extract 1,200 lines of CSS/JS)
+3. JavaScript Client Architecture & Event Bus
+   - 3.1 Pub/Sub Event Bus (Decouple inter-module dependencies)
+   - 3.2 Splitting Giant Modules (reports.js, predictive.js, waste.js)
+4. CSS & Design System Optimization
+   - 4.1 Consolidating reports.css (3,427 lines down to clean component rules)
+   - 4.2 Standardizing Design Tokens & Eliminating !important Overrides
+5. Recipe Engine & Inventory Data Layer
+   - 5.1 Migrating Hardcoded PHP Arrays to MySQL BOM Tables
+6. Performance & Asset Delivery
+   - 6.1 Cache-Busting via Asset Versioning Helper
+7. Implementation Phase Checklist
+
+================================================================================
+1. BACKEND ARCHITECTURE & API LAYER
+================================================================================
+
+--------------------------------------------------------------------------------
+1.1 API Middleware Pipeline
+--------------------------------------------------------------------------------
+PROBLEM:
+Every single script in api/*.php currently repeats 15-30 lines of boilerplate:
+- Requiring core/db.php and core/auth.php
+- Calling require_role() or require_login()
+- Checking request method
+- Decoding JSON body
+- Validating CSRF tokens
+- Wrapping code in repeated try/catch blocks
+
+TARGET FILES:
+- api/checkout.php
+- api/complete_order.php
+- api/cancel_order.php
+- api/products_api.php
+- api/inventory_api.php
+- api/accounts_api.php
+- api/waste_api.php
+- api/report.php
+
+SOLUTION:
+Create a centralized API pipeline helper in `core/api_bootstrap.php`:
+
+```php
+<?php
+// core/api_bootstrap.php
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/auth.php';
+
+function api_endpoint(array $options, callable $handler): void {
+    $method = strtoupper($options['method'] ?? 'POST');
+    require_method($method);
+
+    // Authentication & Authorization checks
+    if (!empty($options['role'])) {
+        require_role($options['role']);
+    } elseif (!empty($options['auth'])) {
+        require_login();
+    }
+
+    // Read payload
+    $body = ($method === 'POST') ? read_json() : $_GET;
+
+    // CSRF verification for state-modifying requests
+    if (!empty($options['csrf'])) {
+        $csrf = $body['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
+        if (!validate_csrf_token($csrf)) {
+            fail(403, 'CSRF security token invalid or missing.');
+        }
+    }
+
+    try {
+        $result = $handler($body, db());
+        send_json(array_merge(['success' => true], (array) $result));
+    } catch (ApiError $e) {
+        fail($e->getCode() ?: 422, $e->getMessage());
+    } catch (Throwable $e) {
+        error_log('[CafeFlow API Error] ' . $e->getMessage());
+        fail(500, 'An unexpected internal error occurred.');
+    }
+}
+```
+
+BEFORE (api/cancel_order.php):
+~160 lines filled with repeated boilerplate, manual transaction handling, and 
+manual error decoding.
+
+AFTER (api/cancel_order.php):
+```php
+<?php
+require_once __DIR__ . '/../core/api_bootstrap.php';
+require_once __DIR__ . '/../services/OrderService.php';
+
+api_endpoint(['role' => ['barista', 'manager'], 'csrf' => true], function ($body, $pdo) {
+    $txId = as_int($body['transaction_id'] ?? null, 1, 4294967295);
+    $reason = trim((string)($body['reason'] ?? ''));
+    if (!$txId) fail(422, 'Invalid transaction ID.');
+    if (strlen($reason) < 3) fail(422, 'Valid reason required (3-255 characters).');
+
+    $user = current_user();
+    return OrderService::cancelOrVoidOrder($pdo, $txId, (int)$user['user_id'], $user['role'], $reason);
+});
+```
+
+--------------------------------------------------------------------------------
+1.2 Database Schema Separation
+--------------------------------------------------------------------------------
+PROBLEM:
+In `core/db.php` (Lines 24-280), the function `ensure_schema()` runs on runtime
+requests. It executes `SHOW COLUMNS FROM ...` and conditional `ALTER TABLE ...`
+queries on live requests. Under heavy traffic, DDL queries cause table locks 
+and degrade POS responsiveness.
+
+SOLUTION:
+1. Extract all table alterations into a dedicated migrations folder:
+   - `database/migrations/001_initial_schema.sql`
+   - `database/migrations/002_add_2fa_and_recovery.sql`
+   - `database/migrations/003_add_waste_summary.sql`
+2. Create a CLI runner in `tools/migrate.php` to run pending migrations once.
+3. Remove `ensure_schema()` from `core/db.php`, leaving `db()` as a pure, fast 
+   PDO singleton.
+
+--------------------------------------------------------------------------------
+1.3 Service / Domain Layer Extraction
+--------------------------------------------------------------------------------
+PROBLEM:
+Financial math, inventory deductions, recipe consumption, and database updates 
+are mixed directly inside procedural API scripts.
+
+SOLUTION:
+Create domain services in a new `services/` directory:
+- `services/OrderService.php`:
+  * createOrder($cart, $paymentMethod, $discount)
+  * completeOrder($transactionId)
+  * cancelOrVoidOrder($transactionId, $userId, $userRole, $reason)
+- `services/InventoryService.php`:
+  * verifySufficiency($aggregatedConsumption)
+  * deductStockForOrder($pdo, $items)
+  * restoreStockForOrder($pdo, $items)
+  * logManualWaste($pdo, $data)
+- `services/ReportService.php`:
+  * getSalesReport($period, $startDate, $endDate)
+  * getWasteAnalytics($period, $startDate, $endDate)
+
+================================================================================
+2. VIEW COMPONENTIZATION & TEMPLATING
+================================================================================
+
+--------------------------------------------------------------------------------
+2.1 Modularizing index.php (1,392 lines)
+--------------------------------------------------------------------------------
+PROBLEM:
+`index.php` contains the entire HTML structure for:
+- Topbar navigation & profile dropdown
+- POS view & Cart sidebar
+- Dashboard KPI cards
+- Inventory management modal
+- Product management modal
+- Sales report modal
+- Waste management modal
+- Predictive analytics modal
+- Accounts management modal
+- Google Authenticator (2FA) modal
+- Universal confirmation dialog modal
+- Manual waste modal
+
+Because everything is in 1 file, changing 1 modal requires editing a huge file,
+creating git merge conflicts.
+
+SOLUTION:
+Organize `views/` into modular partials:
+
+```
+views/
+├── layouts/
+│   ├── head.php                  // Meta tags, CSS imports, favicons
+│   ├── topbar.php                // App header, brand lockup, role pill, profile menu
+│   └── footer.php                // JS script imports, closing tags
+├── views/
+│   ├── pos.php                   // POS categories, product catalog grid, cart aside
+│   ├── dashboard.php             // Manager executive dashboard cards
+│   ├── reports.php               // Sales reports & analytics view
+│   ├── waste.php                 // Waste report view
+│   └── predictive.php            // Predictive forecast engine view
+└── modals/
+    ├── modal-inventory.php       // Raw inventory sheet & forms
+    ├── modal-product.php         // Product & cup sizes CRUD sheet
+    ├── modal-accounts.php        // Account administration sheet & password resets
+    ├── modal-security-2fa.php    // Google Authenticator setup & recovery codes
+    ├── modal-manual-waste.php    // Manual waste entry dialog
+    ├── modal-pay.php             // Cash & GCash payment tender dialogs
+    ├── modal-cancel-order.php    // Order queue cancellation dialog
+    └── modal-confirm.php         // Universal confirmation dialog
+```
+
+Refactored `index.php` becomes clean and concise (< 80 lines):
+```php
+<?php
+require_once __DIR__ . '/core/db.php';
+require_once __DIR__ . '/core/auth.php';
+
+$user = require_login();
+$csrfToken = get_csrf_token();
+$role = $user['role'] ?? 'barista';
+
+require __DIR__ . '/views/layouts/head.php';
+require __DIR__ . '/views/layouts/topbar.php';
+?>
+<main class="main-content" id="mainContent">
+  <?php require __DIR__ . '/views/views/pos.php'; ?>
+  <?php if ($role === 'manager'): ?>
+    <?php require __DIR__ . '/views/views/dashboard.php'; ?>
+    <?php require __DIR__ . '/views/views/reports.php'; ?>
+    <?php require __DIR__ . '/views/views/waste.php'; ?>
+    <?php require __DIR__ . '/views/views/predictive.php'; ?>
+  <?php endif; ?>
+</main>
+<?php
+require __DIR__ . '/views/modals/modal-pay.php';
+require __DIR__ . '/views/modals/modal-cancel-order.php';
+require __DIR__ . '/views/modals/modal-confirm.php';
+require __DIR__ . '/views/modals/modal-manual-waste.php';
+require __DIR__ . '/views/modals/modal-inventory.php';
+require __DIR__ . '/views/modals/modal-product.php';
+if ($role === 'manager') {
+    require __DIR__ . '/views/modals/modal-accounts.php';
+}
+require __DIR__ . '/views/modals/modal-security-2fa.php';
+require __DIR__ . '/views/layouts/footer.php';
+```
+
+--------------------------------------------------------------------------------
+2.2 Purging Duplication in login.php (1,915 lines)
+--------------------------------------------------------------------------------
+PROBLEM:
+- Lines 42-430: ~400 lines of inline `<style>` duplicating `assets/css/auth.css`.
+- Lines 1100-1910: ~800 lines of inline `<script>` duplicating 
+  `assets/js/modules/auth-login.js`.
+
+SOLUTION:
+1. Move any unique CSS rules from `login.php` into `assets/css/auth.css`.
+2. Move any unique 2FA challenge handling scripts into `assets/js/modules/auth-login.js`.
+3. In `login.php`, reference external assets directly:
+   `<link rel="stylesheet" href="assets/css/auth.css">`
+   `<script src="assets/js/modules/auth-login.js"></script>`
+4. Reduces `login.php` from 1,915 lines to ~350 lines of pure semantic HTML.
+
+================================================================================
+3. JAVASCRIPT CLIENT ARCHITECTURE & EVENT BUS
+================================================================================
+
+--------------------------------------------------------------------------------
+3.1 Pub/Sub Event Bus
+--------------------------------------------------------------------------------
+PROBLEM:
+Modules currently have tight, brittle coupling. For instance, in `inventory.js`:
+```javascript
+if (window.CafeFlow.products && window.CafeFlow.products.loadSupplyList) {
+    await window.CafeFlow.products.loadSupplyList();
+}
+if (window.CafeFlow.menu && window.CafeFlow.menu.loadMenu) {
+    window.CafeFlow.menu.loadMenu();
+}
+if (window.CafeFlow.queue && window.CafeFlow.queue.pollQueue) {
+    window.CafeFlow.queue.pollQueue();
+}
+```
+
+SOLUTION:
+Add an Event Bus inside `assets/js/core/utils.js`:
+```javascript
+window.CafeFlow.events = {
+  on: (event, handler) => {
+    window.addEventListener(`cafeflow:${event}`, (e) => handler(e.detail));
+  },
+  emit: (event, detail = {}) => {
+    window.dispatchEvent(new CustomEvent(`cafeflow:${event}`, { detail }));
+  }
+};
+```
+
+Usage across modules:
+```javascript
+// In inventory.js (when stock or item is deleted/updated):
+window.CafeFlow.events.emit('inventory:changed');
+
+// In products.js:
+window.CafeFlow.events.on('inventory:changed', () => loadSupplyList());
+
+// In pos-menu.js:
+window.CafeFlow.events.on('inventory:changed', () => loadMenu());
+
+// In pos-queue.js:
+window.CafeFlow.events.on('inventory:changed', () => pollQueue());
+```
+
+--------------------------------------------------------------------------------
+3.2 Splitting Giant Modules
+--------------------------------------------------------------------------------
+1. `assets/js/modules/reports.js` (2,912 lines) -> Split into:
+   - `reports/reports-kpi.js`: KPI calculation, percentage delta indicators.
+   - `reports/reports-charts.js`: Chart.js configurations (Hourly line, Top sellers bar, Yearly monthly/daily).
+   - `reports/reports-narrative.js`: Executive analysis text generation.
+   - `reports/reports-export.js`: Excel, CSV, and Print/PDF generators.
+   - `reports/index.js`: Period syncing, filter handling, and main coordinator.
+
+2. `assets/js/modules/predictive.js` (1,526 lines) -> Split into:
+   - `predictive/predictive-forecast.js`: Trend extrapolation & moving averages.
+   - `predictive/predictive-charts.js`: Chart rendering & dataset mapping.
+   - `predictive/predictive-ui.js`: DOM binding & simulation card handlers.
+
+================================================================================
+4. CSS & DESIGN SYSTEM OPTIMIZATION
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Consolidating reports.css (3,427 lines)
+--------------------------------------------------------------------------------
+PROBLEM:
+- Over 3,400 lines in a single CSS file.
+- Contains 15+ separate `@media` blocks with overlapping breakpoints (max-width: 
+  1280px, 1024px, 860px, 768px, 720px, 480px) scattered throughout the file.
+- Redundant table, badge, and button styles that duplicate `base.css` and `modals.css`.
+
+SOLUTION:
+1. Consolidate media queries to standard variables:
+   - Mobile: `@media (max-width: 480px)`
+   - Tablet: `@media (max-width: 768px)`
+   - Laptop: `@media (max-width: 1024px)`
+2. Extract reusable components:
+   - `.kpi-card`, `.stat-pill`, `.chart-card` -> Move to `assets/css/components/analytics-cards.css`.
+3. Eliminate `!important` tags where proper selector hierarchy can be used.
+
+--------------------------------------------------------------------------------
+4.2 Enforcing Unified Design Tokens
+--------------------------------------------------------------------------------
+PROBLEM:
+Some components still feature hardcoded color hexes (`#162318`, `#2d5a27`, `#e8623a`,
+`#d48b38`, `#fbf8f2`) instead of theme variables.
+
+SOLUTION:
+Run a project-wide search-and-replace to ensure all components reference variables.css:
+- `#162318` -> `var(--bg)` / `var(--espresso)`
+- `#2d5a27` -> `var(--green)` / `var(--accent-green)`
+- `#e8623a` -> `var(--caramel)` / `var(--orange)`
+- `#fbf8f2` -> `var(--canvas)` / `var(--cream)`
+- `#e5dfd5` -> `var(--line)`
+
+================================================================================
+5. RECIPE ENGINE & INVENTORY DATA LAYER
+================================================================================
+
+--------------------------------------------------------------------------------
+5.1 Migrating Hardcoded PHP Arrays to MySQL BOM Tables
+--------------------------------------------------------------------------------
+PROBLEM:
+In `core/recipe_engine.php` (Lines 14-250), `RECIPE_PROFILES`, `RECIPE_CUP_SIZES`, 
+and `RECIPE_FOOD_ITEMS` are hardcoded PHP arrays serving as fallbacks.
+This means recipe changes require editing PHP code rather than updating the 
+database via the UI.
+
+SOLUTION:
+1. Write a one-time migration script `tools/seed_recipes_to_db.php`:
+   - Iterate over `RECIPE_PROFILES`.
+   - Ensure corresponding rows exist in `product_ingredients` and `product_size_prices`.
+2. Update `calculate_product_consumption()`:
+   - Query `product_ingredients` and `product_size_prices` directly.
+   - Remove the ~250 lines of hardcoded arrays from `core/recipe_engine.php`.
+3. Allows store managers to tweak recipes (e.g. increase milk from 180ml to 200ml) 
+   directly in the Product Management UI without developer intervention.
+
+================================================================================
+6. PERFORMANCE & ASSET DELIVERY
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1 Cache-Busting via Asset Versioning Helper
+--------------------------------------------------------------------------------
+PROBLEM:
+Static asset URLs (`assets/css/reports.css`, `assets/js/modules/reports.js`) can 
+be cached aggressively by browsers. When code changes, cashiers can see stale UI 
+or broken AJAX calls.
+
+SOLUTION:
+Add an asset versioning helper in `core/helpers.php`:
+```php
+function asset_url(string $path): string {
+    $fullPath = __DIR__ . '/../' . ltrim($path, '/');
+    $version = file_exists($fullPath) ? filemtime($fullPath) : '1.0';
+    return $path . '?v=' . $version;
+}
+```
+In template views:
+```html
+<link rel="stylesheet" href="<?= asset_url('assets/css/reports.css') ?>">
+<script src="<?= asset_url('assets/js/modules/reports.js') ?>"></script>
+```
+
+================================================================================
+7. IMPLEMENTATION PHASE CHECKLIST
+================================================================================
+
+[ ] Phase 1: View Componentization
+    [ ] Create `views/layouts/` and `views/views/` and `views/modals/`.
+    [ ] Split `index.php` into modular partials.
+    [ ] Clean `login.php` by removing inline CSS and inline JS.
+    [ ] Verify POS, Topbar, and Modals render cleanly with zero regressions.
+
+[ ] Phase 2: Event Bus & Client Decoupling
+    [ ] Add `CafeFlow.events` to `assets/js/core/utils.js`.
+    [ ] Replace cross-module polling and direct calls in `inventory.js` and `products.js`.
+    [ ] Test stock adjustment and confirm POS menu & queue refresh automatically.
+
+[ ] Phase 3: Service Layer & API Boilerplate Reduction
+    [ ] Create `core/api_bootstrap.php` with `api_endpoint()` helper.
+    [ ] Create `services/OrderService.php` and `services/InventoryService.php`.
+    [ ] Refactor `api/checkout.php`, `complete_order.php`, and `cancel_order.php`.
+    [ ] Run automated test suites: `php tools/test_security_and_edge_cases.php`.
+
+[ ] Phase 4: Database Schema & Migration Separation
+    [ ] Extract `ensure_schema()` from `core/db.php` into `tools/migrate.php`.
+    [ ] Verify fast PDO connection initialization.
+
+[ ] Phase 5: CSS Consolidation & Token Enforcement
+    [ ] Consolidate repetitive media queries in `reports.css` and `waste.css`.
+    [ ] Replace lingering hardcoded hex colors with CSS custom properties.
+    [ ] Verify Dark/Light theme switching across all views.
+
+[ ] Phase 6: Automated Regression Verification
+    [ ] Run `php tools/test_reports_suite.php` (All 52 tests pass).
+    [ ] Run `php tools/test_waste_suite.php` (All 14 tests pass).
+    [ ] Run `php tools/test_2fa_suite.php` (All 63 tests pass).
+    [ ] Run `php tools/test_forgot_password_suite.php` (All 25 tests pass).
+    [ ] Run `php tools/test_security_and_edge_cases.php` (All 42 tests pass).
+================================================================================
