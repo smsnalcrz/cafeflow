@@ -651,10 +651,26 @@ window.CafeFlow = window.CafeFlow || {};
     var labels = items.map(function(it) { return it.name; });
     var qtys = items.map(function(it) { return it.qty; });
     var n = labels.length;
-    var barColors = labels.map(function(_, i) {
-      var alpha = 1 - (i / Math.max(n, 1)) * 0.45;
-      return colors.isDark ? 'rgba(56,155,114,' + alpha + ')' : 'rgba(46,125,91,' + alpha + ')'; // fresh green #2E7D5B
+
+    var barGradients = labels.map(function(_, i) {
+      var alphaTop = Math.max(0.45, 1 - (i / Math.max(n, 1)) * 0.4);
+      var alphaBtm = alphaTop * 0.55;
+      var grad = ctx.createLinearGradient(0, 0, 0, 240);
+      if (colors.isDark) {
+        grad.addColorStop(0, 'rgba(56, 155, 114, ' + alphaTop + ')');
+        grad.addColorStop(1, 'rgba(24, 70, 50, ' + alphaBtm + ')');
+      } else {
+        grad.addColorStop(0, 'rgba(46, 125, 91, ' + alphaTop + ')');
+        grad.addColorStop(1, 'rgba(30, 85, 62, ' + alphaBtm + ')');
+      }
+      return grad;
     });
+
+    var borderColors = labels.map(function(_, i) {
+      var alpha = Math.max(0.7, 1 - (i / Math.max(n, 1)) * 0.35);
+      return colors.isDark ? 'rgba(56, 155, 114, ' + alpha + ')' : 'rgba(46, 125, 91, ' + alpha + ')';
+    });
+
     return new Chart(ctx, {
       type: 'bar',
       data: {
@@ -662,8 +678,8 @@ window.CafeFlow = window.CafeFlow || {};
         datasets: [{
           label: 'Units Sold',
           data: qtys,
-          backgroundColor: barColors,
-          borderColor: barColors.map(function(c) { return c.replace(/[\d.]+\)$/, '1)'); }),
+          backgroundColor: barGradients,
+          borderColor: borderColors,
           borderWidth: 1.5,
           borderRadius: 6,
           borderSkipped: false
@@ -677,14 +693,13 @@ window.CafeFlow = window.CafeFlow || {};
           legend: { display: false },
           tooltip: {
             backgroundColor: colors.tooltipBg,
-            titleColor: '#fff',
-            bodyColor: 'rgba(255,255,255,0.9)',
+            titleColor: colors.text,
+            bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
             borderColor: colors.tooltipBorder,
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
-            borderColor: 'rgba(255,255,255,0.12)',
-            borderWidth: 1,
+            boxPadding: 4,
             callbacks: {
               title: function(itemsList) {
                 return itemsList[0] ? itemsList[0].label : '';
@@ -713,7 +728,10 @@ window.CafeFlow = window.CafeFlow || {};
           },
           y: {
             beginAtZero: true,
-            grid: { color: colors.grid },
+            grid: {
+              color: colors.grid,
+              drawBorder: false
+            },
             ticks: {
               color: colors.muted,
               font: { size: 11 },
