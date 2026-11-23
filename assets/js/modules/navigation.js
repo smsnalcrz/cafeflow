@@ -131,6 +131,23 @@ window.CafeFlow = window.CafeFlow || {};
             profileBtn.setAttribute('aria-expanded', 'false');
             return;
           }
+
+          // Dismiss topmost visible modal sheet first before switching views
+          const openSheets = Array.from(document.querySelectorAll('.sheet, .modal-sheet')).filter(s => {
+            return !s.hidden && s.style.display !== 'none' && window.getComputedStyle(s).display !== 'none';
+          });
+          if (openSheets.length > 0) {
+            const topSheet = openSheets[openSheets.length - 1];
+            const closeBtn = topSheet.querySelector('.btn-close-sheet, #accountSheetCloseIcon, #resetPassCloseIcon, #reset2faCloseIcon, #confirmDialogCloseBtn, #sheetCancel, #productSheetCancel, #accountSheetCancel, #resetPassCancel, #cancelCashPayBtn, #cancelGcashBtn, #dismissCancelOrderBtn, #cancelManualWasteBtn, .btn.ghost');
+            if (closeBtn && typeof closeBtn.click === 'function') {
+              closeBtn.click();
+            } else {
+              topSheet.hidden = true;
+              topSheet.style.display = 'none';
+            }
+            return;
+          }
+
           if (state.currentView && state.currentView !== 'pos' && state.currentView !== 'dashboard') {
             showView(currentUser.role === 'manager' ? 'dashboard' : 'pos');
           }
