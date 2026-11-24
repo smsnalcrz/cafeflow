@@ -73,11 +73,6 @@ function current_user(bool $forceFresh = false): ?array
 
     init_session();
     if (empty($_SESSION['user_id'])) {
-        $rememberedUser = check_remember_me_token();
-        if ($rememberedUser) {
-            $cachedUser = $rememberedUser;
-            return $cachedUser;
-        }
         return null;
     }
 
@@ -85,7 +80,7 @@ function current_user(bool $forceFresh = false): ?array
     $now = time();
     if (!empty($_SESSION['last_activity']) && ($now - (int)$_SESSION['last_activity']) > SESSION_IDLE_TIMEOUT) {
         $hasRememberToken = !empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]);
-        if ($hasRememberToken && check_remember_me_token()) {
+        if ($hasRememberToken && is_device_remembered((int)$_SESSION['user_id'])) {
             $_SESSION['last_activity'] = $now;
         } else {
             logout_user('timeout');
@@ -336,7 +331,7 @@ function logout_user(string $reason = 'user_logout'): void
         }
 
         clear_auth_cache();
-        clear_remember_me_token();
+        // Note: Do not clear remember token here so trusted device status is preserved for 24h
         $_SESSION = [];
         if (!headers_sent() && ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -584,6 +579,15 @@ function set_remember_me_token(int $userId, ?PDO $pdo = null, int $durationSecon
 {
     try {
         $db = $pdo ?: db();
+
+        // Clean up expired tokens or existing selector for this client
+        $oldCookie = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? null;
+        if ($oldCookie && is_string($oldCookie) && str_contains($oldCookie, ':')) {
+            [$oldSelector] = explode(':', $oldCookie, 2);
+            $db->prepare('DELETE FROM user_remember_tokens WHERE selector = ?')->execute([$oldSelector]);
+        }
+        $db->prepare('DELETE FROM user_remember_tokens WHERE user_id = ? AND expires_at <= NOW()')->execute([$userId]);
+
         $selector = bin2hex(random_bytes(8)); // 16 chars
         $validator = bin2hex(random_bytes(32)); // 64 chars
         $hashedValidator = hash('sha256', $validator);
@@ -616,6 +620,48 @@ function set_remember_me_token(int $userId, ?PDO $pdo = null, int $durationSecon
         return true;
     } catch (Throwable $e) {
         error_log('[CafeFlow RememberMe Error] ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Checks whether the current client device has a valid, non-expired trusted device token for the user.
+ * Used to bypass 2FA challenges on recognized terminals within the 24-hour window.
+ */
+function is_device_remembered(int $userId, ?PDO $pdo = null): bool
+{
+    $cookie = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? null;
+    if (!$cookie || !is_string($cookie) || !str_contains($cookie, ':')) {
+        return false;
+    }
+
+    [$selector, $validator] = explode(':', $cookie, 2);
+    if (strlen($selector) !== 16 || strlen($validator) !== 64) {
+        return false;
+    }
+
+    try {
+        $db = $pdo ?: db();
+        $stmt = $db->prepare('
+            SELECT token_id, user_id, hashed_validator, expires_at
+              FROM user_remember_tokens
+             WHERE selector = ? AND user_id = ? AND expires_at > NOW()
+             LIMIT 1
+        ');
+        $stmt->execute([$selector, $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return false;
+        }
+
+        if (!hash_equals($row['hashed_validator'], hash('sha256', $validator))) {
+            return false;
+        }
+
+        return true;
+    } catch (Throwable $e) {
+        error_log('[CafeFlow Device Trust Check Error] ' . $e->getMessage());
         return false;
     }
 }

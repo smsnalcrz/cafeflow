@@ -255,6 +255,10 @@ if ($action === 'disable_2fa') {
              WHERE user_id = ?
         ');
         $up->execute([$activeUserId]);
+
+        $delTokens = $pdo->prepare('DELETE FROM user_remember_tokens WHERE user_id = ?');
+        $delTokens->execute([$activeUserId]);
+
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();

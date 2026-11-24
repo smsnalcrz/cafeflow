@@ -96,31 +96,54 @@ $tamperCheck->execute([$selector]);
 assert_test((int)$tamperCheck->fetchColumn() === 0, "Compromised token automatically revoked and deleted from DB");
 assert_test(empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "Compromised cookie deleted from client");
 
-// --- 4. Testing Explicit Logout Revocation ---
-echo "\n--- 4. Testing Explicit Logout Revocation ---\n";
+// --- 4. Testing Device Trust Persistence Across Logout (2FA Bypass) ---
+echo "\n--- 4. Testing Device Trust Persistence Across Logout ---\n";
 set_remember_me_token($userId, $pdo);
-$cookieToRevoke = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? '';
-[$delSelector] = explode(':', $cookieToRevoke, 2);
+$cookieToPreserve = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? '';
+[$presSelector, $presValidator] = explode(':', $cookieToPreserve, 2);
 
+// Verify device is recognized
+assert_test(is_device_remembered($userId, $pdo) === true, "is_device_remembered() recognizes trusted terminal before logout");
+
+// Staff logs out to lock screen
 logout_user('user_logout');
-assert_test(empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "Logout deletes remember-me cookie");
+assert_test(empty($_SESSION['user_id']), "Logout clears active session user_id");
+assert_test(!empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "Logout preserves trusted device cookie on POS terminal");
 
-$logoutCheck = $pdo->prepare("SELECT COUNT(*) FROM user_remember_tokens WHERE selector = ?");
-$logoutCheck->execute([$delSelector]);
-assert_test((int)$logoutCheck->fetchColumn() === 0, "Logout deletes token record from user_remember_tokens");
+// Device should still be remembered for 24 hours
+assert_test(is_device_remembered($userId, $pdo) === true, "is_device_remembered() retains device trust after session logout");
 
-// --- 5. Testing current_user() Seamless Recovery ---
-echo "\n--- 5. Testing current_user() Seamless Recovery ---\n";
-set_remember_me_token($userId, $pdo);
-$_SESSION = []; // simulated cold browser visit
-clear_auth_cache();
+$tokenCheck = $pdo->prepare("SELECT COUNT(*) FROM user_remember_tokens WHERE selector = ? AND expires_at > NOW()");
+$tokenCheck->execute([$presSelector]);
+assert_test((int)$tokenCheck->fetchColumn() === 1, "Token remains active in user_remember_tokens table");
 
-$userFromCurrent = current_user();
-assert_test($userFromCurrent !== null, "current_user() transparently authenticates via remember-me cookie");
-assert_test((int)$userFromCurrent['user_id'] === $userId, "current_user() returned valid user record");
+// Device trust must fail for a different user ID
+assert_test(is_device_remembered($userId + 999, $pdo) === false, "is_device_remembered() rejects different user ID on same device");
 
-// Clean up
+// --- 5. Testing 2FA Bypass Flow on Remembered Device ---
+echo "\n--- 5. Testing 2FA Bypass Flow on Remembered Device ---\n";
+// Temporarily enable 2FA on test user
+$pdo->prepare("UPDATE users SET two_factor_enabled = 1, two_factor_secret = 'JBSWY3DPEHPK3PXP' WHERE user_id = ?")->execute([$userId]);
+
+// Simulate login with password on trusted device: is_device_remembered() is true -> 2FA prompt bypassed
+$deviceTrusted = is_device_remembered($userId, $pdo);
+assert_test($deviceTrusted === true, "Login detects trusted device within 24 hours");
+
+// Simulate unrecognized device (different or no cookie)
+$savedCookie = $_COOKIE[REMEMBER_ME_COOKIE_NAME];
+unset($_COOKIE[REMEMBER_ME_COOKIE_NAME]);
+$unrecognizedCheck = is_device_remembered($userId, $pdo);
+assert_test($unrecognizedCheck === false, "Unrecognized device correctly requires 2FA challenge");
+$_COOKIE[REMEMBER_ME_COOKIE_NAME] = $savedCookie;
+
+// --- 6. Testing Token Revocation on 2FA Reset / Manual Revoke ---
+echo "\n--- 6. Testing Token Revocation on 2FA Reset / Manual Revoke ---\n";
 clear_remember_me_token($pdo);
+assert_test(empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "clear_remember_me_token() removes client cookie");
+assert_test(is_device_remembered($userId, $pdo) === false, "is_device_remembered() returns false after explicit revocation");
+
+// Reset test user 2FA status
+$pdo->prepare("UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE user_id = ?")->execute([$userId]);
 $_SESSION = [];
 
 echo "\n======================================================================\n";

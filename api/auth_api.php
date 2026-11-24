@@ -132,6 +132,33 @@ if ($action === 'login') {
 
     // Case B: 2FA is active on this account
     if (!empty($user['two_factor_enabled'])) {
+        // If this device was remembered within 24 hours, bypass the 2FA challenge!
+        if (function_exists('is_device_remembered') && is_device_remembered((int)$user['user_id'], $pdo)) {
+            clear_pending_2fa();
+            login_user($user, 'password_remembered_device');
+            if ($rememberMe) {
+                set_remember_me_token((int) $user['user_id'], $pdo);
+            }
+
+            $role = strtolower($user['role']);
+            $redirect = 'index.php';
+
+            send_json([
+                'success'    => true,
+                'message'    => 'Signed in successfully. Welcome back, ' . htmlspecialchars($user['full_name']) . '!',
+                'redirect'   => $redirect,
+                'user'       => [
+                    'user_id'   => (int) $user['user_id'],
+                    'full_name' => $user['full_name'],
+                    'username'  => $user['username'],
+                    'email'     => $user['email'],
+                    'role'      => $role,
+                    'status'    => $user['status']
+                ],
+                'csrf_token' => get_csrf_token()
+            ]);
+        }
+
         init_session();
         $_SESSION['pending_2fa'] = [
             'user_id'     => (int) $user['user_id'],

@@ -493,9 +493,12 @@ if ($action === 'reset_2fa') {
         ');
         $up->execute([$targetId]);
 
-        // Clear any active failure counters
+        // Clear any active failure counters & remembered device tokens
         $del = $pdo->prepare('DELETE FROM two_factor_attempts WHERE user_id = ?');
         $del->execute([$targetId]);
+
+        $delTokens = $pdo->prepare('DELETE FROM user_remember_tokens WHERE user_id = ?');
+        $delTokens->execute([$targetId]);
 
         $pdo->commit();
     } catch (Throwable $e) {
