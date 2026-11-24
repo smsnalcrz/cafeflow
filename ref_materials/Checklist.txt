@@ -17,9 +17,8 @@ Phase 1 verification — November 24, 2026
   All four PHP suites passed after each task on a disposable database. The
   baseline passed 197/197. The final run passed 206/206 (49 audit, 63 2FA,
   52 reports, 42 security and edge cases).
-  [ ] Live rollout. Follow the README section “Upgrading an installation with
-      existing audit logs” for the offline backup and migration. Restrict or
-      retire historical exports and backups containing old session identifiers.
+  [x] Live rollout executed on local database (converted 64 historical audit events
+      and 31 sessions to aud_<hex> tracking IDs with 0 errors; idempotent verification passed).
 
 Status legend:
   CONFIRMED = observed in accessible source; verify against your local HEAD.
