@@ -947,17 +947,31 @@ $cssModules = [
 
   <!-- ===== Order Cancellation / Void Confirmation Modal ===== -->
   <div class="sheet" id="cancelOrderModal" hidden>
-    <div class="sheet-card" style="max-width: 440px;">
+    <div class="sheet-card" style="max-width: 480px;">
       <h3 id="cancelOrderModalTitle" style="color:var(--rose, #e05252); margin-top:0;">Cancel Order</h3>
       <p id="cancelOrderModalDesc" style="font-size:13.5px; color:var(--muted); margin: 6px 0 14px;">
-        Are you sure you want to cancel this order?
+        Choose a cancellation reason to determine whether ingredients should be returned to stock or logged as kitchen spillage.
       </p>
-      <label>Cancellation Reason (Required)
-        <input type="text" id="cancelReasonInput" placeholder="e.g. Customer change of mind, incorrect drink size, duplicate order..." maxlength="255">
+
+      <label for="cancelReasonSelect" style="display:block; margin-bottom:10px;">
+        CANCELLATION REASON (REQUIRED)
+        <select id="cancelReasonSelect" style="width:100%; margin-top:6px; cursor:pointer;">
+          <!-- Dynamically populated by pos-queue.js -->
+        </select>
       </label>
+
+      <!-- Dynamic Inventory Impact Badge -->
+      <div id="cancelInventoryImpactBadge" style="margin-bottom:12px; padding:10px 14px; border-radius:8px; font-size:12.5px; font-weight:600; line-height:1.4; display:flex; align-items:flex-start; gap:8px;">
+      </div>
+
+      <label for="cancelReasonInput" style="display:block; margin-bottom:8px;">
+        ADDITIONAL DETAILS / NOTES (OPTIONAL)
+        <input type="text" id="cancelReasonInput" placeholder="e.g. details on spill, wrong syrup used, or customer remarks..." maxlength="255">
+      </label>
+
       <div class="sheet-actions" style="margin-top:16px;">
         <button type="button" class="btn ghost" id="dismissCancelOrderBtn">Keep Order</button>
-        <button type="button" class="btn danger" id="confirmCancelOrderBtn">Confirm</button>
+        <button type="button" class="btn danger" id="confirmCancelOrderBtn">Confirm Cancellation</button>
       </div>
     </div>
   </div>

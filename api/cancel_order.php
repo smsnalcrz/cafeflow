@@ -103,44 +103,83 @@ try {
         $updateStmt->execute([$newStatus, $userId, $reason, $transactionId]);
 
     } elseif ($currentStatus === 'Pending') {
-        // Pending order: cancelled before kitchen preparation
+        // Pending order: check if cancellation was due to kitchen spillage/waste or clean cancellation
         $newStatus = 'Cancelled';
 
-        // Unprepared orders: release reserved stock using immutable order_ingredients snapshot (Tasks 04, 06, 17)
-        if ($stockDeducted === 1) {
-            $oiStmt = $pdo->prepare('SELECT item_id, item_name, unit, amount_used FROM order_ingredients WHERE transaction_id = ?');
-            $oiStmt->execute([$transactionId]);
-            $snapItems = $oiStmt->fetchAll(PDO::FETCH_ASSOC);
-
-            if (!empty($snapItems)) {
-                $restoreStmt = $pdo->prepare('UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?');
-                foreach ($snapItems as $r) {
-                    $restoreStmt->execute([$r['amount_used'], $r['item_id']]);
-                    $reversedItems[] = sprintf('+%s %s of %s', number_format($r['amount_used'], 2), $r['unit'], $r['item_name']);
+        $isWasteParam = $body['is_waste'] ?? ($body['waste_incurred'] ?? null);
+        $wasteKeywords = ['spill', 'spillage', 'waste', 'dropped', 'ruined', 'burned', 'burnt', 'spoiled', 'curdled', 'tapon'];
+        $wasteIncurred = false;
+        if ($isWasteParam !== null) {
+            $wasteIncurred = (bool) $isWasteParam;
+        } else {
+            $lowerReason = strtolower($reason);
+            foreach ($wasteKeywords as $kw) {
+                if (str_contains($lowerReason, $kw)) {
+                    $wasteIncurred = true;
+                    break;
                 }
-                $inventoryReversed = true;
             }
         }
 
-        // Unprepared orders do not incur physical ingredient waste
-        $wasteResult = [
-            'logged_count'            => 0,
-            'items'                   => [],
-            'total_cost_php'          => 0.00,
-            'total_income_loss_php'   => 0.00,
-        ];
+        if ($wasteIncurred) {
+            // Physical ingredients were consumed and ruined/spilled during preparation
+            // Stock was deducted at checkout; do NOT restore it to inventory
+            $inventoryReversed = false;
+            $reversedItems = [];
 
-        // Update transaction record and clear stock_deducted flag
-        $updateStmt = $pdo->prepare('
-            UPDATE transactions
-               SET status = ?,
-                   stock_deducted = 0,
-                   cancelled_by_user_id = ?,
-                   cancelled_at = NOW(),
-                   cancellation_reason = ?
-             WHERE transaction_id = ?
-        ');
-        $updateStmt->execute([$newStatus, $userId, $reason, $transactionId]);
+            // Atomically log raw ingredient and packaging waste to waste_log
+            $wasteResult = record_order_waste($pdo, $transactionId, $userId, $reason, $items);
+
+            // Update transaction record and keep stock_deducted = 1 (stock remains consumed as waste)
+            $updateStmt = $pdo->prepare('
+                UPDATE transactions
+                   SET status = ?,
+                       stock_deducted = 1,
+                       cancelled_by_user_id = ?,
+                       cancelled_at = NOW(),
+                       cancellation_reason = ?
+                 WHERE transaction_id = ?
+            ');
+            $updateStmt->execute([$newStatus, $userId, $reason, $transactionId]);
+
+        } else {
+            // Unprepared orders: customer changed mind, cashier error, etc.
+            // Release reserved stock using immutable order_ingredients snapshot (Tasks 04, 06, 17)
+            if ($stockDeducted === 1) {
+                $oiStmt = $pdo->prepare('SELECT item_id, item_name, unit, amount_used FROM order_ingredients WHERE transaction_id = ?');
+                $oiStmt->execute([$transactionId]);
+                $snapItems = $oiStmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($snapItems)) {
+                    $restoreStmt = $pdo->prepare('UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?');
+                    foreach ($snapItems as $r) {
+                        $restoreStmt->execute([$r['amount_used'], $r['item_id']]);
+                        $reversedItems[] = sprintf('+%s %s of %s', number_format($r['amount_used'], 2), $r['unit'], $r['item_name']);
+                    }
+                    $inventoryReversed = true;
+                }
+            }
+
+            // Unprepared orders do not incur physical ingredient waste
+            $wasteResult = [
+                'logged_count'            => 0,
+                'items'                   => [],
+                'total_cost_php'          => 0.00,
+                'total_income_loss_php'   => 0.00,
+            ];
+
+            // Update transaction record and clear stock_deducted flag
+            $updateStmt = $pdo->prepare('
+                UPDATE transactions
+                   SET status = ?,
+                       stock_deducted = 0,
+                       cancelled_by_user_id = ?,
+                       cancelled_at = NOW(),
+                       cancellation_reason = ?
+                 WHERE transaction_id = ?
+            ');
+            $updateStmt->execute([$newStatus, $userId, $reason, $transactionId]);
+        }
 
     } else {
         fail(422, "Cannot cancel transaction with status '{$currentStatus}'.");
@@ -191,5 +230,7 @@ send_json([
     ],
     'message'            => $newStatus === 'Voided'
         ? "Transaction #{$transactionId} has been successfully voided and recorded as waste."
-        : "Order #{$transactionId} has been cancelled.",
+        : ($wasteIncurred
+            ? "Order #{$transactionId} cancelled and recorded as kitchen spillage/waste (stock was consumed)."
+            : "Order #{$transactionId} has been cancelled and reserved inventory restored."),
 ]);

@@ -141,29 +141,114 @@ window.CafeFlow = window.CafeFlow || {};
     }
   }
 
+  const PENDING_REASONS = [
+    {
+      group: 'Unprepared (Return Stock to Inventory)',
+      options: [
+        { label: 'Customer changed mind (Not prepared)', val: 'Customer changed mind (Not prepared)', waste: false },
+        { label: 'Cashier error / Wrong item or size', val: 'Cashier error / Wrong item or size', waste: false },
+        { label: 'Duplicate order entered', val: 'Duplicate order entered', waste: false },
+        { label: 'Customer walked out / Payment cancelled', val: 'Customer walked out / Payment cancelled', waste: false },
+        { label: 'Other reason (No ingredients wasted)', val: 'Other reason (No materials wasted)', waste: false }
+      ]
+    },
+    {
+      group: 'Kitchen Spillage & Waste (Deduct & Log to Waste)',
+      options: [
+        { label: 'Accidental spillage / Dropped drink (Waste)', val: 'Accidental spillage / Dropped drink (Waste)', waste: true },
+        { label: 'Preparation mistake / Burned espresso (Waste)', val: 'Preparation mistake / Burned espresso (Waste)', waste: true },
+        { label: 'Curdled / spoiled milk during steaming (Waste)', val: 'Curdled / spoiled milk during steaming (Waste)', waste: true },
+        { label: 'Machine or equipment issue during brew (Waste)', val: 'Machine or equipment issue during brew (Waste)', waste: true },
+        { label: 'Other reason (Ingredients wasted / spilled)', val: 'Other reason (Ingredients wasted / spilled)', waste: true }
+      ]
+    }
+  ];
+
+  const COMPLETED_REASONS = [
+    {
+      group: 'Void Completed Order (Logs to Waste & Loss)',
+      options: [
+        { label: 'Customer return / Taste complaint (Waste)', val: 'Customer return / Taste complaint (Waste)', waste: true },
+        { label: 'Order prepared incorrectly & remade (Waste)', val: 'Order prepared incorrectly & remade (Waste)', waste: true },
+        { label: 'Customer requested refund after preparation (Waste)', val: 'Customer requested refund after preparation (Waste)', waste: true },
+        { label: 'Defective cup or leaking beverage (Waste)', val: 'Defective cup or leaking beverage (Waste)', waste: true },
+        { label: 'Other completed void reason (Waste)', val: 'Other completed void reason (Waste)', waste: true }
+      ]
+    }
+  ];
+
+  function updateCancelImpactBadge() {
+    const select = $('#cancelReasonSelect');
+    const badge = $('#cancelInventoryImpactBadge');
+    const confirmBtn = $('#confirmCancelOrderBtn');
+    if (!select || !badge) return;
+
+    const selectedOpt = select.selectedOptions[0];
+    const isWaste = selectedOpt ? selectedOpt.getAttribute('data-waste') === '1' : false;
+
+    if (activeCancelStatus === 'Completed') {
+      badge.innerHTML = `<span style="font-size:16px;">⚠</span> <div><b>Physical Ingredients Consumed:</b> Completed drinks cannot be poured back into supply. Consumed ingredients will be recorded in <b>Waste & Loss</b> reports.</div>`;
+      badge.style.background = 'rgba(224, 82, 82, 0.12)';
+      badge.style.border = '1px solid rgba(224, 82, 82, 0.35)';
+      badge.style.color = 'var(--rose, #e05252)';
+      if (confirmBtn) confirmBtn.textContent = 'Confirm Void & Log Waste';
+    } else if (isWaste) {
+      badge.innerHTML = `<span style="font-size:16px;">⚠</span> <div><b>Kitchen Spillage / Waste:</b> Ingredients were spoiled, dropped, or consumed. Stock will <b>REMAIN DEDUCTED</b> and logged to <b>Waste & Loss</b> reports.</div>`;
+      badge.style.background = 'rgba(224, 82, 82, 0.12)';
+      badge.style.border = '1px solid rgba(224, 82, 82, 0.35)';
+      badge.style.color = 'var(--rose, #e05252)';
+      if (confirmBtn) confirmBtn.textContent = 'Confirm Waste Cancellation';
+    } else {
+      badge.innerHTML = `<span style="font-size:16px;">✓</span> <div><b>Inventory Restored:</b> Order was cancelled before preparation. All reserved ingredients will be returned to <b>Inventory</b>. Zero waste recorded.</div>`;
+      badge.style.background = 'rgba(46, 125, 50, 0.12)';
+      badge.style.border = '1px solid rgba(46, 125, 50, 0.35)';
+      badge.style.color = 'var(--green, #2e7d32)';
+      if (confirmBtn) confirmBtn.textContent = 'Confirm Cancellation';
+    }
+  }
+
   function openCancelOrderModal(txId, status = 'Pending') {
     activeCancelTxId = txId;
     activeCancelStatus = status;
     const titleEl = $('#cancelOrderModalTitle');
     const descEl = $('#cancelOrderModalDesc');
-    const confirmBtn = $('#confirmCancelOrderBtn');
+    const reasonSelect = $('#cancelReasonSelect');
     const reasonInp = $('#cancelReasonInput');
 
     if (reasonInp) reasonInp.value = '';
+
+    const groups = (status === 'Completed') ? COMPLETED_REASONS : PENDING_REASONS;
+    if (reasonSelect) {
+      reasonSelect.textContent = '';
+      groups.forEach(g => {
+        const og = document.createElement('optgroup');
+        og.label = '── ' + g.group + ' ──';
+        g.options.forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt.val;
+          o.textContent = opt.label;
+          o.setAttribute('data-waste', opt.waste ? '1' : '0');
+          og.appendChild(o);
+        });
+        reasonSelect.appendChild(og);
+      });
+      reasonSelect.selectedIndex = 0;
+    }
+
     if (status === 'Completed') {
       if (titleEl) titleEl.textContent = 'Void Completed Transaction #' + txId;
-      if (descEl) descEl.textContent = 'Warning: This will void the completed transaction, reverse all ingredient deductions back into inventory, and exclude the sale from revenue.';
-      if (confirmBtn) confirmBtn.textContent = 'Confirm Void & Reverse Inventory';
+      if (descEl) descEl.textContent = 'Warning: This transaction was already completed. Voiding will record consumed materials to Waste & Loss and exclude the sale from revenue.';
     } else {
       if (titleEl) titleEl.textContent = 'Cancel Order #' + txId;
-      if (descEl) descEl.textContent = 'Are you sure you want to cancel this pending order? It will be removed from the kitchen queue without deducting stock.';
-      if (confirmBtn) confirmBtn.textContent = 'Confirm Cancellation';
+      if (descEl) descEl.textContent = 'Choose a cancellation reason to determine whether ingredients are returned to stock or logged as kitchen spillage.';
     }
+
+    updateCancelImpactBadge();
 
     const modal = $('#cancelOrderModal');
     if (modal) {
       modal.hidden = false;
-      if (reasonInp) reasonInp.focus();
+      if (reasonSelect) reasonSelect.focus();
     }
   }
 
@@ -176,10 +261,16 @@ window.CafeFlow = window.CafeFlow || {};
 
   async function submitCancelOrder() {
     if (!activeCancelTxId) return;
-    const reason = $('#cancelReasonInput')?.value?.trim();
-    if (!reason || reason.length < 3) {
-      toast('Please enter a cancellation reason (minimum 3 characters).', 'error', 3500);
-      $('#cancelReasonInput')?.focus();
+
+    const select = $('#cancelReasonSelect');
+    const selectedOpt = select ? select.selectedOptions[0] : null;
+    const isWaste = selectedOpt ? (selectedOpt.getAttribute('data-waste') === '1') : false;
+    const baseReason = select ? select.value : '';
+    const notes = $('#cancelReasonInput')?.value?.trim();
+    const finalReason = notes ? `${baseReason} - ${notes}` : baseReason;
+
+    if (!finalReason || finalReason.length < 3) {
+      toast('Please choose or enter a cancellation reason.', 'error', 3500);
       return;
     }
 
@@ -192,7 +283,8 @@ window.CafeFlow = window.CafeFlow || {};
     try {
       const res = await api('cancel_order.php', {
         transaction_id: activeCancelTxId,
-        reason: reason
+        reason: finalReason,
+        is_waste: isWaste
       });
       closeCancelOrderModal();
       toast(res.message || 'Order updated successfully.', 'success', 3500);
@@ -220,6 +312,8 @@ window.CafeFlow = window.CafeFlow || {};
     if (cancelOrderDismiss) cancelOrderDismiss.addEventListener('click', closeCancelOrderModal);
     const confirmCancelBtn = $('#confirmCancelOrderBtn');
     if (confirmCancelBtn) confirmCancelBtn.addEventListener('click', submitCancelOrder);
+    const reasonSelect = $('#cancelReasonSelect');
+    if (reasonSelect) reasonSelect.addEventListener('change', updateCancelImpactBadge);
   }
 
   window.CafeFlow.queue = {
