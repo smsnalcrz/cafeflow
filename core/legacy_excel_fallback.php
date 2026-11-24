@@ -8,6 +8,8 @@
 
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/csv.php';
+require_role(['barista', 'manager']);
 
 $pdo = isset($pdo) && ($pdo instanceof PDO) ? $pdo : db();
 $tz = isset($tz) && ($tz instanceof DateTimeZone) ? $tz : new DateTimeZone('Asia/Manila');
@@ -131,7 +133,7 @@ foreach ($transactions as $tx) {
         $sumOrders++;
     }
 
-    fputcsv($output, [
+    write_spreadsheet_csv_row($output, [
         $receiptNo,
         $tx['timestamp'],
         $tx['status'],

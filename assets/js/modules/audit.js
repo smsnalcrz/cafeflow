@@ -8,7 +8,7 @@
 window.CafeFlow = window.CafeFlow || {};
 
 (() => {
-  const { $, $$, toast } = window.CafeFlow.utils;
+  const { $, $$ } = window.CafeFlow.utils;
   const { currentUser } = window.CafeFlow.config;
 
   const state = {
@@ -19,58 +19,73 @@ window.CafeFlow = window.CafeFlow || {};
     search: '',
     limit: 50,
     offset: 0,
-    total: 0,
-    isLoading: false
+    total: 0
   };
 
   let searchDebounceTimer = null;
+  let activeRequest = null;
+  const categories = new Set(['navigation', 'pos_order', 'inventory', 'catalog', 'account', 'security', 'system']);
 
-  async function loadAuditLogs() {
+  function filterParams() {
+    const params = new URLSearchParams();
+    if (state.category !== 'all') params.set('category', state.category);
+    if (state.userId) params.set('user_id', state.userId);
+    if (state.dateFrom) params.set('date_from', state.dateFrom);
+    if (state.dateTo) params.set('date_to', state.dateTo);
+    if (state.search) params.set('search', state.search);
+    return params;
+  }
+
+  function disablePagination() {
+    for (const id of ['#auditPrevPageBtn', '#auditNextPageBtn']) {
+      const button = $(id);
+      if (button) button.disabled = true;
+    }
+  }
+
+  async function loadAuditLogs(offset = state.offset) {
     if (currentUser.role !== 'manager') return;
-    if (state.isLoading) return;
-    state.isLoading = true;
+    clearTimeout(searchDebounceTimer);
+    activeRequest?.abort();
+    const request = new AbortController();
+    activeRequest = request;
+    disablePagination();
 
     const tbody = $('#auditTableBody');
-    if (tbody && state.offset === 0) {
+    if (tbody && offset === 0) {
       tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">Loading audit records...</td></tr>';
     }
 
     try {
-      const params = new URLSearchParams();
-      if (state.category && state.category !== 'all') params.set('category', state.category);
-      if (state.userId) params.set('user_id', state.userId);
-      if (state.dateFrom) params.set('date_from', state.dateFrom);
-      if (state.dateTo) params.set('date_to', state.dateTo);
-      if (state.search) params.set('search', state.search);
+      const params = filterParams();
       params.set('limit', state.limit);
-      params.set('offset', state.offset);
+      params.set('offset', offset);
 
-      const res = await fetch(`api/audit_api.php?${params.toString()}`);
-      if (!res.ok) {
-        if (res.status === 403) {
-          toast('Access denied: Manager role required.', 'error');
-          return;
-        }
-        throw new Error(`HTTP ${res.status}`);
+      const res = await fetch(`api/audit_api.php?${params}`, {
+        signal: request.signal, headers: { Accept: 'application/json' }
+      });
+      const data = await res.json().catch(() => null);
+      if (request.signal.aborted) return;
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `HTTP ${res.status}`);
       }
 
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to load audit logs.');
-      }
-
+      state.offset = data.pagination.offset;
       state.total = data.pagination.total;
       renderMetrics(data.metrics);
       populateStaffFilter(data.staff_options);
       renderTable(data.logs);
       renderPagination(data.pagination);
     } catch (err) {
-      console.error('[CafeFlow Audit]', err);
+      if (request.signal.aborted) return;
+      const info = $('#auditPaginationInfo');
+      if (info) info.textContent = '';
       if (tbody) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--red);">Error loading audit records: ${err.message}</td></tr>`;
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--red);"></td></tr>';
+        tbody.querySelector('td').textContent = `Error loading audit records: ${err.message}`;
       }
     } finally {
-      state.isLoading = false;
+      if (activeRequest === request) activeRequest = null;
     }
   }
 
@@ -126,7 +141,7 @@ window.CafeFlow = window.CafeFlow || {};
       const role = (log.role || 'system').toLowerCase();
       const roleInitial = (log.username || 'S').charAt(0).toUpperCase();
       const roleClass = role === 'manager' ? 'audit-avatar-manager' : (role === 'barista' ? 'audit-avatar-barista' : 'audit-avatar-system');
-      const catClass = `cat-${log.category || 'system'}`;
+      const catClass = `cat-${categories.has(log.category) ? log.category : 'system'}`;
 
       const metaString = log.metadata ? JSON.stringify(log.metadata) : '';
       const hasMeta = !!log.metadata && Object.keys(log.metadata).length > 0;
@@ -293,12 +308,12 @@ window.CafeFlow = window.CafeFlow || {};
       searchInput.addEventListener('input', () => {
         const val = searchInput.value.trim();
         if (searchClear) searchClear.hidden = val === '';
+        state.search = val;
+        state.offset = 0;
+        activeRequest?.abort();
+        disablePagination();
         clearTimeout(searchDebounceTimer);
-        searchDebounceTimer = setTimeout(() => {
-          state.search = val;
-          state.offset = 0;
-          loadAuditLogs();
-        }, 300);
+        searchDebounceTimer = setTimeout(() => loadAuditLogs(), 300);
       });
     }
     if (searchClear) {
@@ -315,18 +330,16 @@ window.CafeFlow = window.CafeFlow || {};
     const prevBtn = $('#auditPrevPageBtn');
     if (prevBtn) {
       prevBtn.addEventListener('click', () => {
-        if (state.offset > 0) {
-          state.offset = Math.max(0, state.offset - state.limit);
-          loadAuditLogs();
+        if (!prevBtn.disabled && state.offset > 0) {
+          loadAuditLogs(Math.max(0, state.offset - state.limit));
         }
       });
     }
     const nextBtn = $('#auditNextPageBtn');
     if (nextBtn) {
       nextBtn.addEventListener('click', () => {
-        if (state.offset + state.limit < state.total) {
-          state.offset += state.limit;
-          loadAuditLogs();
+        if (!nextBtn.disabled && state.offset + state.limit < state.total) {
+          loadAuditLogs(state.offset + state.limit);
         }
       });
     }
@@ -335,13 +348,8 @@ window.CafeFlow = window.CafeFlow || {};
     const exportBtn = $('#btnExportAuditCsv');
     if (exportBtn) {
       exportBtn.addEventListener('click', () => {
-        const params = new URLSearchParams();
+        const params = filterParams();
         params.set('export', 'csv');
-        if (state.category && state.category !== 'all') params.set('category', state.category);
-        if (state.userId) params.set('user_id', state.userId);
-        if (state.dateFrom) params.set('date_from', state.dateFrom);
-        if (state.dateTo) params.set('date_to', state.dateTo);
-        if (state.search) params.set('search', state.search);
         window.location.href = `api/audit_api.php?${params.toString()}`;
       });
     }

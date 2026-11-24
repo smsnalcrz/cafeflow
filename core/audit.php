@@ -7,7 +7,14 @@
  * inventory adjustments, and order operations.
  */
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/audit_metadata.php';
 require_once __DIR__ . '/auth.php';
+
+function audit_public_session_id(?string $value): ?string
+{
+    // Legacy rows may still exist while the data upgrade is pending.
+    return $value !== null && preg_match('/^aud_[0-9a-f]{32}$/D', $value) ? $value : null;
+}
 
 /**
  * Records an immutable audit log entry into `audit_logs`.
@@ -55,22 +62,8 @@ if (!function_exists('audit_log')) {
                 $role = $_SESSION['user_role'] ?? 'unknown';
             }
 
-            $sessionId = session_id() ?: ($_SESSION['user_session_id'] ?? null);
+            $sessionId = $_SESSION['audit_tracking_id'] ?? null;
             $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
-
-            // Redact any sensitive passwords or secrets from metadata
-            if (is_array($metadata)) {
-                unset(
-                    $metadata['password'],
-                    $metadata['new_password'],
-                    $metadata['confirm_password'],
-                    $metadata['secret'],
-                    $metadata['two_factor_secret'],
-                    $metadata['recovery_code'],
-                    $metadata['recovery_codes'],
-                    $metadata['csrf_token']
-                );
-            }
 
             $stmt = $pdo->prepare('
                 INSERT INTO audit_logs (
@@ -89,7 +82,7 @@ if (!function_exists('audit_log')) {
                 substr($description, 0, 255),
                 $targetType ? substr($targetType, 0, 50) : null,
                 $targetId !== null ? substr((string)$targetId, 0, 64) : null,
-                $metadata ? json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null,
+                audit_metadata_json($metadata),
                 substr($ip, 0, 45)
             ]);
         } catch (Throwable $e) {

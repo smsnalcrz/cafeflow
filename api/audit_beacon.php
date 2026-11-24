@@ -28,12 +28,14 @@ if (!$user) {
     exit;
 }
 
-$rawInput = file_get_contents('php://input');
-$data = json_decode($rawInput, true) ?: $_POST;
+$rawInput = file_get_contents('php://input', false, null, 0, 8193);
+if (strlen($rawInput) > 8192) send_json(['success' => false, 'error' => 'Navigation event is too large.'], 413);
+$data = json_decode($rawInput, true, 16) ?? $_POST;
+if (!is_array($data)) send_json(['success' => false, 'error' => 'Invalid navigation event.'], 422);
 
 // Verify CSRF token
 $csrfToken = $data['csrf_token'] ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
-if (!validate_csrf_token($csrfToken)) {
+if (!is_string($csrfToken) || !validate_csrf_token($csrfToken)) {
     http_response_code(403);
     echo json_encode([
         'success' => false,
@@ -43,19 +45,22 @@ if (!validate_csrf_token($csrfToken)) {
     exit;
 }
 
-$category = trim($data['category'] ?? 'navigation');
-$action = trim($data['action'] ?? 'tab_view');
-$description = trim($data['description'] ?? 'Navigated to view');
-$targetType = !empty($data['target_type']) ? trim($data['target_type']) : 'view';
-$targetId = !empty($data['target_id']) ? trim($data['target_id']) : null;
-$metadata = !empty($data['metadata']) && is_array($data['metadata']) ? $data['metadata'] : null;
+$views = ['dashboard', 'pos', 'products', 'inventory', 'report', 'accounts', 'predictive', 'waste', 'security_2fa', 'audit'];
+$fields = $data['metadata'] ?? null;
+$from = $fields['from_view'] ?? null;
+$to = $fields['to_view'] ?? null;
+$duration = filter_var($fields['duration_prev_ms'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]);
+if (!in_array($from, $views, true) || !in_array($to, $views, true) || $duration === false) {
+    send_json(['success' => false, 'error' => 'Invalid view transition or dwell time.'], 422);
+}
 
 // Enforce 2-second minimum dwell filter on tab transitions if duration_prev_ms is reported
-if (isset($metadata['duration_prev_ms']) && (int)$metadata['duration_prev_ms'] < 2000) {
+if ($duration < 2000) {
     echo json_encode(['success' => true, 'skipped' => 'sub_dwell_threshold']);
     exit;
 }
 
-audit_log($category, $action, $description, $targetType, $targetId, $metadata, null, $user);
+audit_log('navigation', 'tab_view', "Switched from $from to $to", 'view', $to,
+    ['from_view' => $from, 'to_view' => $to, 'duration_prev_ms' => $duration], null, $user);
 
 echo json_encode(['success' => true]);
