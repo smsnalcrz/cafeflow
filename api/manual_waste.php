@@ -121,7 +121,33 @@ try {
     if ($matchedItem) {
         $matchedItemId = (int) $matchedItem['item_id'];
         $itemName = $matchedItem['name'];
-        $unit = $matchedItem['unit_measure'];
+        $invUnit = strtolower(trim((string)$matchedItem['unit_measure']));
+        $inputUnit = strtolower(trim((string)$unit));
+
+        // Unit compatibility and conversion safeguard (BUG-9)
+        if ($inputUnit !== $invUnit) {
+            if ($invUnit === 'g' && $inputUnit === 'kg') {
+                $amountFloat = $amountFloat * 1000.0;
+                $unit = $invUnit;
+            } elseif ($invUnit === 'kg' && $inputUnit === 'g') {
+                $amountFloat = $amountFloat / 1000.0;
+                $unit = $invUnit;
+            } elseif ($invUnit === 'ml' && in_array($inputUnit, ['l', 'liter', 'liters'], true)) {
+                $amountFloat = $amountFloat * 1000.0;
+                $unit = $invUnit;
+            } elseif (in_array($invUnit, ['l', 'liter', 'liters'], true) && $inputUnit === 'ml') {
+                $amountFloat = $amountFloat / 1000.0;
+                $unit = $invUnit;
+            } elseif ($invUnit === 'pcs' && $inputUnit === 'pc') {
+                $unit = 'pcs';
+            } elseif ($invUnit === 'shots' && $inputUnit === 'shot') {
+                $unit = 'shots';
+            } else {
+                fail(422, "Unit mismatch for supply \"$itemName\": Inventory is tracked in '$invUnit', but '$inputUnit' was entered. Please enter quantity in $invUnit.");
+            }
+        } else {
+            $unit = $matchedItem['unit_measure'];
+        }
 
         if ($deductStock) {
             $deductStmt = $pdo->prepare('

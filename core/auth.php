@@ -39,11 +39,22 @@ function init_session(): void
     }
 }
 
+function clear_auth_cache(): void
+{
+    current_user(true);
+}
+
 /**
  * Returns current authenticated user record or null if not logged in.
  */
-function current_user(): ?array
+function current_user(bool $forceFresh = false): ?array
 {
+    static $cachedUser = null;
+    if ($forceFresh) {
+        $cachedUser = null;
+        return null;
+    }
+
     init_session();
     if (empty($_SESSION['user_id'])) {
         return null;
@@ -66,7 +77,6 @@ function current_user(): ?array
     }
     $_SESSION['last_activity'] = $now;
 
-    static $cachedUser = null;
     if ($cachedUser !== null && $cachedUser['user_id'] === $_SESSION['user_id']) {
         return $cachedUser;
     }
@@ -195,6 +205,7 @@ function require_role(string|array $allowedRoles): array
  */
 function login_user(array $user): void
 {
+    clear_auth_cache();
     init_session();
     session_regenerate_id(true);
 
@@ -221,6 +232,7 @@ function login_user(array $user): void
  */
 function logout_user(): void
 {
+    clear_auth_cache();
     init_session();
     $_SESSION = [];
     if (ini_get('session.use_cookies')) {

@@ -268,7 +268,7 @@ setInterval(() => {
      - Staff Filter (All Staff, @manager, @barista, etc.)
      - Event Category Filter Pills: `[All Events]` `[Navigation / Views]` `[Orders & Void]` `[Inventory & Waste]` `[Security & Accounts]`
      - Search Box: Live instant filtering by keyword
-     - Export Action: `[Export Audit CSV]`
+     - Export Action: `[Export Audit Excel]` - Additional Sheet for Audit Logs
   3. **Chronological Activity Feed / Table:**
      - Columns:
        * **Timestamp:** `Nov 24, 2026, 03:45:12 PM` (Relative time tooltip: `5 mins ago`)
