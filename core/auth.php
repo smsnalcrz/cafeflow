@@ -269,53 +269,65 @@ function login_user(array $user, string $authMethod = 'password'): void
  */
 function logout_user(string $reason = 'user_logout'): void
 {
-    init_session();
-    $sessId = session_id() ?: ($_SESSION['user_session_id'] ?? null);
-    $user = current_user();
+    static $isLoggingOut = false;
+    if ($isLoggingOut) {
+        return;
+    }
+    $isLoggingOut = true;
 
-    if ($sessId) {
-        try {
-            $pdo = db();
-            $stmt = $pdo->prepare('
-                UPDATE user_sessions
-                   SET logout_at = NOW(3),
-                       duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)),
-                       logout_reason = ?
-                 WHERE session_id = ?
-            ');
-            $stmt->execute([$reason, $sessId]);
+    try {
+        init_session();
+        $sessId = session_id() ?: ($_SESSION['user_session_id'] ?? null);
+        $userId = !empty($_SESSION['user_id']) ? (int) $_SESSION['user_id'] : null;
+        $username = $_SESSION['username'] ?? 'unknown';
+        $role = $_SESSION['user_role'] ?? 'unknown';
 
-            audit_log(
-                'security',
-                'auth_logout',
-                'User signed out (' . $reason . ')',
-                'user',
-                $user ? (string)$user['user_id'] : null,
-                ['reason' => $reason],
-                $pdo,
-                $user
-            );
-        } catch (Throwable $e) {
-            error_log('[CafeFlow Auth Logout] ' . $e->getMessage());
+        if ($sessId) {
+            try {
+                $pdo = db();
+                $stmt = $pdo->prepare('
+                    UPDATE user_sessions
+                       SET logout_at = NOW(3),
+                           duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)),
+                           logout_reason = ?
+                     WHERE session_id = ?
+                ');
+                $stmt->execute([$reason, $sessId]);
+
+                audit_log(
+                    'security',
+                    'auth_logout',
+                    'User signed out (' . $reason . ')',
+                    'user',
+                    $userId !== null ? (string)$userId : null,
+                    ['reason' => $reason],
+                    $pdo,
+                    ['user_id' => $userId, 'username' => $username, 'role' => $role]
+                );
+            } catch (Throwable $e) {
+                error_log('[CafeFlow Auth Logout] ' . $e->getMessage());
+            }
         }
-    }
 
-    clear_auth_cache();
-    $_SESSION = [];
-    if (!headers_sent() && ini_get('session.use_cookies')) {
-        $params = session_get_cookie_params();
-        setcookie(
-            session_name(),
-            '',
-            time() - 42000,
-            $params['path'],
-            $params['domain'],
-            $params['secure'],
-            $params['httponly']
-        );
-    }
-    if (session_status() === PHP_SESSION_ACTIVE) {
-        @session_destroy();
+        clear_auth_cache();
+        $_SESSION = [];
+        if (!headers_sent() && ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_destroy();
+        }
+    } finally {
+        $isLoggingOut = false;
     }
 }
 
