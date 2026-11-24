@@ -115,7 +115,7 @@ def auto_fit_columns(ws, min_col=1, max_col=None, start_row=4, min_width=12, pad
             max_len = max(max_len, len(val_str))
         ws.column_dimensions[col_letter].width = max(max_len + padding, min_width)
 
-def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False, report_type="sales"):
+def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False, report_type="sales", include_mock=False):
     conn = get_db_connection()
 
     where_clause = ""
@@ -144,6 +144,11 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         end_dt = datetime.date.today() + datetime.timedelta(days=1)
         params.append(end_dt.strftime("%Y-%m-%d 00:00:00"))
         period_title = f"Today ({today_str})"
+
+    # Task 19: Exclude synthetic mock data unless explicitly requested
+    mock_filter = "" if include_mock else " AND (t.is_mock = 0 OR t.is_mock IS NULL)"
+    mock_filter_plain = "" if include_mock else " AND (is_mock = 0 OR is_mock IS NULL)"
+    where_clause += mock_filter
 
     # Fetch Transactions & Line Items
     tx_sql = f"""
@@ -174,7 +179,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     """
 
     # Fetch Historical Days for Predictive Model Calibration
-    hist_days_sql = """
+    hist_days_sql = f"""
         SELECT DATE(`timestamp`) as tx_date,
                DAYOFWEEK(`timestamp`)-1 as dow,
                MONTH(`timestamp`) as moy,
@@ -182,29 +187,29 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
                COUNT(*) as orders,
                SUM(total_amount) as total_sales
           FROM transactions
-         WHERE status = 'completed' AND total_amount > 0
+         WHERE status = 'completed' AND total_amount > 0{mock_filter_plain}
          GROUP BY tx_date
          ORDER BY tx_date ASC
     """
 
     # Fetch Hourly Rush Distribution
-    hourly_sql = """
+    hourly_sql = f"""
         SELECT HOUR(`timestamp`) as hr, COUNT(*) as cnt, SUM(total_amount) as sales
           FROM transactions
-         WHERE status = 'completed' AND total_amount > 0
+         WHERE status = 'completed' AND total_amount > 0{mock_filter_plain}
          GROUP BY hr
          ORDER BY hr ASC
     """
 
     # Fetch Ingredient Consumption Rates
-    ing_burn_sql = """
+    ing_burn_sql = f"""
         SELECT inv.item_id, inv.name, inv.current_stock, inv.unit_measure, inv.restock_threshold,
                COALESCE(SUM(ti.quantity * pi.deduction_amount), 0) as total_consumed,
                COUNT(DISTINCT DATE(t.timestamp)) as active_days
           FROM inventory inv
           LEFT JOIN product_ingredients pi ON pi.item_id = inv.item_id
           LEFT JOIN transaction_items ti ON ti.product_id = pi.product_id
-          LEFT JOIN transactions t ON t.transaction_id = ti.transaction_id AND t.status = 'completed'
+          LEFT JOIN transactions t ON t.transaction_id = ti.transaction_id AND t.status = 'completed'{mock_filter}
          GROUP BY inv.item_id, inv.name, inv.current_stock, inv.unit_measure, inv.restock_threshold
          ORDER BY total_consumed DESC
     """
@@ -2081,6 +2086,7 @@ if __name__ == '__main__':
     parser.add_argument("--end", help="End date (YYYY-MM-DD)")
     parser.add_argument("--date", help="Single date (YYYY-MM-DD)")
     parser.add_argument("--all", action="store_true", help="Export all historical records")
+    parser.add_argument("--include-mock", action="store_true", help="Include synthetic mock transactions in export")
     parser.add_argument("--type", default="sales", choices=["sales", "inventory", "predictive"], help="Report type: sales, inventory, or predictive")
     args = parser.parse_args()
 
@@ -2093,5 +2099,6 @@ if __name__ == '__main__':
             end_date=args.end,
             single_date=args.date,
             is_all=args.all,
-            report_type=args.type
+            report_type=args.type,
+            include_mock=args.include_mock
         )

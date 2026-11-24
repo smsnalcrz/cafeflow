@@ -86,8 +86,156 @@ if (!function_exists('audit_log')) {
                 substr($ip, 0, 45)
             ]);
         } catch (Throwable $e) {
-            // Logging failure must never crash core POS operations
-            error_log('[CafeFlow Audit Log Failure] ' . $e->getMessage());
+            // Task 09: Logging failure must never crash core POS operations,
+            // but must be securely captured in an append-only durable fallback outbox
+            $fallbackFile = audit_fallback_filepath();
+            $fallbackPayload = [
+                'session_id'         => $sessionId ?? null,
+                'user_id'            => $userId ?? null,
+                'username_snapshot'  => substr($username ?? 'unknown', 0, 50),
+                'user_role_snapshot' => substr($role ?? 'unknown', 0, 20),
+                'category'           => $category,
+                'action'             => substr($action, 0, 64),
+                'description'        => substr($description, 0, 255),
+                'target_type'        => $targetType ? substr($targetType, 0, 50) : null,
+                'target_id'          => $targetId !== null ? substr((string)$targetId, 0, 64) : null,
+                'metadata_json'      => audit_metadata_json($metadata),
+                'ip_address'         => substr($ip ?? '127.0.0.1', 0, 45),
+                'created_at'         => date('Y-m-d H:i:s'),
+                'failure_error'      => substr($e->getMessage(), 0, 255)
+            ];
+            @file_put_contents(
+                $fallbackFile,
+                json_encode($fallbackPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n",
+                FILE_APPEND | LOCK_EX
+            );
+            error_log('[CafeFlow Audit Log Fallback] Preserved audit record in fallback outbox: action=' . $action . ' error=' . $e->getMessage());
         }
     }
+}
+
+/**
+ * Returns absolute path to the audit durable fallback outbox.
+ */
+function audit_fallback_filepath(): string
+{
+    return __DIR__ . '/../database/audit_fallback.jsonl';
+}
+
+/**
+ * Recovers and flushes pending audit records from the fallback outbox into audit_logs.
+ *
+ * @param PDO|null $pdo Database connection handle
+ * @return int Number of records successfully recovered
+ */
+function audit_flush_fallback_records(?PDO $pdo = null): int
+{
+    $fallbackFile = audit_fallback_filepath();
+    if (!file_exists($fallbackFile) || filesize($fallbackFile) === 0) {
+        return 0;
+    }
+
+    $db = $pdo ?: db();
+    $fh = @fopen($fallbackFile, 'c+');
+    if (!$fh) {
+        return 0;
+    }
+
+    $flushed = 0;
+    try {
+        if (!flock($fh, LOCK_EX)) {
+            fclose($fh);
+            return 0;
+        }
+
+        $lines = [];
+        rewind($fh);
+        while (($line = fgets($fh)) !== false) {
+            $line = trim($line);
+            if ($line !== '') {
+                $lines[] = $line;
+            }
+        }
+
+        if (empty($lines)) {
+            ftruncate($fh, 0);
+            flock($fh, LOCK_UN);
+            fclose($fh);
+            return 0;
+        }
+
+        $stmt = $db->prepare('
+            INSERT INTO audit_logs (
+                session_id, user_id, username_snapshot, user_role_snapshot,
+                category, action, description, target_type, target_id,
+                metadata_json, ip_address, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ');
+
+        $remaining = [];
+        foreach ($lines as $line) {
+            $row = json_decode($line, true);
+            if (!is_array($row)) {
+                continue;
+            }
+            try {
+                $stmt->execute([
+                    $row['session_id'] ?? null,
+                    $row['user_id'] ?? null,
+                    $row['username_snapshot'] ?? 'system',
+                    $row['user_role_snapshot'] ?? 'system',
+                    $row['category'] ?? 'system',
+                    $row['action'] ?? 'unknown',
+                    $row['description'] ?? '',
+                    $row['target_type'] ?? null,
+                    $row['target_id'] ?? null,
+                    $row['metadata_json'] ?? '{}',
+                    $row['ip_address'] ?? '127.0.0.1',
+                    $row['created_at'] ?? date('Y-m-d H:i:s')
+                ]);
+                $flushed++;
+            } catch (Throwable $insErr) {
+                // Keep unrecoverable rows in outbox for subsequent retry
+                $remaining[] = $line;
+            }
+        }
+
+        rewind($fh);
+        ftruncate($fh, 0);
+        if (!empty($remaining)) {
+            fwrite($fh, implode("\n", $remaining) . "\n");
+        }
+        flock($fh, LOCK_UN);
+        fclose($fh);
+    } catch (Throwable $e) {
+        error_log('[CafeFlow Audit Flush Error] ' . $e->getMessage());
+        if (is_resource($fh)) {
+            flock($fh, LOCK_UN);
+            fclose($fh);
+        }
+    }
+
+    return $flushed;
+}
+
+/**
+ * Returns count of unrecovered audit fallback outbox records.
+ */
+function audit_fallback_pending_count(): int
+{
+    $fallbackFile = audit_fallback_filepath();
+    if (!file_exists($fallbackFile) || filesize($fallbackFile) === 0) {
+        return 0;
+    }
+    $count = 0;
+    $fh = @fopen($fallbackFile, 'r');
+    if ($fh) {
+        while (($line = fgets($fh)) !== false) {
+            if (trim($line) !== '') {
+                $count++;
+            }
+        }
+        fclose($fh);
+    }
+    return $count;
 }

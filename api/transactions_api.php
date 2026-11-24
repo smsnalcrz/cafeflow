@@ -219,6 +219,10 @@ $rangeParam = $_GET['range'] ?? null;
 $allParam   = !empty($_GET['all']);
 $limitParam = as_int($_GET['limit'] ?? null, 1, 10000);
 
+$includeMockParam = $_GET['include_mock'] ?? null;
+$includeMock = ($includeMockParam === '1' || $includeMockParam === 'true');
+$mockFilterSql = !$includeMock ? ' AND (is_mock = 0 OR is_mock IS NULL)' : '';
+
 $where = '';
 $params = [];
 $startDateStr = '';
@@ -226,28 +230,28 @@ $endDateStr   = '';
 $periodLabel  = '';
 
 if ($allParam) {
-    $where = 'WHERE 1=1';
+    $where = 'WHERE 1=1' . $mockFilterSql;
     $periodLabel = 'All Available Transactions';
 } elseif ($rangeParam === 'year' || ($yearParam && preg_match('/^\d{4}$/', (string)$yearParam) && !$monthParam && !$dateParam)) {
     $rawYear = (int) ($yearParam ?? (new DateTimeImmutable('now', $tz))->format('Y'));
     $dtStart = DateTimeImmutable::createFromFormat('!Y-m-d', sprintf('%04d-01-01', $rawYear), $tz);
     $dtEnd   = $dtStart->modify('+1 year');
     $lastDay = $dtEnd->modify('-1 day');
-    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $dtStart->format('Y-m-d 00:00:00');
     $params[':end']   = $dtEnd->format('Y-m-d 00:00:00');
     $startDateStr = $dtStart->format('Y-m-d');
     $endDateStr   = $lastDay->format('Y-m-d');
     $periodLabel  = sprintf('Year %04d', $rawYear);
 } elseif ($startParam && $endParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endParam)) {
-    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $startParam . ' 00:00:00';
     $params[':end']   = (new DateTimeImmutable($endParam, $tz))->modify('+1 day')->format('Y-m-d 00:00:00');
     $startDateStr = $startParam;
     $endDateStr   = $endParam;
     $periodLabel  = ($startParam === $endParam) ? $startParam : "$startParam to $endParam";
 } elseif ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam)) {
-    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $dateParam . ' 00:00:00';
     $params[':end']   = (new DateTimeImmutable($dateParam, $tz))->modify('+1 day')->format('Y-m-d 00:00:00');
     $startDateStr = $dateParam;
@@ -257,7 +261,7 @@ if ($allParam) {
     $dtStart = DateTimeImmutable::createFromFormat('!Y-m-d', $monthParam . '-01', $tz);
     $dtEnd   = $dtStart->modify('+1 month');
     $lastDay = $dtEnd->modify('-1 day');
-    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $dtStart->format('Y-m-d 00:00:00');
     $params[':end']   = $dtEnd->format('Y-m-d 00:00:00');
     $startDateStr = $dtStart->format('Y-m-d');
@@ -269,7 +273,7 @@ if ($allParam) {
         : (new DateTimeImmutable('today', $tz))->modify('-6 days');
     $dtEnd   = $dtStart->modify('+7 days');
     $lastDay = $dtStart->modify('+6 days');
-    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where   = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $dtStart->format('Y-m-d 00:00:00');
     $params[':end']   = $dtEnd->format('Y-m-d 00:00:00');
     $startDateStr = $dtStart->format('Y-m-d');
@@ -278,7 +282,7 @@ if ($allParam) {
 } else {
     // Default to today
     $today = (new DateTimeImmutable('today', $tz))->format('Y-m-d');
-    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end';
+    $where = 'WHERE `timestamp` >= :start AND `timestamp` < :end' . $mockFilterSql;
     $params[':start'] = $today . ' 00:00:00';
     $params[':end']   = (new DateTimeImmutable($today, $tz))->modify('+1 day')->format('Y-m-d 00:00:00');
     $startDateStr = $today;

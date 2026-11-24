@@ -399,6 +399,17 @@ function record_login_attempt(string $ip, string $username, bool $success, PDO $
         if ($success) {
             $del = $pdo->prepare('DELETE FROM login_attempts WHERE (ip_address = ? OR username = ?) AND success = 0');
             $del->execute([$ip, $username]);
+        } else {
+            // Task 11: Record failed authentication attempt in security audit trail
+            audit_log(
+                'security',
+                'auth_login_failed',
+                "Failed authentication attempt for username '{$username}' from {$ip}",
+                'user',
+                null,
+                ['ip' => $ip, 'username' => $username, 'outcome' => 'rejected'],
+                $pdo
+            );
         }
     } catch (Throwable $e) {
         error_log('[CafeFlow RateLimit] ' . $e->getMessage());

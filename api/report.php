@@ -188,8 +188,10 @@ $startStr = $dtStart->format('Y-m-d 00:00:00');
 $endStr   = $dtEnd->format('Y-m-d 00:00:00');
 
 $includeMockParam = $_GET['include_mock'] ?? null;
-// If include_mock is explicitly '0' or 'false', only aggregate live/real transactions (is_mock = 0 or NULL)
-$filterOnlyReal = ($includeMockParam === '0' || $includeMockParam === 'false');
+// Task 19: All official sales reports and accounting audits default strictly to live records (is_mock = 0 or NULL)
+// Only include synthetic mock data if explicitly requested via include_mock=1 or include_mock=true
+$includeMock = ($includeMockParam === '1' || $includeMockParam === 'true');
+$filterOnlyReal = !$includeMock;
 $mockFilterSql  = $filterOnlyReal ? " AND (is_mock = 0 OR is_mock IS NULL)" : "";
 $mockFilterTql  = $filterOnlyReal ? " AND (t.is_mock = 0 OR t.is_mock IS NULL)" : "";
 

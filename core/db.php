@@ -524,7 +524,11 @@ if (!function_exists('db')) {
             }
 
             $pdo->exec("SET time_zone = '+08:00'");
-            ensure_schema($pdo);
+            // Task 30: Separate runtime schema changes from ordinary web requests.
+            // DDL migrations only run during CLI commands (migrations/testing) or when explicitly enabled.
+            if (php_sapi_name() === 'cli' || defined('RUN_MIGRATIONS_ON_BOOT')) {
+                ensure_schema($pdo);
+            }
         }
         return $pdo;
     }

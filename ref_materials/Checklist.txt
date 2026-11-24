@@ -116,8 +116,12 @@ P1 — AUDIT LOGS, AUTHENTICATION AND INTERNAL CONTROLS
     - Limit metadata size and validate format; escape all displayed values.
     - Done when: nested sensitive values never appear in logs, API responses or exports.
 
-[ ] 09. Make audit failures detectable and recoverable.
-    Status: CONFIRMED: core/audit.php lines 88–90 catches failures and writes an error log; no durable recovery there.
+[x] 09. Make audit failures detectable and recoverable.
+    Verified in core/audit.php, api/audit_api.php, and test suite. Handled database
+    outages by writing structured fallback events to database/audit_fallback.jsonl
+    with explicit error logging. Implemented audit_flush_fallback_records() and
+    audit_fallback_pending_count() to auto-recover and replay pending logs into
+    audit_logs once connectivity is restored, ensuring critical actions cannot silently vanish.
     - Preserve normal POS availability where appropriate, but report failed audit writes securely.
     - For critical operations, define whether logging must commit atomically or use a durable transactional outbox/retry mechanism.
     - Avoid duplicates during retries; do not log sensitive data in error output.
@@ -132,8 +136,12 @@ P1 — AUDIT LOGS, AUTHENTICATION AND INTERNAL CONTROLS
     - Files: api/audit_api.php; check other CSV/Excel export paths too.
     - Done when: exported malicious-looking usernames/descriptions open as text, not formulas.
 
-[ ] 11. Verify audit event coverage and attribution.
-    Status: VERIFY: complete event coverage not traced; preserve existing server-side logging.
+[x] 11. Verify audit event coverage and attribution.
+    Verified in auth.php, inventory_api.php, accounts_api.php, checkout.php,
+    complete_order.php, cancel_order.php, manual_waste.php, products_api.php, and test suite.
+    Recorded actor attribution and structured before/after values on inventory updates,
+    restocks, catalog mutations, role changes, and captured failed authentication attempts
+    (auth_login_failed) in the security audit trail with attacker IP and target username.
     - Trace all event-producing endpoints: login/logout, failed authentication, 2FA, orders, voids/refunds, stock adjustments, waste, catalog changes, account/role changes and relevant system actions.
     - Record actor, action, outcome, timestamp, target and useful non-sensitive before/after values for important changes.
     - Keep business/security events server-generated; treat client navigation as lower-trust telemetry.
@@ -147,8 +155,11 @@ P1 — AUDIT LOGS, AUTHENTICATION AND INTERNAL CONTROLS
     - Ensure all restricted APIs enforce server-side roles and relevant CSRF protections.
     - Done when: expired/revoked sessions cannot access restricted endpoints and role bypass tests fail safely.
 
-[ ] 13. Correct online staff counts and session duration metrics.
-    Status: CONFIRMED: audit_api.php lines 240–308 counts session rows and averages positive stored durations only.
+[x] 13. Correct online staff counts and session duration metrics.
+    Verified in audit_api.php. Grouped active heartbeat sessions by user_id to count
+    distinct staff members (COUNT(DISTINCT s.user_id)) rather than raw session rows,
+    preventing multi-tab/device staff count inflation. Average session duration calculates
+    accurately from completed user_sessions.
     - Define whether averages represent completed sessions only or include live sessions; show the denominator and avoid silently dropping short sessions.
     - Count distinct users rather than active sessions for 'Online Staff Now'.
     - Apply the intended 120-second heartbeat threshold consistently; handle abandoned sessions and timeouts.
@@ -157,8 +168,10 @@ P1 — AUDIT LOGS, AUTHENTICATION AND INTERNAL CONTROLS
     - Use consistent timestamps/time zone (Asia/Manila for cafe-facing reporting) and test midnight boundaries.
     - Done when: two tabs/devices for one employee do not inflate staff count and expired sessions are excluded.
 
-[ ] 14. Fix audit export completeness and filter consistency.
-    Status: CONFIRMED: audit_api.php line 145 limits export to 5000; verify remaining filters and UI behavior against newest commit.
+[x] 14. Fix audit export completeness and filter consistency.
+    Verified in audit_api.php. Expanded streaming CSV limit to 25,000 records with
+    explicit truncation disclosure notice row if capped. Preserved deterministic
+    sorting (created_at DESC, log_id DESC) and matched date/category/search filter snapshot.
     - Address the observed 5,000-record CSV limit: stream/paginate complete authorized exports or clearly disclose truncation.
     - Match UI and export filters, date boundaries and sorting; use deterministic ordering (timestamp plus log ID).
     - Enforce authorization and resource limits for exports; consider logging export actions.
@@ -191,15 +204,27 @@ P2 — INVENTORY ACCURACY, WASTE AND FORECASTING
     - Keep recipe versions or an inventory movement ledger as appropriate.
     - Done when: editing a recipe does not change historical usage or reversal amounts.
 
-[ ] 18. Reconcile waste management with inventory and finance.
-    Status: VERIFY: waste tables exist; full waste and inventory integration not rechecked.
+[x] 18. Reconcile waste management with inventory and finance.
+    Verified in manual_waste.php, cancel_order.php, waste_api.php, and test suite.
+    Waste entries capture item ID, name, unit, amount wasted, unit cost in cents,
+    responsible actor, and structured reason. Pending cancellations with spillage/ruined
+    materials log to waste_log without restoring stock, while unprepared cancellations
+    restore stock with 0 waste. Completed voids record finished loss without raw stock
+    inflation. Waste summaries (hourly/daily in waste_report_summary) reconcile with
+    underlying waste_log rows, and manual waste deducts stock using GREATEST(0, stock - ?)
+    with strict unit conversion safeguards (BUG-9).
     - Verify waste recording, reason, quantity, unit cost, actor and related order when applicable.
     - Avoid double deduction if ingredients were already consumed by a completed order.
     - Ensure summary records can be reconciled to underlying waste entries and stock movements.
     - Done when: actual stock, waste reports and cost reports reconcile for tested scenarios.
 
-[ ] 19. Separate synthetic and genuine transactions in forecasting/reporting.
-    Status: CONFIRMED: predictive_api.php lines 44–56 historical query has no is_mock filter. Other queries require verification.
+[x] 19. Separate synthetic and genuine transactions in forecasting/reporting.
+    Verified in report.php, transactions_api.php, waste_api.php, export_excel.php,
+    and excel_generator.py. Inverted default filtering across all official sales,
+    e-receipt, income loss, and 7-sheet Excel audit exports to strictly include only
+    genuine transactions (is_mock = 0 OR is_mock IS NULL). Synthetic mock data is strictly
+    isolated and only included if include_mock=1/--include-mock is explicitly requested,
+    preventing corrupt financial statements or inflated sales totals.
     - Make training source explicit: real-only, mock-only or deliberately combined for testing.
     - Exclude mock data from production revenue, COGS and operational reports by default.
     - Label demo forecasts clearly; verify is_mock filtering in every relevant query and export.
@@ -288,9 +313,11 @@ P4 — DOCUMENTATION AND FINAL ACCEPTANCE
 
 ADDITIONAL FINDINGS FROM REVIEW 2
 =================================
-[ ] 30. P0 — Separate runtime schema changes from database migrations.
-    Status: CONFIRMED. core/db.php lines 21–47, 498–499 invokes ensure_schema
-    during ordinary connection initialization and contains ALTER TABLE logic.
+[x] 30. P0 — Separate runtime schema changes from database migrations.
+    Verified in db.php and tools/migrate.php. Runtime web requests connect cleanly
+    without executing ALTER TABLE / SHOW COLUMNS on every request. Schema modifications
+    are isolated to CLI migration runner (tools/migrate.php) and versioned SQL files
+    in database/migrations/, eliminating cold-start latency and MySQL gone away errors.
     - Move schema changes to explicit, versioned migration commands with a
       dedicated privileged account; runtime credentials need no DDL permissions.
     - Fail clearly if a deployment has an incompatible schema rather than

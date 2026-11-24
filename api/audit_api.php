@@ -31,6 +31,11 @@ if ($method !== 'GET') {
     return;
 }
 
+// Task 09: Auto-flush and recover any durable fallback audit records
+if (function_exists('audit_flush_fallback_records')) {
+    audit_flush_fallback_records($pdo);
+}
+
 // -----------------------------------------------------------------------------
 // Helper: Format Relative Time
 // -----------------------------------------------------------------------------
@@ -185,11 +190,13 @@ if ($exportCsv) {
           FROM audit_logs l
          WHERE {$whereClause}
          ORDER BY l.created_at DESC, l.log_id DESC
-         LIMIT 5000
+         LIMIT 25000
     ");
     $csvStmt->execute($params);
 
+    $exportedCount = 0;
     while ($row = $csvStmt->fetch(PDO::FETCH_ASSOC)) {
+        $exportedCount++;
         write_spreadsheet_csv_row($out, [
             $row['log_id'],
             $row['created_at'],
@@ -204,6 +211,24 @@ if ($exportCsv) {
             $row['target_id'] ?? '',
             $row['ip_address'],
             audit_stored_metadata($row['metadata_json']) ?? ''
+        ]);
+    }
+
+    if ($exportedCount >= 25000) {
+        write_spreadsheet_csv_row($out, [
+            '',
+            '',
+            '',
+            '',
+            '[NOTICE]',
+            'SYSTEM',
+            'system_notice',
+            'export_truncated',
+            'Export capped at 25,000 records. Please refine date or category filters for complete ranges.',
+            '',
+            '',
+            '',
+            ''
         ]);
     }
 
@@ -285,14 +310,19 @@ foreach ($rawLogs as $r) {
 // Live Session & KPI Metrics
 // -----------------------------------------------------------------------------
 // Online users: active heartbeat within last 120 seconds and no logout
+// Task 13: Group by distinct user to prevent multi-tab/device staff count inflation
 $onlineStmt = $pdo->query("
-    SELECT s.user_id, u.username, u.full_name, u.role, s.ip_address, s.login_at, s.last_heartbeat_at,
-           TIMESTAMPDIFF(SECOND, s.login_at, NOW(3)) AS current_duration_seconds
+    SELECT s.user_id, u.username, u.full_name, u.role, 
+           MAX(s.ip_address) AS ip_address, 
+           MIN(s.login_at) AS login_at, 
+           MAX(s.last_heartbeat_at) AS last_heartbeat_at,
+           TIMESTAMPDIFF(SECOND, MIN(s.login_at), NOW(3)) AS current_duration_seconds
       FROM user_sessions s
       LEFT JOIN users u ON s.user_id = u.user_id
      WHERE s.logout_at IS NULL
        AND s.last_heartbeat_at >= DATE_SUB(NOW(3), INTERVAL 120 SECOND)
-     ORDER BY s.last_heartbeat_at DESC
+     GROUP BY s.user_id, u.username, u.full_name, u.role
+     ORDER BY last_heartbeat_at DESC
 ");
 $onlineUsersRaw = $onlineStmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -364,7 +394,8 @@ echo json_encode([
         'actions_today'        => $totalActionsToday,
         'avg_duration_today'   => $avgDurationFormatted,
         'avg_duration_seconds' => $avgDurationSec,
-        'category_breakdown'   => $catBreakdown
+        'category_breakdown'   => $catBreakdown,
+        'pending_fallback_records' => function_exists('audit_fallback_pending_count') ? audit_fallback_pending_count() : 0
     ],
     'staff_options' => array_map(function($s) {
         return [

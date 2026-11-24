@@ -17,3 +17,4 @@ temp/
 exports/
 *.xlsx
 ~$*.xlsx
+*.jsonl

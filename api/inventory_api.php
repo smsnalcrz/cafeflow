@@ -131,6 +131,11 @@ switch ($action) {
             fail(409, "An inventory item named '$name' already exists in the inventory.");
         }
 
+        // Fetch previous state for structured before/after audit attribution (Task 11)
+        $prevStmt = $pdo->prepare('SELECT name, unit_measure, current_stock, restock_threshold FROM inventory WHERE item_id = ?');
+        $prevStmt->execute([$id]);
+        $prevItem = $prevStmt->fetch() ?: [];
+
         try {
             $pdo->prepare(
                 'UPDATE inventory
@@ -140,10 +145,17 @@ switch ($action) {
             audit_log(
                 'inventory',
                 'stock_adjustment',
-                "Adjusted inventory supply: {$name} (Stock: {$stock} {$unit})",
+                "Adjusted inventory supply: {$name} (Stock: {$stock} {$unit}, Alert: {$alert})",
                 'inventory',
                 (string)$id,
-                ['name' => $name, 'stock' => $stock, 'unit' => $unit, 'threshold' => $alert]
+                [
+                    'name'           => $name,
+                    'previous_stock' => isset($prevItem['current_stock']) ? (float)$prevItem['current_stock'] : null,
+                    'new_stock'      => $stock,
+                    'unit'           => $unit,
+                    'previous_alert' => isset($prevItem['restock_threshold']) ? (float)$prevItem['restock_threshold'] : null,
+                    'new_alert'      => $alert
+                ]
             );
         } catch (PDOException $e) {
             duplicate_name_guard($e);
@@ -157,15 +169,32 @@ switch ($action) {
         if ($amount === null) {
             fail(422, 'Enter the quantity received (more than 0).');
         }
+
+        // Fetch supply details for before/after attribution (Task 11)
+        $itemStmt = $pdo->prepare('SELECT name, unit_measure, current_stock FROM inventory WHERE item_id = ?');
+        $itemStmt->execute([$id]);
+        $itemRow = $itemStmt->fetch();
+        $itemName = $itemRow['name'] ?? "Item #{$id}";
+        $unitName = $itemRow['unit_measure'] ?? 'units';
+        $prevStock = (float)($itemRow['current_stock'] ?? 0);
+        $newStock = $prevStock + $amount;
+
         $pdo->prepare('UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?')
             ->execute([$amount, $id]);
         audit_log(
             'inventory',
             'stock_restock',
-            "Restocked +{$amount} units of inventory item #{$id}",
+            "Restocked +{$amount} {$unitName} of {$itemName} (Previous: {$prevStock}, New: {$newStock})",
             'inventory',
             (string)$id,
-            ['amount' => $amount]
+            [
+                'item_id'        => $id,
+                'item_name'      => $itemName,
+                'amount_added'   => $amount,
+                'previous_stock' => $prevStock,
+                'new_stock'      => $newStock,
+                'unit'           => $unitName
+            ]
         );
         break;
 
