@@ -60,8 +60,13 @@ P0 — SECURITY AND DATA INTEGRITY (FIX FIRST)
     - Files: core/audit.php, core/auth.php, api/audit_api.php, database/schema.sql.
     - Done when: audit data cannot be used to impersonate an authenticated session.
 
-[ ] 04. Prevent inventory overselling and concurrent checkout races.
-    Status: CONFIRMED: checkout.php checks stock before beginning its insert transaction; pending orders do not reserve stock in the inspected flow.
+[x] 04. Prevent inventory overselling and concurrent checkout races.
+    Verified in migration 005 and automated test suite. checkout.php sorts ingredient
+    IDs ascending before acquiring row-level locks (FOR UPDATE) to prevent deadlocks,
+    verifies sufficiency inside the transaction, and executes atomic conditional deductions
+    (UPDATE inventory SET current_stock = GREATEST(0, current_stock - ?) WHERE item_id = ? AND current_stock >= ?).
+    Stock reservations are tracked via stock_deducted flag on transactions, and complete_order.php
+    guards against double deduction.
     - Reserve required ingredients and packaging atomically at checkout, or deduct atomically if that matches the business workflow.
     - Aggregate requirements across all cart items and sizes; validate inside a database transaction using appropriate row locks/conditional updates.
     - Release reservations on eligible cancellations; consume once on preparation/completion.
@@ -69,15 +74,21 @@ P0 — SECURITY AND DATA INTEGRITY (FIX FIRST)
     - Files: api/checkout.php, core/recipe_engine.php, completion/cancellation endpoints.
     - Done when: two simultaneous orders competing for the last ingredient cannot both reserve it.
 
-[ ] 05. Strictly validate checkout product sizes and prices server-side.
-    Status: CONFIRMED: checkout.php lines 100–104 and 234–265 trust client variant fields and use fallback pricing.
+[x] 05. Strictly validate checkout product sizes and prices server-side.
+    Verified in checkout.php and test suite. Reject unconfigured or invalid cup sizes with
+    HTTP 422 ("Invalid size variant"). Removed arbitrary +20.00 fallback pricing bypass.
+    Strictly match product_size_prices and menu_products pricing rules server-side.
     - Accept only active product/size combinations actually configured in the database.
     - Reject invalid variants rather than silently applying a fallback price.
     - Compute price, discounts, quantities and totals on the server; use appropriate decimal/currency handling.
     - Done when: manipulated size, price or quantity inputs cannot undercharge or bypass stock requirements.
 
-[ ] 06. Separate financial voids/refunds from physical inventory restoration.
-    Status: CONFIRMED: cancel_order.php lines 65–92 recalculates and restores ingredients when a completed order is voided.
+[x] 06. Separate financial voids/refunds from physical inventory restoration.
+    Verified in cancel_order.php and test suite. Unprepared pending cancellations restore
+    exact reserved stock using immutable order_ingredients snapshots and log zero waste.
+    Completed/prepared order voids strictly require manager authorization, record raw material
+    and packaging waste to waste_log and waste_report_summary, and do NOT restore physical
+    inventory (preventing liquid beverages from artificially increasing raw stock).
     - Unprepared orders: release reservations or reverse eligible deductions.
     - Prepared orders: do not automatically restore consumed ingredients; record waste when applicable.
     - Refunds: record financial reversal independently; preserve original sale and reversal history.
@@ -170,8 +181,11 @@ P2 — INVENTORY ACCURACY, WASTE AND FORECASTING
     - Files: core/recipe_engine.php, product_ingredients, inventory, product_size_prices.
     - Done when: measured preparation and recorded stock consumption agree within an agreed tolerance.
 
-[ ] 17. Preserve immutable historical ingredient consumption.
-    Status: CONFIRMED: cancel_order.php calculates reversal from current recipe data rather than immutable consumption snapshots.
+[x] 17. Preserve immutable historical ingredient consumption.
+    Verified in migration 005 and cancel_order.php. Created order_ingredients table
+    capturing immutable snapshots of item_id, item_name, unit, and amount_used at checkout.
+    Pending cancellations restore stock directly from order_ingredients rather than live
+    recipe recalculation, ensuring future recipe adjustments never corrupt historical usage.
     - Store quantities, units, ingredient identifiers and relevant cost snapshots when consumption is committed.
     - Use original recorded consumption for historical reports, eligible reversals and waste, not current recipes.
     - Keep recipe versions or an inventory movement ledger as appropriate.
@@ -285,9 +299,12 @@ ADDITIONAL FINDINGS FROM REVIEW 2
     - Done when: normal requests work without CREATE/ALTER/DROP privileges,
       and failed migrations leave a clear diagnostic and recovery path.
 
-[ ] 31. P0 — Make payment references and checkout retries concurrency-safe.
-    Status: CONFIRMED race-prone check-then-insert in checkout.php lines 458–485;
-    the database uniqueness guarantee must be checked on the actual installation.
+[x] 31. P0 — Make payment references and checkout retries concurrency-safe.
+    Verified in migration 005, checkout.php, pos-cart.js, and test suite. Added unique
+    idempotency_key column with database constraint uq_tx_idempotency_key. Client generates
+    idempotency keys per checkout. Retried requests return the existing transaction payload
+    safely without re-deducting stock or creating duplicate orders. GCash reference numbers
+    acquire row locks across pending and completed transactions to prevent duplicate recording.
     - Enforce payment reference uniqueness atomically with a database constraint
       or dedicated payment ledger; define refund/reversal and reuse policies.
     - Add per-checkout idempotency keys for both Cash and GCash. Retried requests

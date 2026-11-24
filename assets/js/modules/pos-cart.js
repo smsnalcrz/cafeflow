@@ -328,6 +328,7 @@ window.CafeFlow = window.CafeFlow || {};
         size_label: l.sizeLabel || null,
         size_code: l.sizeCode || null
       }));
+      const idempotencyKey = extra.idempotency_key || ('cf_ord_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10));
       const payload = {
         payment_method: method,
         items,
@@ -335,6 +336,7 @@ window.CafeFlow = window.CafeFlow || {};
         discount_type: calc.discType,
         discount_id_no: calc.discType === 'senior_pwd' ? calc.seniorId : undefined,
         discount_rate: calc.discType === 'custom_percent' ? calc.discRate : undefined,
+        idempotency_key: idempotencyKey,
         ...extra
       };
 

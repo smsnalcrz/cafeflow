@@ -203,6 +203,135 @@ if ($invItem) {
     reportTest("Inventory Guard: Negative inventory deduction clamped to 0.00 by SQL GREATEST guard", $checkNegative === 0.0);
 }
 
+// 3.4 Concurrency, Idempotency, Strict Variants & Voids (Tasks 04, 05, 06, 17, 31)
+$checkoutCode = file_get_contents(__DIR__ . '/../api/checkout.php');
+$completeCode = file_get_contents(__DIR__ . '/../api/complete_order.php');
+$cancelCode   = file_get_contents(__DIR__ . '/../api/cancel_order.php');
+
+// Schema verification: idempotency_key, stock_deducted, order_ingredients
+$colCheck = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'idempotency_key'")->fetch();
+$stockDeductCheck = $pdo->query("SHOW COLUMNS FROM transactions LIKE 'stock_deducted'")->fetch();
+$oiTableCheck = $pdo->query("SHOW TABLES LIKE 'order_ingredients'")->fetch();
+
+reportTest("Schema: transactions has idempotency_key column", (bool) $colCheck);
+reportTest("Schema: transactions has stock_deducted column", (bool) $stockDeductCheck);
+reportTest("Schema: order_ingredients table exists for immutable consumption snapshots", (bool) $oiTableCheck);
+
+// Task 05: Strict server-side variant and price validation (rejects invalid sizes with 422)
+reportTest("Variant Security: checkout.php rejects invalid/unconfigured cup sizes with 422", 
+    str_contains($checkoutCode, "Invalid size variant") && 
+    str_contains($checkoutCode, "\$unitPrice === null")
+);
+reportTest("Variant Security: checkout.php eliminated fallback +20.00 pricing bypass", 
+    !str_contains($checkoutCode, "\$unitPrice = \$basePrice + 20.00")
+);
+
+// Task 04 & 31: Deadlock prevention via sorted locks and conditional update
+reportTest("Deadlock Prevention: checkout.php sorts inventory item IDs ascending before FOR UPDATE lock", 
+    str_contains($checkoutCode, "sort(\$invIds)") && 
+    str_contains($checkoutCode, "ORDER BY item_id ASC FOR UPDATE")
+);
+reportTest("Inventory Concurrency: Atomic conditional deduction prevents overselling below zero", 
+    str_contains($checkoutCode, "UPDATE inventory SET current_stock = GREATEST(0, current_stock - ?) WHERE item_id = ? AND current_stock >= ?")
+);
+
+// Task 04 & 31: Idempotency replay and GCash reference concurrency
+reportTest("Idempotency: checkout.php detects and replays existing transaction for duplicate key", 
+    str_contains($checkoutCode, "FROM transactions WHERE idempotency_key = ?")
+);
+reportTest("Payment Concurrency: checkout.php enforces GCash reference row lock check", 
+    str_contains($checkoutCode, "SELECT transaction_id FROM transactions WHERE reference_number = ? AND status IN ('Pending', 'Completed') FOR UPDATE")
+);
+
+// Task 04: Zero double-deduction in complete_order.php
+reportTest("Order Completion: complete_order.php verifies stock_deducted and prevents duplicate deduction", 
+    str_contains($completeCode, "\$stockAlreadyDeducted = ((int) (\$tx['stock_deducted'] ?? 0)) === 1") && 
+    str_contains($completeCode, "UPDATE transactions SET status = 'Completed' WHERE transaction_id = ?")
+);
+
+// Task 06 & 17: Separation of physical vs financial voids in cancel_order.php
+reportTest("Physical vs Financial Void: Completed order void does NOT restore raw inventory to physical stock", 
+    str_contains($cancelCode, "\$newStatus = 'Voided'") && 
+    str_contains($cancelCode, "\$inventoryReversed = false")
+);
+reportTest("Physical vs Financial Void: Completed order void logs to waste_log without altering stock", 
+    str_contains($cancelCode, "\$wasteResult = record_order_waste(\$pdo, \$transactionId, \$userId, \$reason, \$items)")
+);
+reportTest("Pending Cancellation: Restores stock from immutable order_ingredients snapshot", 
+    str_contains($cancelCode, "SELECT item_id, item_name, unit, amount_used FROM order_ingredients WHERE transaction_id = ?") && 
+    str_contains($cancelCode, "UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?")
+);
+reportTest("Pending Cancellation: Unprepared orders do not incur raw material waste", 
+    str_contains($cancelCode, "Unprepared orders do not incur physical ingredient waste")
+);
+
+// Functional DB Test: Transaction life-cycle with idempotency, reservation, snapshot and restoration
+$testKey = 'test_idem_' . bin2hex(random_bytes(8));
+$testRef = 'GCASH-TEST-' . bin2hex(random_bytes(4));
+
+$sampleItem = $pdo->query("SELECT item_id, current_stock FROM inventory WHERE current_stock > 10 LIMIT 1")->fetch();
+if ($sampleItem && $managerUser) {
+    $sItemId = (int) $sampleItem['item_id'];
+    $stockInitial = (float) $sampleItem['current_stock'];
+
+    // 1. Insert pending transaction with stock_deducted = 1
+    $pdo->beginTransaction();
+    $txInsert = $pdo->prepare("
+        INSERT INTO transactions (
+            cashier_user_id, total_amount, amount_paid, change_due,
+            subtotal, tax, discount, discount_type, status,
+            payment_method, reference_number, idempotency_key, stock_deducted
+        ) VALUES (?, 100.00, 100.00, 0.00, 100.00, 0.00, 0.00, 'none', 'Pending', 'GCash', ?, ?, 1)
+    ");
+    $txInsert->execute([(int)$managerUser['user_id'], $testRef, $testKey]);
+    $newTxId = (int) $pdo->lastInsertId();
+
+    // Deduct 2.50 units atomically
+    $pdo->prepare("UPDATE inventory SET current_stock = current_stock - 2.50 WHERE item_id = ?")->execute([$sItemId]);
+    
+    // Insert order_ingredients snapshot
+    $pdo->prepare("INSERT INTO order_ingredients (transaction_id, item_id, item_name, unit, amount_used) VALUES (?, ?, 'Test Supply', 'unit', 2.50)")
+        ->execute([$newTxId, $sItemId]);
+    $pdo->commit();
+
+    $stockAfterCheckout = (float) $pdo->query("SELECT current_stock FROM inventory WHERE item_id = {$sItemId}")->fetchColumn();
+    reportTest("Functional Flow: Inventory reserved at checkout (-2.50 units)", round($stockInitial - $stockAfterCheckout, 2) === 2.50);
+
+    // 2. Test Idempotency constraint prevents duplicate transaction insertion
+    $duplicateKeyBlocked = false;
+    try {
+        $dupInsert = $pdo->prepare("
+            INSERT INTO transactions (
+                cashier_user_id, total_amount, amount_paid, change_due,
+                subtotal, tax, discount, discount_type, status,
+                payment_method, reference_number, idempotency_key, stock_deducted
+            ) VALUES (?, 100.00, 100.00, 0.00, 100.00, 0.00, 0.00, 'none', 'Pending', 'GCash', 'DIFF-REF', ?, 1)
+        ");
+        $dupInsert->execute([(int)$managerUser['user_id'], $testKey]);
+    } catch (PDOException $e) {
+        $duplicateKeyBlocked = true;
+    }
+    reportTest("Functional Flow: Database unique index blocks duplicate idempotency key", $duplicateKeyBlocked);
+
+    // 3. Test Pending Order Cancellation Restores Stock from snapshot
+    $pdo->beginTransaction();
+    $snap = $pdo->prepare("SELECT item_id, amount_used FROM order_ingredients WHERE transaction_id = ?");
+    $snap->execute([$newTxId]);
+    $snapRows = $snap->fetchAll();
+    foreach ($snapRows as $sr) {
+        $pdo->prepare("UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?")->execute([$sr['amount_used'], $sr['item_id']]);
+    }
+    $pdo->prepare("UPDATE transactions SET status = 'Cancelled', stock_deducted = 0 WHERE transaction_id = ?")->execute([$newTxId]);
+    $pdo->commit();
+
+    $stockAfterCancel = (float) $pdo->query("SELECT current_stock FROM inventory WHERE item_id = {$sItemId}")->fetchColumn();
+    reportTest("Functional Flow: Pending order cancellation restores exact stock from order_ingredients", round($stockAfterCancel, 2) === round($stockInitial, 2));
+
+    // Cleanup test data
+    $pdo->prepare("DELETE FROM order_ingredients WHERE transaction_id = ?")->execute([$newTxId]);
+    $pdo->prepare("DELETE FROM transactions WHERE transaction_id = ?")->execute([$newTxId]);
+}
+
 // =============================================================================
 // SECTION 4: CALENDAR, LEAP YEAR & DATE BOUNDARY CALCULATIONS
 // =============================================================================

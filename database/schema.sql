@@ -103,14 +103,35 @@ CREATE TABLE IF NOT EXISTS transactions (
   cancellation_reason   VARCHAR(255)  NULL DEFAULT NULL,
   payment_method        ENUM('Cash','GCash') NOT NULL DEFAULT 'Cash',
   reference_number      VARCHAR(100)  NULL DEFAULT NULL,
+  idempotency_key       VARCHAR(64)   NULL DEFAULT NULL,
+  stock_deducted        TINYINT(1)    NOT NULL DEFAULT 0,
   is_mock               TINYINT(1)    NOT NULL DEFAULT 0,
   `timestamp`           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (transaction_id),
+  UNIQUE KEY uq_tx_idempotency_key (idempotency_key),
   KEY idx_status_time (status, `timestamp`),
   KEY idx_time (`timestamp`),
   KEY idx_tx_ref (reference_number),
   KEY idx_cashier (cashier_user_id),
   KEY idx_tx_is_mock (is_mock)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+--  5b. Immutable order ingredient consumption snapshots
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS order_ingredients (
+  id             INT UNSIGNED  NOT NULL AUTO_INCREMENT,
+  transaction_id INT UNSIGNED  NOT NULL,
+  item_id        INT UNSIGNED  NOT NULL,
+  item_name      VARCHAR(100)  NOT NULL,
+  unit           VARCHAR(30)   NOT NULL,
+  amount_used    DECIMAL(10,2) NOT NULL,
+  created_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_oi_tx (transaction_id),
+  KEY idx_oi_item (item_id),
+  CONSTRAINT fk_oi_transaction FOREIGN KEY (transaction_id) REFERENCES transactions (transaction_id) ON DELETE CASCADE,
+  CONSTRAINT fk_oi_item FOREIGN KEY (item_id) REFERENCES inventory (item_id) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------
