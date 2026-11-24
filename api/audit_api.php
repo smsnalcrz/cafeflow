@@ -56,16 +56,46 @@ if (!function_exists('audit_format_relative_time')) {
 // -----------------------------------------------------------------------------
 // Filters & Parameters Extraction
 // -----------------------------------------------------------------------------
-$userId     = !empty($_GET['user_id']) ? (int) $_GET['user_id'] : null;
-$category   = !empty($_GET['category']) ? trim($_GET['category']) : null;
-$action     = !empty($_GET['action']) ? trim($_GET['action']) : null;
-$dateFrom   = !empty($_GET['date_from']) ? trim($_GET['date_from']) : null;
-$dateTo     = !empty($_GET['date_to']) ? trim($_GET['date_to']) : null;
-$search     = !empty($_GET['search']) ? trim($_GET['search']) : null;
-$exportCsv  = !empty($_GET['export']) && strtolower($_GET['export']) === 'csv';
-
-$limit  = isset($_GET['limit']) ? max(1, min(200, (int) $_GET['limit'])) : 50;
-$offset = isset($_GET['offset']) ? max(0, (int) $_GET['offset']) : 0;
+$filters = [];
+foreach (['user_id', 'category', 'action', 'date_from', 'date_to', 'search', 'export', 'limit', 'offset'] as $key) {
+    $value = $_GET[$key] ?? '';
+    if (!is_string($value) && !is_int($value)) {
+        send_json(['success' => false, 'error' => "Invalid $key filter."], 422);
+    }
+    $filters[$key] = trim((string)$value);
+}
+$category = $filters['category'];
+$action = $filters['action'];
+$search = $filters['search'];
+$dateFrom = $filters['date_from'];
+$dateTo = $filters['date_to'];
+$exportCsv = strtolower($filters['export']) === 'csv';
+$integer = static function (string $key, int $min, int $max, ?int $default) use ($filters): ?int {
+    if ($filters[$key] === '') return $default;
+    $value = filter_var($filters[$key], FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => $min, 'max_range' => $max]
+    ]);
+    if ($value === false) send_json(['success' => false, 'error' => "Invalid $key filter."], 422);
+    return $value;
+};
+$userId = $integer('user_id', 1, 4294967295, null);
+$limit = $integer('limit', 1, 200, 50);
+$offset = $integer('offset', 0, PHP_INT_MAX, 0);
+if (!in_array($category, ['', 'all', 'navigation', 'pos_order', 'inventory', 'catalog', 'account', 'security', 'system'], true)) {
+    send_json(['success' => false, 'error' => 'Unknown audit category.'], 422);
+}
+if (!preg_match('/^.{0,200}$/usD', $search) || !preg_match('/^.{0,64}$/usD', $action)) {
+    send_json(['success' => false, 'error' => 'Use up to 200 characters for search and 64 for action.'], 422);
+}
+foreach ([$dateFrom, $dateTo] as $date) {
+    if ($date !== '' && (!preg_match('/^(\d{4})-(\d{2})-(\d{2})$/D', $date, $parts)
+        || (int)$parts[1] < 1000 || !checkdate((int)$parts[2], (int)$parts[3], (int)$parts[1]))) {
+        send_json(['success' => false, 'error' => 'Enter a valid date in YYYY-MM-DD format.'], 422);
+    }
+}
+if ($dateTo !== '' && $dateFrom > $dateTo) {
+    send_json(['success' => false, 'error' => 'Start date must be on or before end date.'], 422);
+}
 
 // Build WHERE Clause
 $where = ['1=1'];
@@ -81,7 +111,7 @@ if ($category && $category !== 'all') {
     $params[':category'] = $category;
 }
 
-if ($action && $action !== 'all') {
+if ($action !== '' && $action !== 'all') {
     $where[] = 'l.action = :action';
     $params[':action'] = $action;
 }
@@ -96,7 +126,7 @@ if ($dateTo) {
     $params[':date_to'] = $dateTo . ' 23:59:59.999';
 }
 
-if ($search) {
+if ($search !== '') {
     $where[] = '(
         l.description LIKE :kw1 
         OR l.username_snapshot LIKE :kw2 
