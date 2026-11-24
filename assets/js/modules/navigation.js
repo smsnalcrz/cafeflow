@@ -48,8 +48,8 @@ window.CafeFlow = window.CafeFlow || {};
       toast('Access restricted: Manager role does not have access to POS or Products.', 'error', 3500);
       return;
     }
-    if (currentUser.role !== 'manager' && (view === 'accounts' || view === 'predictive' || view === 'waste' || view === 'audit')) {
-      toast('Access restricted: Only Managers have access to ' + (view === 'predictive' ? 'Predictive Analytics.' : (view === 'waste' ? 'Waste Reports.' : (view === 'audit' ? 'Audit Log.' : 'Account Management.'))), 'error', 3500);
+    if (currentUser.role !== 'manager' && (view === 'accounts' || view === 'predictive' || view === 'audit')) {
+      toast('Access restricted: Only Managers have access to ' + (view === 'predictive' ? 'Predictive Analytics.' : (view === 'audit' ? 'Audit Log.' : 'Account Management.')), 'error', 3500);
       return;
     }
 
@@ -123,7 +123,7 @@ window.CafeFlow = window.CafeFlow || {};
     if (view === 'dashboard' && currentUser.role === 'manager' && window.CafeFlow.dashboard && window.CafeFlow.dashboard.loadManagerDashboard) {
       window.CafeFlow.dashboard.loadManagerDashboard();
     }
-    if (view === 'waste' && currentUser.role === 'manager' && window.CafeFlow.waste && window.CafeFlow.waste.loadWasteReport) {
+    if (view === 'waste' && window.CafeFlow.waste && window.CafeFlow.waste.loadWasteReport) {
       window.CafeFlow.waste.loadWasteReport();
     }
     if (view === 'predictive' && currentUser.role === 'manager' && window.CafeFlow.predictive && window.CafeFlow.predictive.loadPredictiveView) {

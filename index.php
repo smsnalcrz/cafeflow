@@ -93,11 +93,11 @@ $cssModules = [
         <svg class="nav-icon" viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
         <span>Sales Report</span>
       </button>
-      <?php if ($currentRole === 'manager'): ?>
       <button type="button" class="nav-btn" data-view="waste" id="wasteNavBtn">
         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
         <span>Waste Reports</span>
       </button>
+      <?php if ($currentRole === 'manager'): ?>
       <button type="button" class="nav-btn" data-view="predictive" id="predictiveNavBtn">
         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
         <span>Predictive Analytics</span>

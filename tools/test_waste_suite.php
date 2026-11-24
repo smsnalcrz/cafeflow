@@ -48,7 +48,7 @@ function runSubPhp(string $code): string {
 // -----------------------------------------------------------------------------
 echo "1. Testing RBAC on waste_api.php...\n";
 
-// A. Barista attempt
+// A. Barista attempt - Barista now has access to waste reports per store requirement
 $outBarista = runSubPhp('
 $_SERVER["REQUEST_METHOD"] = "GET";
 $_SERVER["REQUEST_URI"] = "/cafeflow/api/waste_api.php";
@@ -60,9 +60,25 @@ $_SESSION["user_role"] = "barista";
 include "' . addslashes(__DIR__ . '/../api/waste_api.php') . '";
 ');
 $baristaRes = parseJsonOutput($outBarista);
-assertTest('Barista receives 403 Forbidden on waste_api.php',
-    isset($baristaRes['code']) && $baristaRes['code'] === 'FORBIDDEN',
-    "Response code: " . ($baristaRes['code'] ?? 'none')
+assertTest('Barista receives 200 OK with waste analytics',
+    isset($baristaRes['success']) && $baristaRes['success'] === true && isset($baristaRes['summary']),
+    "Response: " . ($baristaRes['code'] ?? 'success')
+);
+
+// B. Unauthenticated attempt receives 401/403
+$outGuest = runSubPhp('
+$_SERVER["REQUEST_METHOD"] = "GET";
+$_SERVER["REQUEST_URI"] = "/cafeflow/api/waste_api.php";
+require_once "' . addslashes(__DIR__ . '/../core/db.php') . '";
+require_once "' . addslashes(__DIR__ . '/../core/auth.php') . '";
+init_session();
+$_SESSION = [];
+include "' . addslashes(__DIR__ . '/../api/waste_api.php') . '";
+');
+$guestRes = parseJsonOutput($outGuest);
+assertTest('Unauthenticated guest is blocked on waste_api.php',
+    isset($guestRes['code']) && in_array($guestRes['code'], ['UNAUTHORIZED', 'FORBIDDEN', 'UNAUTHENTICATED']),
+    "Response code: " . ($guestRes['code'] ?? 'none')
 );
 
 // B. Manager attempt

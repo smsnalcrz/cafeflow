@@ -74,9 +74,9 @@ if ($baristaUser && $managerUser) {
     $accountsContent = file_get_contents(__DIR__ . '/../api/accounts_api.php');
     reportTest("accounts_api.php strictly requires 'manager' role", str_contains($accountsContent, "require_role('manager')"));
 
-    // Check that waste_api requires manager
+    // Check that waste_api enforces role check (barista or manager)
     $wasteContent = file_get_contents(__DIR__ . '/../api/waste_api.php');
-    reportTest("waste_api.php strictly requires 'manager' role", str_contains($wasteContent, "require_role('manager')"));
+    reportTest("waste_api.php enforces authenticated role check (barista or manager)", str_contains($wasteContent, "require_role(['barista', 'manager'])"));
 
     // Check that cancel_order completed voiding requires manager
     $cancelContent = file_get_contents(__DIR__ . '/../api/cancel_order.php');

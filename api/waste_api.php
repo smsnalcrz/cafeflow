@@ -18,14 +18,14 @@
  * - `search`: text query across product, item, reason, receipt
  * - `limit`: maximum waste log events returned (default 100, max 500)
  *
- * RBAC: Accessible to Manager role only (HTTP 403 for barista/unauthenticated).
+ * RBAC: Accessible to Manager and Barista roles (HTTP 401 for unauthenticated, HTTP 403 for unauthorized).
  */
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/recipe_engine.php';
 
-// RBAC: Waste reports accessible to Manager only (HTTP 403 for unauthorized role)
-$user = require_role('manager');
+// RBAC: Waste reports accessible to Manager and Barista roles
+$user = require_role(['barista', 'manager']);
 
 require_method('GET');
 
