@@ -626,9 +626,26 @@ window.CafeFlow = window.CafeFlow || {};
     });
   }
 
+  function getWasteChartColors() {
+    const isDark = (document.documentElement.getAttribute('data-theme') === 'dark') || document.body.classList.contains('dark-mode');
+    return {
+      isDark,
+      textColor: isDark ? '#FAF7F2' : '#162318',
+      mutedColor: isDark ? '#D4B595' : '#5a7a63',
+      gridColor: isDark ? 'rgba(250, 247, 242, 0.08)' : 'rgba(22, 35, 24, 0.06)',
+      lineColor: isDark ? '#38BDF8' : '#0284c7', // Sky Blue in dark mode for clear visibility
+      lineBg: isDark ? '#0F172A' : '#ffffff',
+      pointBorder: isDark ? '#38BDF8' : '#0284c7',
+      donutBorder: isDark ? '#241E1B' : '#ffffff',
+      tooltipBg: isDark ? '#1F150F' : '#162318',
+      tooltipBorder: isDark ? '#453429' : 'rgba(255,255,255,0.12)'
+    };
+  }
+
   function renderTrendChart(canvas, trendData) {
     if (!canvas || !trendData || typeof Chart === 'undefined') return;
     const ctx = canvas.getContext('2d');
+    const colors = getWasteChartColors();
 
     _wasteTrendChart = new Chart(ctx, {
       type: 'bar',
@@ -638,8 +655,8 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'Income Loss (₱)',
             data: trendData.income_losses || [],
-            backgroundColor: 'rgba(220, 38, 38, 0.82)',
-            borderColor: '#dc2626',
+            backgroundColor: colors.isDark ? 'rgba(248, 113, 113, 0.88)' : 'rgba(220, 38, 38, 0.82)',
+            borderColor: colors.isDark ? '#f87171' : '#dc2626',
             borderWidth: 1.5,
             borderRadius: 5,
             borderSkipped: false,
@@ -648,8 +665,8 @@ window.CafeFlow = window.CafeFlow || {};
           {
             label: 'Material Cost Loss (₱)',
             data: trendData.material_costs || [],
-            backgroundColor: 'rgba(234, 88, 12, 0.82)',
-            borderColor: '#ea580c',
+            backgroundColor: colors.isDark ? 'rgba(251, 146, 60, 0.88)' : 'rgba(234, 88, 12, 0.82)',
+            borderColor: colors.isDark ? '#fb923c' : '#ea580c',
             borderWidth: 1.5,
             borderRadius: 5,
             borderSkipped: false,
@@ -659,14 +676,14 @@ window.CafeFlow = window.CafeFlow || {};
             type: 'line',
             label: 'Waste Events',
             data: trendData.waste_events || [],
-            borderColor: '#162318',
-            backgroundColor: '#ffffff',
-            borderWidth: 2.4,
-            pointBackgroundColor: '#ffffff',
-            pointBorderColor: '#162318',
-            pointBorderWidth: 2.2,
-            pointRadius: 3.5,
-            pointHoverRadius: 6.5,
+            borderColor: colors.lineColor,
+            backgroundColor: colors.lineBg,
+            borderWidth: 2.8,
+            pointBackgroundColor: colors.lineBg,
+            pointBorderColor: colors.pointBorder,
+            pointBorderWidth: 2.5,
+            pointRadius: 4.5,
+            pointHoverRadius: 7.5,
             tension: 0.35,
             yAxisID: 'y1'
           }
@@ -682,18 +699,19 @@ window.CafeFlow = window.CafeFlow || {};
             labels: {
               boxWidth: 12,
               padding: 14,
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
+              color: colors.textColor,
+              font: { family: "'Work Sans', sans-serif", size: 12, weight: '700' }
             }
           },
           tooltip: {
-            backgroundColor: '#162318',
+            backgroundColor: colors.tooltipBg,
             titleColor: '#ffffff',
             titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyColor: 'rgba(255,255,255,0.92)',
             bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
             padding: 10,
             cornerRadius: 8,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: colors.tooltipBorder,
             borderWidth: 1,
             callbacks: {
               label: (ctx) => {
@@ -710,18 +728,18 @@ window.CafeFlow = window.CafeFlow || {};
           x: {
             grid: { display: false },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
-              color: '#5a7a63'
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '700' },
+              color: colors.mutedColor
             }
           },
           y: {
             type: 'linear',
             position: 'left',
             beginAtZero: true,
-            grid: { color: 'rgba(22, 35, 24, 0.06)' },
+            grid: { color: colors.gridColor },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
+              color: colors.mutedColor,
               callback: (v) => '₱' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : Number(v).toLocaleString())
             }
           },
@@ -731,8 +749,8 @@ window.CafeFlow = window.CafeFlow || {};
             beginAtZero: true,
             grid: { drawOnChartArea: false },
             ticks: {
-              font: { family: "'Work Sans', sans-serif", size: 11 },
-              color: '#5a7a63',
+              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' },
+              color: colors.mutedColor,
               precision: 0
             }
           }
@@ -744,6 +762,7 @@ window.CafeFlow = window.CafeFlow || {};
   function renderMaterialBarChart(canvas, matData) {
     if (!canvas || !matData || typeof Chart === 'undefined') return;
     const ctx = canvas.getContext('2d');
+    const colors = getWasteChartColors();
 
     const labels = matData.labels || [];
     const costs = matData.costs || [];
@@ -761,7 +780,7 @@ window.CafeFlow = window.CafeFlow || {};
             '#d97706', '#8b5cf6', '#14b8a6', '#64748b'
           ],
           borderWidth: 2,
-          borderColor: '#ffffff',
+          borderColor: colors.donutBorder,
           spacing: 2
         }]
       },
@@ -775,18 +794,19 @@ window.CafeFlow = window.CafeFlow || {};
             labels: {
               boxWidth: 10,
               padding: 12,
-              font: { family: "'Work Sans', sans-serif", size: 11, weight: '600' }
+              color: colors.textColor,
+              font: { family: "'Work Sans', sans-serif", size: 12, weight: '700' }
             }
           },
           tooltip: {
-            backgroundColor: '#162318',
+            backgroundColor: colors.tooltipBg,
             titleColor: '#ffffff',
             titleFont: { family: "'Work Sans', sans-serif", weight: '700', size: 12 },
-            bodyColor: 'rgba(255,255,255,0.9)',
+            bodyColor: 'rgba(255,255,255,0.92)',
             bodyFont: { family: "'Work Sans', sans-serif", size: 12 },
             padding: 10,
             cornerRadius: 8,
-            borderColor: 'rgba(255,255,255,0.12)',
+            borderColor: colors.tooltipBorder,
             borderWidth: 1,
             callbacks: {
               label: (ctx) => {
@@ -1309,6 +1329,14 @@ window.CafeFlow = window.CafeFlow || {};
     if (manualSubmitBtn) {
       manualSubmitBtn.addEventListener('click', submitManualWaste);
     }
+
+    // Dynamic theme change listener: re-render charts with dark/light colors if waste modal is visible
+    window.addEventListener('cafeflow:themechange', () => {
+      const wm = $('#wasteModal');
+      if (wm && !wm.hidden) {
+        loadWasteReport();
+      }
+    });
   }
 
   window.CafeFlow.waste = {

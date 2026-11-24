@@ -867,6 +867,9 @@
 /* ======================================================================
    DARK MODE REFINEMENTS FOR WASTE REPORTS & KPI CARDS
    ====================================================================== */
+/* ======================================================================
+   DARK THEME COMPREHENSIVE CONTRAST & COLOR CORRECTION
+   ====================================================================== */
 [data-theme="dark"] #wasteModal .modal-card,
 [data-theme="dark"] .waste-view-wrap {
   background: var(--bg);
@@ -875,104 +878,317 @@
 
 [data-theme="dark"] .waste-kpi-card {
   background: #241E1B;
-  border: 1.5px solid #362E2A;
+  border: 1.5px solid #3D2B20;
   color: #FAF7F2;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.32);
 }
 
 [data-theme="dark"] .waste-kpi-card.loss-hero {
-  border-left: 4px solid #E05353;
-  background: linear-gradient(135deg, #241A17 0%, rgba(224, 83, 83, 0.16) 100%);
-  border-color: rgba(224, 83, 83, 0.35);
+  border-left: 4px solid #FF6B6B;
+  background: linear-gradient(135deg, #281B18 0%, rgba(255, 107, 107, 0.15) 100%);
+  border-color: rgba(255, 107, 107, 0.4);
 }
 
 [data-theme="dark"] .waste-kpi-card.cost-hero {
-  border-left: 4px solid #E59846;
-  background: linear-gradient(135deg, #241D17 0%, rgba(229, 152, 70, 0.16) 100%);
-  border-color: rgba(229, 152, 70, 0.35);
+  border-left: 4px solid #FBBF24;
+  background: linear-gradient(135deg, #282018 0%, rgba(251, 191, 36, 0.15) 100%);
+  border-color: rgba(251, 191, 36, 0.4);
 }
 
 [data-theme="dark"] .waste-kpi-label {
-  color: #B8A89A;
-  font-weight: 800;
+  color: #D4B595 !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.5px;
 }
 
 [data-theme="dark"] .waste-kpi-val {
-  color: #FAF7F2;
+  color: #FAF7F2 !important;
 }
 
 [data-theme="dark"] .waste-kpi-card.loss-hero .waste-kpi-val {
-  color: #E05353;
+  color: #FF6B6B !important;
+  text-shadow: 0 0 14px rgba(255, 107, 107, 0.28);
 }
 
 [data-theme="dark"] .waste-kpi-card.cost-hero .waste-kpi-val {
-  color: #E59846;
+  color: #FBBF24 !important;
+  text-shadow: 0 0 14px rgba(251, 191, 36, 0.28);
 }
 
 [data-theme="dark"] .waste-kpi-sub {
-  color: #B8A89A;
-  font-weight: 600;
+  color: #C5B09E !important;
+  font-weight: 600 !important;
 }
 
+/* Waste Contextual Toolbar */
+[data-theme="dark"] #wasteToolbar {
+  background: #1C1510 !important;
+  border-bottom: 1.5px solid #362E2A !important;
+}
+
+[data-theme="dark"] #wasteToolbar .picker-label {
+  color: #D4B595 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] #wasteToolbar input.date-input,
+[data-theme="dark"] #wasteToolbar select.year-select,
+[data-theme="dark"] .waste-select-filter {
+  background: #241D18 !important;
+  border: 1.5px solid #3D2B20 !important;
+  color: #FAF7F2 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] #wasteToolbar .pill-range {
+  background: #2A201A !important;
+  border: 1px solid #3D2B20 !important;
+  color: #E59846 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] #wasteToolbar .status-period {
+  color: #E6CCB2 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] #wasteToolbar .btn-step {
+  background: #241D18 !important;
+  border: 1.5px solid #3D2B20 !important;
+  color: #FAF7F2 !important;
+}
+
+[data-theme="dark"] #wasteToolbar .btn-step:hover:not(:disabled) {
+  background: #36281F !important;
+  border-color: #E8623A !important;
+  color: #E8623A !important;
+}
+
+/* Segmented Period Buttons */
+[data-theme="dark"] #wastePeriodSeg button {
+  color: #C5B09E !important;
+}
+
+[data-theme="dark"] #wastePeriodSeg button:hover {
+  color: #FAF7F2 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] #wastePeriodSeg button.on {
+  color: #FFFFFF !important;
+  background: #E8623A !important;
+  font-weight: 700 !important;
+}
+
+/* View Sub-Tabs (Overview, Materials, Income Loss, Waste Log) */
+[data-theme="dark"] .waste-view-tabs {
+  background: #18120D !important;
+  border-bottom: 1.5px solid #362E2A !important;
+}
+
+[data-theme="dark"] .waste-tab {
+  color: #C5B09E !important;
+}
+
+[data-theme="dark"] .waste-tab:hover {
+  color: #FAF7F2 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-theme="dark"] .waste-tab.active {
+  color: #FFFFFF !important;
+  background: #E8623A !important;
+  border-color: #E8623A !important;
+  box-shadow: 0 2px 8px rgba(232, 98, 58, 0.4) !important;
+  font-weight: 700 !important;
+}
+
+/* Charts & Cards */
 [data-theme="dark"] .report-waste-section {
   background: #241E1B;
-  border: 1.5px solid #362E2A;
+  border: 1.5px solid #3D2B20;
   color: #FAF7F2;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
 [data-theme="dark"] .report-waste-title-group h3 {
-  color: #FAF7F2;
+  color: #FAF7F2 !important;
 }
 
 [data-theme="dark"] .report-waste-subtitle {
-  color: #B8A89A;
+  color: #C5B09E !important;
 }
 
 [data-theme="dark"] .waste-chart-card,
 [data-theme="dark"] .waste-table-card {
   background: #241E1B;
-  border: 1.5px solid #362E2A;
+  border: 1.5px solid #3D2B20;
   color: #FAF7F2;
 }
 
 [data-theme="dark"] .waste-chart-title,
 [data-theme="dark"] .waste-table-title-group h3 {
-  color: #FAF7F2;
+  color: #FAF7F2 !important;
+  font-weight: 700 !important;
 }
 
 [data-theme="dark"] .waste-chart-badge,
 [data-theme="dark"] .waste-table-subtitle {
   background: #18120D;
-  color: #B8A89A;
+  color: #D4B595 !important;
+  font-weight: 600;
 }
 
 [data-theme="dark"] .waste-table thead th {
   background: #1C1714;
-  color: #A6988D;
+  color: #D4B595 !important;
   border-color: #362E2A;
 }
 
 [data-theme="dark"] .waste-table tbody td {
-  color: #FAF7F2;
+  color: #FAF7F2 !important;
   border-color: #2B231F;
 }
 
 [data-theme="dark"] .waste-table tbody tr:hover td {
-  background: #201916;
+  background: #2E231E !important;
 }
 
 [data-theme="dark"] .waste-table-search-box {
   background: #18120D;
-  border-color: #362E2A;
+  border-color: #3D2B20;
 }
 
 [data-theme="dark"] .waste-table-search-box input {
-  color: #FAF7F2;
+  color: #FAF7F2 !important;
 }
 
+/* Severity Badges (WCAG AA High-Contrast Dark Mode) */
+[data-theme="dark"] .severity-badge.critical {
+  background: rgba(220, 38, 38, 0.25) !important;
+  color: #F87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.45) !important;
+}
+
+[data-theme="dark"] .severity-badge.moderate {
+  background: rgba(234, 88, 12, 0.25) !important;
+  color: #FB923C !important;
+  border: 1px solid rgba(251, 146, 60, 0.45) !important;
+}
+
+[data-theme="dark"] .severity-badge.low {
+  background: rgba(46, 125, 50, 0.25) !important;
+  color: #4ADE80 !important;
+  border: 1px solid rgba(74, 222, 128, 0.45) !important;
+}
+
+/* Manual Waste Dialog & Custom Combobox Menu */
 [data-theme="dark"] .manual-waste-sheet-card {
   background: #241E1B !important;
   color: #FAF7F2 !important;
-  border: 1.5px solid #362E2A !important;
+  border: 1.5px solid #3D2B20 !important;
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.65) !important;
+}
+
+[data-theme="dark"] .manual-waste-title {
+  color: #FAF7F2 !important;
+}
+
+[data-theme="dark"] .manual-waste-subtitle {
+  color: #C5B09E !important;
+}
+
+[data-theme="dark"] .manual-waste-label {
+  color: #D4B595 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .manual-waste-input,
+[data-theme="dark"] .sheet-card input.manual-waste-input,
+[data-theme="dark"] .sheet-card select.manual-waste-input {
+  background: #18120D !important;
+  border: 1.5px solid #3D2B20 !important;
+  color: #FAF7F2 !important;
+}
+
+[data-theme="dark"] .manual-waste-input:focus,
+[data-theme="dark"] .sheet-card input.manual-waste-input:focus,
+[data-theme="dark"] .sheet-card select.manual-waste-input:focus {
+  background: #1E1713 !important;
+  border-color: #E8623A !important;
+  box-shadow: 0 0 0 3px rgba(232, 98, 58, 0.25) !important;
+}
+
+[data-theme="dark"] .combobox-toggle-btn {
+  color: #D4B595 !important;
+}
+
+[data-theme="dark"] .combobox-menu {
+  background: #1E1713 !important;
+  border: 1.5px solid #3D2B20 !important;
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.7) !important;
+}
+
+[data-theme="dark"] .combobox-menu-header {
+  background: #18120D !important;
+  border-bottom: 1px solid #362E2A !important;
+  color: #D4B595 !important;
+}
+
+[data-theme="dark"] .combobox-count {
+  color: #E59846 !important;
+}
+
+[data-theme="dark"] .combobox-list::-webkit-scrollbar-thumb {
+  background: rgba(250, 247, 242, 0.22) !important;
+}
+
+[data-theme="dark"] .combobox-item:hover,
+[data-theme="dark"] .combobox-item.active {
+  background: #2E221B !important;
+}
+
+[data-theme="dark"] .combobox-item-name {
+  color: #FAF7F2 !important;
+}
+
+[data-theme="dark"] .combobox-item-unit {
+  background: #29201A !important;
+  color: #D4B595 !important;
+  border-color: #3D2B20 !important;
+}
+
+[data-theme="dark"] .combobox-item-stock.stock-healthy {
+  background: rgba(46, 125, 50, 0.25) !important;
+  color: #4ADE80 !important;
+  border: 1px solid rgba(74, 222, 128, 0.38) !important;
+}
+
+[data-theme="dark"] .combobox-item-stock.stock-warning {
+  background: rgba(234, 88, 12, 0.25) !important;
+  color: #FB923C !important;
+  border: 1px solid rgba(251, 146, 60, 0.38) !important;
+}
+
+[data-theme="dark"] .combobox-item-stock.stock-danger {
+  background: rgba(220, 38, 38, 0.25) !important;
+  color: #F87171 !important;
+  border: 1px solid rgba(248, 113, 113, 0.38) !important;
+}
+
+[data-theme="dark"] .manual-waste-checkbox-wrap {
+  color: #FAF7F2 !important;
+}
+
+[data-theme="dark"] .manual-waste-stock-hint {
+  color: #D4B595 !important;
+}
+
+[data-theme="dark"] .manual-waste-close-btn {
+  color: #D4B595 !important;
+}
+
+[data-theme="dark"] .manual-waste-close-btn:hover {
+  color: #FAF7F2 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
 }
