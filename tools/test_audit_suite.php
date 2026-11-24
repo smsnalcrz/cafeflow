@@ -179,6 +179,15 @@ assertTest('Session Lifecycle: auth_logout event logged in audit_logs', (bool)$p
 // -----------------------------------------------------------------------------
 echo "\n--- 4. Testing RBAC & Immutability ---\n";
 
+login_user($mockUser);
+$revokedId = $_SESSION['audit_tracking_id'];
+$pdo->prepare("UPDATE user_sessions SET logout_at = NOW(3), logout_reason = 'revoked' WHERE session_id = ?")
+    ->execute([$revokedId]);
+assertTest('Session Lifecycle: a revoked correlation ID ends the authenticated session', current_user() === null);
+$sessStmt->execute([$revokedId]);
+assertTest('Session Lifecycle: invalidation preserves the original revocation reason',
+    $sessStmt->fetch(PDO::FETCH_ASSOC)['logout_reason'] === 'revoked');
+
 // Test unauthenticated access to audit_api.php
 init_session();
 $_SESSION = [];

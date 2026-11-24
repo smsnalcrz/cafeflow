@@ -403,6 +403,12 @@ erDiagram
 
 ---
 
+### Upgrading an installation with existing audit logs
+
+Take CafeFlow offline and back up its database to an access-controlled location outside the web root. With the upgraded code installed, set `DB_NAME` to the intended database and supply its migration credentials through `DB_HOST`, `DB_PORT`, `DB_USER` and `DB_PASS`. From the project directory, run `php tools/migrate_audit_sessions.php` before reopening the POS.
+
+The command preserves event and session rows, replaces historical PHP session IDs with audit correlation IDs, closes legacy active sessions at their last heartbeat, and sanitizes metadata in both audit tables. A second run should report zero conversions and zero redactions. Staff signed in before the upgrade must sign in again. Restrict historical CSV exports, SQL dumps and backups containing old session identifiers to authorized administrators. If restoring an older release, invalidate its PHP session files before resuming service.
+
 ## Authentication & Role-Based Access Control (RBAC)
 
 CafeFlow enforces strict role-based access control across all frontend UI modules and backend API endpoints.

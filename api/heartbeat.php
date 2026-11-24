@@ -51,34 +51,27 @@ try {
     $ip = get_client_ip();
     $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? 'CLI/Unknown', 0, 255);
 
-    // Update heartbeat and duration
+    // Recover a missing tracking row, and leave closed sessions untouched.
     $stmt = $pdo->prepare('
-        UPDATE user_sessions
-           SET last_heartbeat_at = NOW(3),
-               duration_seconds = GREATEST(0, TIMESTAMPDIFF(SECOND, login_at, NOW(3))),
-               ip_address = ?,
-               user_agent = ?
-         WHERE session_id = ?
+        INSERT INTO user_sessions (
+            session_id, user_id, ip_address, user_agent, auth_method, login_at, last_heartbeat_at, duration_seconds
+        ) VALUES (?, ?, ?, ?, "password", NOW(3), NOW(3), 0)
+        ON DUPLICATE KEY UPDATE
+            last_heartbeat_at = IF(logout_at IS NULL, NOW(3), last_heartbeat_at),
+            duration_seconds = IF(logout_at IS NULL, GREATEST(0, TIMESTAMPDIFF(SECOND, login_at, NOW(3))), duration_seconds),
+            ip_address = IF(logout_at IS NULL, VALUES(ip_address), ip_address),
+            user_agent = IF(logout_at IS NULL, VALUES(user_agent), user_agent)
     ');
-    $stmt->execute([$ip, $ua, $sessId]);
-
-    // If session row wasn't present, create it
-    if ($stmt->rowCount() === 0) {
-        $ins = $pdo->prepare('
-            INSERT INTO user_sessions (
-                session_id, user_id, ip_address, user_agent, auth_method, login_at, last_heartbeat_at, duration_seconds
-            ) VALUES (?, ?, ?, ?, "password", NOW(3), NOW(3), 0)
-            ON DUPLICATE KEY UPDATE 
-                last_heartbeat_at = NOW(3),
-                duration_seconds = GREATEST(0, TIMESTAMPDIFF(SECOND, login_at, NOW(3)))
-        ');
-        $ins->execute([$sessId, (int)$user['user_id'], $ip, $ua]);
-    }
+    $stmt->execute([$sessId, (int)$user['user_id'], $ip, $ua]);
 
     // Retrieve active duration
-    $durStmt = $pdo->prepare('SELECT duration_seconds, login_at FROM user_sessions WHERE session_id = ? LIMIT 1');
+    $durStmt = $pdo->prepare('SELECT duration_seconds FROM user_sessions WHERE session_id = ? AND logout_at IS NULL');
     $durStmt->execute([$sessId]);
     $sessInfo = $durStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$sessInfo) {
+        logout_user('revoked');
+        send_json(['success' => false, 'error' => 'Session expired or invalid.', 'code' => 'UNAUTHENTICATED'], 401);
+    }
 
     echo json_encode([
         'success'        => true,
@@ -90,6 +83,6 @@ try {
     http_response_code(500);
     echo json_encode([
         'success' => false,
-        'error'   => 'Heartbeat failure: ' . $e->getMessage()
+        'error'   => 'Unable to update session heartbeat.'
     ]);
 }

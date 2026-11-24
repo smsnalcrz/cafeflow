@@ -71,7 +71,7 @@ function current_user(bool $forceFresh = false): ?array
     // Server-enforced idle session inactivity timeout
     $now = time();
     if (!empty($_SESSION['last_activity']) && ($now - (int)$_SESSION['last_activity']) > SESSION_IDLE_TIMEOUT) {
-        logout_user();
+        logout_user('timeout');
         if (is_api_request()) {
             send_json([
                 'success' => false,
@@ -91,13 +91,18 @@ function current_user(bool $forceFresh = false): ?array
 
     try {
         $pdo = db();
-        $stmt = $pdo->prepare('SELECT user_id, full_name, username, email, role, status, created_at, last_login FROM users WHERE user_id = ? LIMIT 1');
-        $stmt->execute([$_SESSION['user_id']]);
+        $stmt = $pdo->prepare('
+            SELECT u.user_id, u.full_name, u.username, u.email, u.role, u.status, u.created_at, u.last_login
+              FROM users u
+             WHERE u.user_id = ? AND NOT EXISTS (
+                 SELECT 1 FROM user_sessions WHERE session_id = ? AND logout_at IS NOT NULL
+             ) LIMIT 1');
+        $stmt->execute([$_SESSION['user_id'], $_SESSION['audit_tracking_id'] ?? null]);
         $user = $stmt->fetch();
 
         // Inactive or pending accounts cannot stay authenticated
         if (!$user || $user['status'] !== 'active') {
-            logout_user();
+            logout_user('revoked');
             return null;
         }
 
@@ -291,20 +296,22 @@ function logout_user(string $reason = 'user_logout'): void
                        SET logout_at = NOW(3),
                            duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)),
                            logout_reason = ?
-                     WHERE session_id = ?
+                     WHERE session_id = ? AND logout_at IS NULL
                 ');
                 $stmt->execute([$reason, $sessId]);
 
-                audit_log(
-                    'security',
-                    'auth_logout',
-                    'User signed out (' . $reason . ')',
-                    'user',
-                    $userId !== null ? (string)$userId : null,
-                    ['reason' => $reason],
-                    $pdo,
-                    ['user_id' => $userId, 'username' => $username, 'role' => $role]
-                );
+                if ($stmt->rowCount() === 1) {
+                    audit_log(
+                        'security',
+                        'auth_logout',
+                        'User signed out (' . $reason . ')',
+                        'user',
+                        $userId !== null ? (string)$userId : null,
+                        ['reason' => $reason],
+                        $pdo,
+                        ['user_id' => $userId, 'username' => $username, 'role' => $role]
+                    );
+                }
             } catch (Throwable $e) {
                 error_log('[CafeFlow Auth Logout] ' . $e->getMessage());
             }
