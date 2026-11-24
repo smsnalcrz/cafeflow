@@ -106,15 +106,18 @@ if ($action === 'login') {
     // Clear primary login rate limiting counter on valid credentials
     record_login_attempt($clientIp, $identifier, true, $pdo);
 
+    $rememberMe = !empty($data['remember_me']);
+
     // Case A: Administrative reset requires 2FA re-enrollment
     if (!empty($user['two_factor_reenroll_required'])) {
         init_session();
         $_SESSION['pending_2fa'] = [
-            'user_id'    => (int) $user['user_id'],
-            'username'   => $user['username'],
-            'full_name'  => $user['full_name'],
-            'mode'       => 'reenroll',
-            'created_at' => time()
+            'user_id'     => (int) $user['user_id'],
+            'username'    => $user['username'],
+            'full_name'   => $user['full_name'],
+            'mode'        => 'reenroll',
+            'remember_me' => $rememberMe,
+            'created_at'  => time()
         ];
 
         send_json([
@@ -131,11 +134,12 @@ if ($action === 'login') {
     if (!empty($user['two_factor_enabled'])) {
         init_session();
         $_SESSION['pending_2fa'] = [
-            'user_id'    => (int) $user['user_id'],
-            'username'   => $user['username'],
-            'full_name'  => $user['full_name'],
-            'mode'       => 'login',
-            'created_at' => time()
+            'user_id'     => (int) $user['user_id'],
+            'username'    => $user['username'],
+            'full_name'   => $user['full_name'],
+            'mode'        => 'login',
+            'remember_me' => $rememberMe,
+            'created_at'  => time()
         ];
 
         send_json([
@@ -151,6 +155,9 @@ if ($action === 'login') {
     // Case C: Standard password-only login (2FA disabled)
     clear_pending_2fa();
     login_user($user);
+    if ($rememberMe) {
+        set_remember_me_token((int) $user['user_id'], $pdo);
+    }
 
     // Determine target redirect based on RBAC
     $role = strtolower($user['role']);
@@ -268,8 +275,12 @@ if ($action === 'verify_2fa') {
     }
 
     // 2FA Verified! Clear pending state and establish fully authenticated session
+    $rememberMe = !empty($pending['remember_me']);
     clear_pending_2fa();
-    login_user($user);
+    login_user($user, 'password_2fa');
+    if ($rememberMe) {
+        set_remember_me_token((int) $user['user_id'], $pdo);
+    }
 
     $role = strtolower($user['role']);
     $redirect = 'index.php';
@@ -432,7 +443,10 @@ if ($action === 'login_via_2fa') {
 
     clear_pending_2fa();
     clear_pending_password_reset();
-    login_user($user);
+    login_user($user, 'direct_2fa');
+    if (!empty($data['remember_me'])) {
+        set_remember_me_token((int) $user['user_id'], $pdo);
+    }
 
     send_json([
         'success'    => true,

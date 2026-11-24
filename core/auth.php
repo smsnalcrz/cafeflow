@@ -16,6 +16,14 @@ if (!defined('SESSION_IDLE_TIMEOUT')) {
     define('SESSION_IDLE_TIMEOUT', 1800); // 30 minutes idle inactivity threshold
 }
 
+if (!defined('REMEMBER_ME_COOKIE_NAME')) {
+    define('REMEMBER_ME_COOKIE_NAME', 'cafeflow_remember');
+}
+
+if (!defined('REMEMBER_ME_DURATION')) {
+    define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days default expiration for POS devices
+}
+
 /**
  * Initializes secure PHP session with hardened cookie settings.
  */
@@ -65,22 +73,32 @@ function current_user(bool $forceFresh = false): ?array
 
     init_session();
     if (empty($_SESSION['user_id'])) {
+        $rememberedUser = check_remember_me_token();
+        if ($rememberedUser) {
+            $cachedUser = $rememberedUser;
+            return $cachedUser;
+        }
         return null;
     }
 
     // Server-enforced idle session inactivity timeout
     $now = time();
     if (!empty($_SESSION['last_activity']) && ($now - (int)$_SESSION['last_activity']) > SESSION_IDLE_TIMEOUT) {
-        logout_user('timeout');
-        if (is_api_request()) {
-            send_json([
-                'success' => false,
-                'error'   => 'Your session has expired due to 30 minutes of inactivity. Please sign in again.',
-                'code'    => 'SESSION_EXPIRED'
-            ], 401);
+        $hasRememberToken = !empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]);
+        if ($hasRememberToken && check_remember_me_token()) {
+            $_SESSION['last_activity'] = $now;
         } else {
-            header('Location: login.php?timeout=1');
-            exit;
+            logout_user('timeout');
+            if (is_api_request()) {
+                send_json([
+                    'success' => false,
+                    'error'   => 'Your session has expired due to 30 minutes of inactivity. Please sign in again.',
+                    'code'    => 'SESSION_EXPIRED'
+                ], 401);
+            } else {
+                header('Location: login.php?timeout=1');
+                exit;
+            }
         }
     }
     $_SESSION['last_activity'] = $now;
@@ -318,6 +336,7 @@ function logout_user(string $reason = 'user_logout'): void
         }
 
         clear_auth_cache();
+        clear_remember_me_token();
         $_SESSION = [];
         if (!headers_sent() && ini_get('session.use_cookies')) {
             $params = session_get_cookie_params();
@@ -556,4 +575,163 @@ function clear_pending_password_reset(): void
 {
     init_session();
     unset($_SESSION['pending_password_reset']);
+}
+
+/**
+ * Creates and sets a persistent remember-me token on device and database.
+ */
+function set_remember_me_token(int $userId, ?PDO $pdo = null, int $durationSeconds = REMEMBER_ME_DURATION): bool
+{
+    try {
+        $db = $pdo ?: db();
+        $selector = bin2hex(random_bytes(8)); // 16 chars
+        $validator = bin2hex(random_bytes(32)); // 64 chars
+        $hashedValidator = hash('sha256', $validator);
+        $expiresAt = date('Y-m-d H:i:s', time() + $durationSeconds);
+
+        $stmt = $db->prepare('
+            INSERT INTO user_remember_tokens (user_id, selector, hashed_validator, expires_at)
+            VALUES (?, ?, ?, ?)
+        ');
+        $stmt->execute([$userId, $selector, $hashedValidator, $expiresAt]);
+
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                   (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+
+        if (!headers_sent()) {
+            setcookie(
+                REMEMBER_ME_COOKIE_NAME,
+                $selector . ':' . $validator,
+                [
+                    'expires'  => time() + $durationSeconds,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => $isHttps,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]
+            );
+        }
+        $_COOKIE[REMEMBER_ME_COOKIE_NAME] = $selector . ':' . $validator;
+        return true;
+    } catch (Throwable $e) {
+        error_log('[CafeFlow RememberMe Error] ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Validates persistent remember-me cookie and authenticates user if valid.
+ * Performs OWASP validator token rotation upon every successful check.
+ */
+function check_remember_me_token(?PDO $pdo = null): ?array
+{
+    $cookie = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? null;
+    if (!$cookie || !is_string($cookie) || !str_contains($cookie, ':')) {
+        return null;
+    }
+
+    [$selector, $validator] = explode(':', $cookie, 2);
+    if (strlen($selector) !== 16 || strlen($validator) !== 64) {
+        return null;
+    }
+
+    try {
+        $db = $pdo ?: db();
+        $stmt = $db->prepare('
+            SELECT t.token_id, t.user_id, t.hashed_validator, t.expires_at,
+                   u.user_id, u.full_name, u.username, u.email, u.role, u.status
+              FROM user_remember_tokens t
+              JOIN users u ON u.user_id = t.user_id
+             WHERE t.selector = ? AND t.expires_at > NOW()
+             LIMIT 1
+        ');
+        $stmt->execute([$selector]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$row) {
+            return null;
+        }
+
+        if (!hash_equals($row['hashed_validator'], hash('sha256', $validator))) {
+            // Tampered validator or stolen token: revoke token immediately
+            clear_remember_me_token($db);
+            return null;
+        }
+
+        if ($row['status'] !== 'active') {
+            clear_remember_me_token($db);
+            return null;
+        }
+
+        // Token rotation: regenerate validator for next request
+        $newValidator = bin2hex(random_bytes(32));
+        $newHashed = hash('sha256', $newValidator);
+        $update = $db->prepare('UPDATE user_remember_tokens SET hashed_validator = ? WHERE token_id = ?');
+        $update->execute([$newHashed, $row['token_id']]);
+
+        $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                   (isset($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443);
+        $expireTime = strtotime($row['expires_at']);
+        if (!headers_sent()) {
+            setcookie(
+                REMEMBER_ME_COOKIE_NAME,
+                $selector . ':' . $newValidator,
+                [
+                    'expires'  => $expireTime,
+                    'path'     => '/',
+                    'domain'   => '',
+                    'secure'   => $isHttps,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]
+            );
+        }
+        $_COOKIE[REMEMBER_ME_COOKIE_NAME] = $selector . ':' . $newValidator;
+
+        $user = [
+            'user_id'   => (int)$row['user_id'],
+            'full_name' => $row['full_name'],
+            'username'  => $row['username'],
+            'email'     => $row['email'],
+            'role'      => $row['role'],
+            'status'    => $row['status']
+        ];
+
+        login_user($user, 'remember_me');
+        return $user;
+    } catch (Throwable $e) {
+        error_log('[CafeFlow RememberMe Check Error] ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Invalidates persistent remember-me token from DB and deletes client cookie.
+ */
+function clear_remember_me_token(?PDO $pdo = null): void
+{
+    $cookie = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? null;
+    if ($cookie && is_string($cookie) && str_contains($cookie, ':')) {
+        [$selector] = explode(':', $cookie, 2);
+        try {
+            $db = $pdo ?: db();
+            $del = $db->prepare('DELETE FROM user_remember_tokens WHERE selector = ?');
+            $del->execute([$selector]);
+        } catch (Throwable $e) {
+            // ignore
+        }
+    }
+
+    if (!headers_sent()) {
+        setcookie(REMEMBER_ME_COOKIE_NAME, '', [
+            'expires'  => time() - 3600,
+            'path'     => '/',
+            'domain'   => '',
+            'secure'   => false,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    }
+    unset($_COOKIE[REMEMBER_ME_COOKIE_NAME]);
 }

@@ -667,6 +667,13 @@ $csrfToken = get_csrf_token();
             </div>
           </div>
 
+          <div class="auth-field-remember" style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px;">
+            <label for="rememberMe" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-mid); cursor: pointer; user-select: none;">
+              <input type="checkbox" id="rememberMe" name="remember_me" value="1" style="width: 17px; height: 17px; accent-color: var(--caramel); cursor: pointer;">
+              <span>Remember this device (30 days)</span>
+            </label>
+          </div>
+
           <button type="submit" class="auth-submit-btn" id="loginSubmitBtn">
             <span>Sign In to CafeFlow</span>
           </button>
@@ -846,6 +853,13 @@ $csrfToken = get_csrf_token();
                 </div>
                 <p class="muted" style="font-size: 12px; margin: 6px 0 0; text-align: center; color: var(--muted);">Each recovery code can only be used once.</p>
               </div>
+            </div>
+
+            <div class="auth-field-remember" style="display: flex; align-items: center; justify-content: center; margin-top: 10px; margin-bottom: 8px;">
+              <label for="directRememberMe" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-mid); cursor: pointer; user-select: none;">
+                <input type="checkbox" id="directRememberMe" name="remember_me" value="1" style="width: 17px; height: 17px; accent-color: var(--caramel); cursor: pointer;">
+                <span>Remember this device (30 days)</span>
+              </label>
             </div>
 
             <button type="submit" class="auth-submit-btn" id="direct2faSubmitBtn">
@@ -1413,7 +1427,8 @@ $csrfToken = get_csrf_token();
               body: JSON.stringify({
                 action: 'login',
                 identifier: identifier,
-                password: password
+                password: password,
+                remember_me: document.getElementById('rememberMe') ? document.getElementById('rememberMe').checked : false
               })
             });
 
@@ -1520,7 +1535,11 @@ $csrfToken = get_csrf_token();
             return;
           }
 
-          const payload = { action: 'login_via_2fa', identifier: identifier };
+          const payload = {
+            action: 'login_via_2fa',
+            identifier: identifier,
+            remember_me: document.getElementById('directRememberMe') ? document.getElementById('directRememberMe').checked : false
+          };
           if (direct2faMode === 'totp') {
             const code = directTotpCodeInput.value.trim();
             if (!code || code.length !== 6) {
