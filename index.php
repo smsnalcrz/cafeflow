@@ -801,6 +801,7 @@ $cssModules = [
       <div class="modal-body" id="predictiveBody"></div>
     </div>
   </div>
+  <?php endif; ?>
 
   <!-- ===== Dedicated Waste & Loss Reports Modal ===== -->
   <div class="modal" id="wasteModal" hidden>
@@ -883,7 +884,6 @@ $cssModules = [
       <div class="modal-body" id="wasteBody"></div>
     </div>
   </div>
-  <?php endif; ?>
 
   <!-- ===== E-Receipt modal ===== -->
   <div class="modal" id="receiptModal" hidden>
