@@ -65,6 +65,8 @@ if (!in_array($method, ['Cash', 'GCash'], true)) {
     fail(422, 'Choose Cash or GCash.');
 }
 
+$pdo = db();
+
 $idempotencyKey = isset($body['idempotency_key']) && is_string($body['idempotency_key']) ? trim($body['idempotency_key']) : null;
 if ($idempotencyKey !== null && $idempotencyKey !== '') {
     if (strlen($idempotencyKey) > 64 || !preg_match('/^[A-Za-z0-9_\-]+$/', $idempotencyKey)) {
