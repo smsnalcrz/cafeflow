@@ -41,7 +41,7 @@ $_SESSION = [];
 
 // --- 1. Testing Token Generation & Setting ---
 echo "--- 1. Testing Token Generation & Storage ---\n";
-$success = set_remember_me_token($userId, $pdo, 30 * 86400);
+$success = set_remember_me_token($userId, $pdo);
 assert_test($success === true, "set_remember_me_token() returns true");
 
 $cookieVal = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? null;
@@ -58,7 +58,7 @@ $dbRow = $rowStmt->fetch(PDO::FETCH_ASSOC);
 assert_test($dbRow !== false, "Token row inserted into user_remember_tokens table");
 assert_test((int)$dbRow['user_id'] === $userId, "Token belongs to target user ID");
 assert_test($dbRow['hashed_validator'] === hash('sha256', $validator), "DB stores sha256 hash of validator");
-assert_test(strtotime($dbRow['expires_at']) > time() + (29 * 86400), "Expires at is set ~30 days in the future");
+assert_test(strtotime($dbRow['expires_at']) > time() + (23 * 3600), "Expires at is set ~24 hours in the future");
 
 // --- 2. Testing Automatic Authentication & Token Rotation ---
 echo "\n--- 2. Testing Automatic Authentication & Token Rotation ---\n";
@@ -98,7 +98,7 @@ assert_test(empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "Compromised cookie delete
 
 // --- 4. Testing Explicit Logout Revocation ---
 echo "\n--- 4. Testing Explicit Logout Revocation ---\n";
-set_remember_me_token($userId, $pdo, 30 * 86400);
+set_remember_me_token($userId, $pdo);
 $cookieToRevoke = $_COOKIE[REMEMBER_ME_COOKIE_NAME] ?? '';
 [$delSelector] = explode(':', $cookieToRevoke, 2);
 
@@ -111,7 +111,7 @@ assert_test((int)$logoutCheck->fetchColumn() === 0, "Logout deletes token record
 
 // --- 5. Testing current_user() Seamless Recovery ---
 echo "\n--- 5. Testing current_user() Seamless Recovery ---\n";
-set_remember_me_token($userId, $pdo, 30 * 86400);
+set_remember_me_token($userId, $pdo);
 $_SESSION = []; // simulated cold browser visit
 clear_auth_cache();
 

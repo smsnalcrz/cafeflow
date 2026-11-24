@@ -670,7 +670,7 @@ $csrfToken = get_csrf_token();
           <div class="auth-field-remember" style="display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px;">
             <label for="rememberMe" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-mid); cursor: pointer; user-select: none;">
               <input type="checkbox" id="rememberMe" name="remember_me" value="1" style="width: 17px; height: 17px; accent-color: var(--caramel); cursor: pointer;">
-              <span>Remember this device (30 days)</span>
+              <span>Remember this device (24 hours)</span>
             </label>
           </div>
 
@@ -858,7 +858,7 @@ $csrfToken = get_csrf_token();
             <div class="auth-field-remember" style="display: flex; align-items: center; justify-content: center; margin-top: 10px; margin-bottom: 8px;">
               <label for="directRememberMe" style="display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--ink-mid); cursor: pointer; user-select: none;">
                 <input type="checkbox" id="directRememberMe" name="remember_me" value="1" style="width: 17px; height: 17px; accent-color: var(--caramel); cursor: pointer;">
-                <span>Remember this device (30 days)</span>
+                <span>Remember this device (24 hours)</span>
               </label>
             </div>
 

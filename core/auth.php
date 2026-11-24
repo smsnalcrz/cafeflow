@@ -21,7 +21,7 @@ if (!defined('REMEMBER_ME_COOKIE_NAME')) {
 }
 
 if (!defined('REMEMBER_ME_DURATION')) {
-    define('REMEMBER_ME_DURATION', 30 * 86400); // 30 days default expiration for POS devices
+    define('REMEMBER_ME_DURATION', 86400); // 24 hours (1 day) expiration for maximum POS device security
 }
 
 /**
