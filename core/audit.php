@@ -9,6 +9,12 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/auth.php';
 
+function audit_public_session_id(?string $value): ?string
+{
+    // Legacy rows may still exist while the data upgrade is pending.
+    return $value !== null && preg_match('/^aud_[0-9a-f]{32}$/D', $value) ? $value : null;
+}
+
 /**
  * Records an immutable audit log entry into `audit_logs`.
  *
@@ -55,7 +61,7 @@ if (!function_exists('audit_log')) {
                 $role = $_SESSION['user_role'] ?? 'unknown';
             }
 
-            $sessionId = session_id() ?: ($_SESSION['user_session_id'] ?? null);
+            $sessionId = $_SESSION['audit_tracking_id'] ?? null;
             $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
 
             // Redact any sensitive passwords or secrets from metadata

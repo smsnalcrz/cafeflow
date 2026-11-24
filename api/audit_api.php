@@ -162,7 +162,7 @@ if ($exportCsv) {
         fputcsv($out, [
             $row['log_id'],
             $row['created_at'],
-            $row['session_id'] ?? '',
+            audit_public_session_id($row['session_id']) ?? '',
             $row['user_id'] ?? 'SYSTEM',
             $row['username_snapshot'],
             strtoupper($row['user_role_snapshot']),
@@ -235,7 +235,7 @@ foreach ($rawLogs as $r) {
 
     $logs[] = [
         'log_id'            => (int) $r['log_id'],
-        'session_id'        => $r['session_id'],
+        'session_id'        => audit_public_session_id($r['session_id']),
         'user_id'           => $r['user_id'] !== null ? (int) $r['user_id'] : null,
         'username'          => $r['username_snapshot'],
         'role'              => strtolower($r['user_role_snapshot']),

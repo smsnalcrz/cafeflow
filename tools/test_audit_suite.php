@@ -135,7 +135,9 @@ $_SESSION['full_name'] = 'Manager';
 
 // Test login_user session insertion
 login_user($mockUser, 'password');
-$sessId = session_id() ?: ($_SESSION['user_session_id'] ?? '');
+$sessId = $_SESSION['audit_tracking_id'] ?? '';
+assertTest('Session Lifecycle: audit correlation ID is independent of the authentication cookie',
+    $sessId !== session_id() && audit_public_session_id($sessId) === $sessId);
 
 $sessStmt = $pdo->prepare('SELECT * FROM user_sessions WHERE session_id = ?');
 $sessStmt->execute([$sessId]);

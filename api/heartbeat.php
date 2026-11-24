@@ -36,7 +36,7 @@ if ($token !== null && !validate_csrf_token($token)) {
     exit;
 }
 
-$sessId = session_id();
+$sessId = $_SESSION['audit_tracking_id'] ?? null;
 if (!$sessId) {
     http_response_code(400);
     echo json_encode([
