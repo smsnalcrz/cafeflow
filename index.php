@@ -953,9 +953,9 @@ $cssModules = [
         Choose a cancellation reason to determine whether ingredients should be returned to stock or logged as kitchen spillage.
       </p>
 
-      <label for="cancelReasonSelect" style="display:block; margin-bottom:10px;">
+      <label for="cancelReasonSelect" style="display:flex; flex-direction:column; gap:6px; margin-bottom:12px; width:100%;">
         CANCELLATION REASON (REQUIRED)
-        <select id="cancelReasonSelect" style="width:100%; margin-top:6px; cursor:pointer;">
+        <select id="cancelReasonSelect" style="width:100%; box-sizing:border-box; cursor:pointer;">
           <!-- Dynamically populated by pos-queue.js -->
         </select>
       </label>
@@ -964,9 +964,9 @@ $cssModules = [
       <div id="cancelInventoryImpactBadge" style="margin-bottom:12px; padding:10px 14px; border-radius:8px; font-size:12.5px; font-weight:600; line-height:1.4; display:flex; align-items:flex-start; gap:8px;">
       </div>
 
-      <label for="cancelReasonInput" style="display:block; margin-bottom:8px;">
+      <label for="cancelReasonInput" style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px; width:100%;">
         ADDITIONAL DETAILS / NOTES (OPTIONAL)
-        <input type="text" id="cancelReasonInput" placeholder="e.g. details on spill, wrong syrup used, or customer remarks..." maxlength="255">
+        <input type="text" id="cancelReasonInput" placeholder="e.g. details on spill, wrong syrup used, or customer remarks..." maxlength="255" style="width:100%; box-sizing:border-box;">
       </label>
 
       <div class="sheet-actions" style="margin-top:16px;">
