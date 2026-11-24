@@ -59,16 +59,16 @@ function runReportApi(string $queryString): array {
 $defaultRep = runReportApi('range=year&year=2026');
 reportTest("Default report returns summary with mock & real splits", 
     isset($defaultRep['summary']['real_orders'], $defaultRep['summary']['mock_orders'], $defaultRep['summary']['real_total'], $defaultRep['summary']['mock_total']));
-reportTest("Default report includes mock data for 2026 calendar view", 
-    isset($defaultRep['summary']['include_mock']) && $defaultRep['summary']['include_mock'] === true);
+reportTest("Default report strictly isolates live data (include_mock is false by default)", 
+    isset($defaultRep['summary']['include_mock']) && $defaultRep['summary']['include_mock'] === false);
 
-$realOnlyRep = runReportApi('range=year&year=2026&include_mock=0');
-reportTest("include_mock=0 sets include_mock flag to false", 
-    isset($realOnlyRep['summary']['include_mock']) && $realOnlyRep['summary']['include_mock'] === false);
-reportTest("include_mock=0 strictly matches real_total", 
-    isset($realOnlyRep['summary']['total'], $realOnlyRep['summary']['real_total']) && (float)$realOnlyRep['summary']['total'] === (float)$realOnlyRep['summary']['real_total']);
-reportTest("include_mock=0 strictly matches real_orders", 
-    isset($realOnlyRep['summary']['orders'], $realOnlyRep['summary']['real_orders']) && (int)$realOnlyRep['summary']['orders'] === (int)$realOnlyRep['summary']['real_orders']);
+$mockRep = runReportApi('range=year&year=2026&include_mock=1');
+reportTest("include_mock=1 sets include_mock flag to true", 
+    isset($mockRep['summary']['include_mock']) && $mockRep['summary']['include_mock'] === true);
+reportTest("Default report strictly matches real_total", 
+    isset($defaultRep['summary']['total'], $defaultRep['summary']['real_total']) && (float)$defaultRep['summary']['total'] === (float)$defaultRep['summary']['real_total']);
+reportTest("Default report strictly matches real_orders", 
+    isset($defaultRep['summary']['orders'], $defaultRep['summary']['real_orders']) && (int)$defaultRep['summary']['orders'] === (int)$defaultRep['summary']['real_orders']);
 
 // -----------------------------------------------------------------------------
 // 2. BUG-2: Legacy Excel Fallback File Existence & Functionality
