@@ -25,6 +25,7 @@ $cssModules = [
   'assets/css/reports.css',
   'assets/css/waste.css',
   'assets/css/predictive.css',
+  'assets/css/audit.css',
   'assets/css/responsive.css',
   'assets/css/print.css',
 ];
@@ -101,6 +102,10 @@ $cssModules = [
         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
         <span>Predictive Analytics</span>
       </button>
+      <button type="button" class="nav-btn" data-view="audit" id="auditNavBtn">
+        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        <span>Audit Log</span>
+      </button>
       <?php endif; ?>
     </nav>
 
@@ -163,6 +168,12 @@ $cssModules = [
               <svg class="dropdown-svg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </span>
             <span>Account Management</span>
+          </button>
+          <button type="button" class="dropdown-item" id="openAuditBtn">
+            <span class="dropdown-item-icon">
+              <svg class="dropdown-svg" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+            </span>
+            <span>Audit Log &amp; Activity</span>
           </button>
           <?php endif; ?>
           <a href="logout.php" class="dropdown-item danger" id="logoutLink" style="text-decoration: none;">
@@ -357,6 +368,18 @@ $cssModules = [
         <div class="mgr-card-value" id="mgrCardPredictiveHighlight">Forecast Engine</div>
         <p class="muted" style="margin: 0 0 10px;">Seasonality-aware ML demand forecasting for daily, 7-day, monthly, and yearly revenue.</p>
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenPredictiveBtn">Launch Predictive Engine</button>
+      </div>
+
+      <div class="mgr-card">
+        <div class="mgr-card-header">
+          <span class="mgr-card-title">Audit Log &amp; Activity</span>
+          <div class="mgr-card-icon-badge">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+        </div>
+        <div class="mgr-card-value" id="mgrCardAuditActionsToday">-- events today</div>
+        <p class="muted" style="margin: 0 0 10px;">Monitor real-time user sessions, tab transitions, cashier orders, voids, and security events.</p>
+        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAuditBtn">View Audit Trail</button>
       </div>
     </div>
 
@@ -1472,6 +1495,105 @@ $cssModules = [
     </div>
   </div>
 
+  <?php if ($currentRole === 'manager'): ?>
+  <!-- Audit Log & User Activity Modal -->
+  <div class="modal" id="auditModal" hidden>
+    <div class="modal-card" style="max-width: 1100px;">
+      <div class="modal-head">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <h2>Audit Log &amp; Activity Trail</h2>
+          <div class="audit-live-status">
+            <span class="audit-live-dot"></span>
+            <span id="auditLiveOnlineCount">0</span> Online
+          </div>
+        </div>
+        <div class="modal-search-wrap">
+          <input type="search" id="auditSearch" class="search-input" placeholder="Search by user, action, target ID, IP..." autocomplete="off">
+          <button type="button" class="search-clear" id="auditSearchClearBtn" hidden title="Clear search">✕</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn primary" id="btnExportAuditCsv">📥 Export CSV</button>
+          <button type="button" class="btn ghost" data-close>✕ Close</button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div class="audit-overview-grid">
+        <div class="audit-stat-card stat-online">
+          <span class="audit-stat-num" id="statAuditOnline">0</span>
+          <span class="audit-stat-label">Online Staff Now</span>
+        </div>
+        <div class="audit-stat-card stat-sessions">
+          <span class="audit-stat-num" id="statAuditSessionsToday">0</span>
+          <span class="audit-stat-label">Staff Sessions Today</span>
+        </div>
+        <div class="audit-stat-card stat-actions">
+          <span class="audit-stat-num" id="statAuditActionsToday">0</span>
+          <span class="audit-stat-label">Actions Logged Today</span>
+        </div>
+        <div class="audit-stat-card stat-duration">
+          <span class="audit-stat-num" id="statAuditAvgDuration">0m</span>
+          <span class="audit-stat-label">Avg Shift / Session</span>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div class="audit-controls-bar">
+        <div class="audit-category-chips">
+          <button type="button" class="audit-chip active" data-category="all">All Events</button>
+          <button type="button" class="audit-chip" data-category="navigation">Navigation</button>
+          <button type="button" class="audit-chip" data-category="pos_order">POS &amp; Orders</button>
+          <button type="button" class="audit-chip" data-category="inventory">Inventory &amp; Waste</button>
+          <button type="button" class="audit-chip" data-category="catalog">Menu Catalog</button>
+          <button type="button" class="audit-chip" data-category="account">Accounts</button>
+          <button type="button" class="audit-chip" data-category="security">Security &amp; 2FA</button>
+        </div>
+        <div class="audit-secondary-filters">
+          <select id="auditStaffFilter" class="audit-select" aria-label="Filter by staff member">
+            <option value="">All Staff Members</option>
+          </select>
+          <input type="date" id="auditDateFrom" class="audit-date-input" title="From Date">
+          <input type="date" id="auditDateTo" class="audit-date-input" title="To Date">
+          <button type="button" class="btn ghost btn-sm" id="auditResetDateBtn" style="padding:5px 8px;" title="Reset Dates">Reset</button>
+        </div>
+      </div>
+
+      <!-- Activity Feed Table -->
+      <div class="audit-table-wrap">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Staff User</th>
+              <th>Category</th>
+              <th>Action &amp; Description</th>
+              <th>Session Dwell</th>
+              <th>IP Address</th>
+              <th style="text-align:center;">Metadata</th>
+            </tr>
+          </thead>
+          <tbody id="auditTableBody">
+            <tr>
+              <td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">
+                Loading audit trail records...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="audit-footer-bar">
+        <div class="audit-page-info" id="auditPaginationInfo">Loading...</div>
+        <div class="audit-page-buttons">
+          <button type="button" class="btn ghost btn-sm" id="auditPrevPageBtn" disabled>◀ Previous</button>
+          <button type="button" class="btn ghost btn-sm" id="auditNextPageBtn" disabled>Next ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <script>
     window.CafeFlowUser = <?= json_encode([
       'user_id'    => (int) $currentUser['user_id'],
@@ -1503,6 +1625,7 @@ $cssModules = [
   <script src="assets/js/modules/security-2fa.js?v=<?= $ver('assets/js/modules/security-2fa.js') ?>" defer></script>
   <script src="assets/js/modules/dashboard.js?v=<?= $ver('assets/js/modules/dashboard.js') ?>" defer></script>
   <script src="assets/js/modules/predictive.js?v=<?= $ver('assets/js/modules/predictive.js') ?>" defer></script>
+  <script src="assets/js/modules/audit.js?v=<?= $ver('assets/js/modules/audit.js') ?>" defer></script>
   <script src="assets/js/app.js?v=<?= $ver('assets/js/app.js') ?>" defer></script>
 </body>
 </html>

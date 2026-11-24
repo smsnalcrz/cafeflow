@@ -45,7 +45,7 @@ The audit subsystem consists of two dedicated relational tables:
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `user_sessions` (
     `session_id` VARCHAR(64) NOT NULL PRIMARY KEY,
-    `user_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NULL DEFAULT NULL,
     `ip_address` VARCHAR(45) NOT NULL,
     `user_agent` VARCHAR(255) NOT NULL,
     `auth_method` ENUM('password', 'password_2fa', 'direct_2fa') NOT NULL DEFAULT 'password',
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
     INDEX `idx_sessions_user_login` (`user_id`, `login_at`),
     INDEX `idx_sessions_last_heartbeat` (`last_heartbeat_at`),
     CONSTRAINT `fk_sessions_user` FOREIGN KEY (`user_id`) 
-        REFERENCES `users` (`user_id`) ON DELETE CASCADE
+        REFERENCES `users` (`user_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS `user_sessions` (
 CREATE TABLE IF NOT EXISTS `audit_logs` (
     `log_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `session_id` VARCHAR(64) NULL,
-    `user_id` INT UNSIGNED NOT NULL,
+    `user_id` INT UNSIGNED NULL DEFAULT NULL,
     `username_snapshot` VARCHAR(50) NOT NULL,
     `user_role_snapshot` VARCHAR(20) NOT NULL,
     `category` ENUM('navigation', 'pos_order', 'inventory', 'catalog', 'account', 'security', 'system') NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS `audit_logs` (
     INDEX `idx_audit_action` (`action`),
     INDEX `idx_audit_session` (`session_id`),
     CONSTRAINT `fk_audit_user` FOREIGN KEY (`user_id`) 
-        REFERENCES `users` (`user_id`) ON DELETE CASCADE
+        REFERENCES `users` (`user_id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
@@ -181,7 +181,16 @@ function audit_log(
 }
 ```
 
+### 4.1.1 Backward-Compatibility Bridge with `security_audit_log`
+To prevent regression in existing test suites (e.g., `tools/test_2fa_suite.php`), `log_security_audit()`
+in `core/auth.php` remains fully functional: it records into `security_audit_log` and simultaneously
+bridges the security event into `audit_log()` (with category `security`), maintaining dual-write consistency.
+
 ### 4.2 Session Duration & Heartbeat Tracker (`api/heartbeat.php`)
+- In `core/auth.php -> login_user()`:
+  * ID regeneration (`session_regenerate_id(true)`) MUST occur BEFORE inserting into `user_sessions`.
+  * Create active session record:
+    `INSERT INTO user_sessions (session_id, user_id, ip_address, user_agent, auth_method, login_at, last_heartbeat_at, duration_seconds) VALUES (?, ?, ?, ?, ?, NOW(3), NOW(3), 0)`
 - Client pings `POST api/heartbeat.php` every 60 seconds (or on `visibilitychange`).
 - The server updates `user_sessions`:
   `UPDATE user_sessions SET last_heartbeat_at = NOW(3), duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)) WHERE session_id = ?`
@@ -209,25 +218,27 @@ function audit_log(
 ================================================================================
 
 ### 5.1 Tab & View Navigation Tracking Hook (`assets/js/modules/navigation.js`)
-Hook into `showView(viewName)`:
+Hook into `showView(viewName)` with a 2-second minimum dwell-time filter to avoid beacon spam:
 ```javascript
 let currentViewStartTime = Date.now();
 let lastActiveView = 'pos';
 
 function trackViewVisit(newView) {
+  if (newView === lastActiveView) return;
   const now = Date.now();
   const timeSpentMs = now - currentViewStartTime;
 
-  // Dispatch batched navigation beacon
-  if (navigator.sendBeacon) {
+  // Dwell filter: only record views where user dwelled for at least 2 seconds (2000ms)
+  if (timeSpentMs >= 2000 && navigator.sendBeacon && window.currentUser && window.currentUser.csrf_token) {
     const payload = JSON.stringify({
       category: 'navigation',
       action: 'tab_view',
       description: `Switched from ${lastActiveView} to ${newView}`,
       metadata: { from_view: lastActiveView, to_view: newView, duration_prev_ms: timeSpentMs },
-      csrf_token: currentUser.csrf_token
+      csrf_token: window.currentUser.csrf_token
     });
-    navigator.sendBeacon('api/audit_beacon.php', payload);
+    const blob = new Blob([payload], { type: 'application/json' });
+    navigator.sendBeacon('api/audit_beacon.php', blob);
   }
 
   lastActiveView = newView;
@@ -254,9 +265,10 @@ setInterval(() => {
 ================================================================================
 
 ### 6.1 UI Placement & Role Isolation
-- **Top Navigation Bar:** Add an "Audit Log" button to the manager topbar lockup:
-  `[Inventory] [Sales Report] [Waste Reports] [Predictive Analytics] [Audit Log]`
-  (Rendered conditionally in `index.php` ONLY if `$user['role'] === 'manager'`).
+- **Responsive Top Navigation & Manager Profile Dropdown:**
+  * To avoid horizontal overflow on 1024px/768px tablet displays, the Audit Log entry point is integrated directly into the **Manager Profile Dropdown Menu** (under `User Menu -> Audit Log & Activity`, alongside "Account Management" and "Security & 2FA") as well as an optional secondary tab in the manager topbar lockup if screen width permits.
+  * Clicking it switches to the `#viewAuditLogs` container via `showView('audit')`.
+  * The view is rendered conditionally in `index.php` ONLY if `$user['role'] === 'manager'`. Baristas will never see the menu item or container.
 - **Audit View Container (`#viewAuditLogs`):**
   1. **Header & KPI Bar:**
      - Active Users Currently Online (Live status badge)

@@ -385,6 +385,16 @@ switch ($action) {
             }
         }
 
+        audit_log(
+            'catalog',
+            'product_create',
+            "Added new menu product: {$name} ({$category})",
+            'menu_product',
+            (string)$newId,
+            ['name' => $name, 'category' => $category, 'price' => $price, 'has_sizes' => $hasSizes],
+            $pdo
+        );
+
         send_json([
             'success'    => true,
             'message'    => 'Product created successfully.',
@@ -556,6 +566,16 @@ switch ($action) {
             }
         }
 
+        audit_log(
+            'catalog',
+            'product_update',
+            "Updated menu product: {$name} (#{$productId})",
+            'menu_product',
+            (string)$productId,
+            ['name' => $name, 'category' => $category, 'price' => $price, 'has_sizes' => $hasSizes],
+            $pdo
+        );
+
         send_json([
             'success' => true,
             'message' => 'Product updated successfully.',
@@ -589,6 +609,16 @@ switch ($action) {
         safe_delete_image($row['image_url']);
 
         $pdo->prepare('DELETE FROM menu_products WHERE product_id = ?')->execute([$productId]);
+
+        audit_log(
+            'catalog',
+            'product_delete',
+            "Deleted menu product: {$row['name']} (#{$productId})",
+            'menu_product',
+            (string)$productId,
+            ['name' => $row['name']],
+            $pdo
+        );
 
         send_json([
             'success' => true,

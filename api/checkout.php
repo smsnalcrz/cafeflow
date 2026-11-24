@@ -600,6 +600,25 @@ try {
 
     $pdo->commit();
 
+    audit_log(
+        'pos_order',
+        'order_checkout',
+        "Ring up Order #{$transactionId} ({$method}) - " . count($lines) . " item(s) - ₱" . number_format($total, 2, '.', ''),
+        'transaction',
+        (string) $transactionId,
+        [
+            'tx_id'          => $transactionId,
+            'total'          => (float) $total,
+            'subtotal'       => (float) $subtotal,
+            'discount'       => (float) $discount,
+            'discount_type'  => $discountType,
+            'payment_method' => $method,
+            'items_count'    => count($lines)
+        ],
+        $pdo,
+        $user
+    );
+
 } catch (Throwable $e) {
 
     if ($pdo->inTransaction()) {

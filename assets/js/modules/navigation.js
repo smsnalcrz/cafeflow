@@ -12,16 +12,48 @@ window.CafeFlow = window.CafeFlow || {};
   const { currentUser } = window.CafeFlow.config;
   const state = window.CafeFlow.state;
 
+  let currentViewStartTime = Date.now();
+  let lastActiveView = currentUser.role === 'manager' ? 'dashboard' : 'pos';
+
+  function trackViewVisit(newView) {
+    if (!newView || newView === lastActiveView) return;
+    const now = Date.now();
+    const timeSpentMs = now - currentViewStartTime;
+
+    // Enforce 2-second minimum dwell-time before dispatching navigation beacon
+    if (timeSpentMs >= 2000 && navigator.sendBeacon && currentUser && currentUser.csrf_token) {
+      try {
+        const payload = JSON.stringify({
+          category: 'navigation',
+          action: 'tab_view',
+          description: `Switched from ${lastActiveView} to ${newView}`,
+          target_type: 'view',
+          target_id: newView,
+          metadata: { from_view: lastActiveView, to_view: newView, duration_prev_ms: timeSpentMs },
+          csrf_token: currentUser.csrf_token
+        });
+        const blob = new Blob([payload], { type: 'application/json' });
+        navigator.sendBeacon('api/audit_beacon.php', blob);
+      } catch (e) {
+        // Non-blocking
+      }
+    }
+
+    lastActiveView = newView;
+    currentViewStartTime = now;
+  }
+
   function showView(view) {
     if (currentUser.role === 'manager' && (view === 'pos' || view === 'products')) {
       toast('Access restricted: Manager role does not have access to POS or Products.', 'error', 3500);
       return;
     }
-    if (currentUser.role !== 'manager' && (view === 'accounts' || view === 'predictive' || view === 'waste')) {
-      toast('Access restricted: Only Managers have access to ' + (view === 'predictive' ? 'Predictive Analytics.' : (view === 'waste' ? 'Waste Reports.' : 'Account Management.')), 'error', 3500);
+    if (currentUser.role !== 'manager' && (view === 'accounts' || view === 'predictive' || view === 'waste' || view === 'audit')) {
+      toast('Access restricted: Only Managers have access to ' + (view === 'predictive' ? 'Predictive Analytics.' : (view === 'waste' ? 'Waste Reports.' : (view === 'audit' ? 'Audit Log.' : 'Account Management.'))), 'error', 3500);
       return;
     }
 
+    trackViewVisit(view);
     state.currentView = view;
     $$('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
 
@@ -45,6 +77,9 @@ window.CafeFlow = window.CafeFlow || {};
 
     const secModal = $('#security2faModal');
     if (secModal) secModal.hidden = view !== 'security_2fa';
+
+    const auditModal = $('#auditModal');
+    if (auditModal) auditModal.hidden = view !== 'audit';
 
     const recModal = $('#receiptModal');
     if (recModal) recModal.hidden = true;
@@ -96,6 +131,9 @@ window.CafeFlow = window.CafeFlow || {};
     }
     if (view === 'security_2fa' && window.CafeFlow.security2fa && window.CafeFlow.security2fa.load2faStatus) {
       window.CafeFlow.security2fa.load2faStatus();
+    }
+    if (view === 'audit' && currentUser.role === 'manager' && window.CafeFlow.audit && window.CafeFlow.audit.loadAuditLogs) {
+      window.CafeFlow.audit.loadAuditLogs();
     }
   }
 
@@ -170,6 +208,15 @@ window.CafeFlow = window.CafeFlow || {};
         if (profileDropdown) profileDropdown.hidden = true;
         if (profileBtn) profileBtn.classList.remove('active');
         showView('accounts');
+      });
+    }
+
+    const openAuditBtn = $('#openAuditBtn');
+    if (openAuditBtn) {
+      openAuditBtn.addEventListener('click', () => {
+        if (profileDropdown) profileDropdown.hidden = true;
+        if (profileBtn) profileBtn.classList.remove('active');
+        showView('audit');
       });
     }
   }

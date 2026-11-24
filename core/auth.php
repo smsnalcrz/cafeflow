@@ -6,6 +6,7 @@
  * control (Barista vs Manager), CSRF token defense, and rate-limited brute force protection.
  */
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/audit.php';
 
 if (!defined('AUTH_SESSION_NAME')) {
     define('AUTH_SESSION_NAME', 'cafeflow_session');
@@ -201,13 +202,24 @@ function require_role(string|array $allowedRoles): array
 }
 
 /**
- * Logs in a user, regenerates session ID to prevent fixation, sets security tokens.
+ * Logs in a user, regenerates session ID to prevent fixation, sets security tokens,
+ * and initializes tracking in user_sessions and audit_logs.
  */
-function login_user(array $user): void
+function login_user(array $user, string $authMethod = 'password'): void
 {
     clear_auth_cache();
     init_session();
-    session_regenerate_id(true);
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        @session_regenerate_id(true);
+    }
+
+    $sessId = session_id();
+    if (empty($sessId)) {
+        $sessId = 'sess_' . bin2hex(random_bytes(16));
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_id($sessId);
+        }
+    }
 
     $_SESSION['user_id']    = (int) $user['user_id'];
     $_SESSION['user_role']  = strtolower($user['role']);
@@ -217,25 +229,80 @@ function login_user(array $user): void
     $_SESSION['logged_at']     = time();
     $_SESSION['last_activity'] = time();
     $_SESSION['csrf_token']    = bin2hex(random_bytes(32));
+    $_SESSION['user_session_id'] = $sessId;
 
     try {
         $pdo = db();
         $stmt = $pdo->prepare('UPDATE users SET last_login = NOW() WHERE user_id = ?');
         $stmt->execute([(int) $user['user_id']]);
+
+        // Record active session in user_sessions
+        $ip = get_client_ip();
+        $ua = substr($_SERVER['HTTP_USER_AGENT'] ?? 'CLI/Unknown', 0, 255);
+        $sessStmt = $pdo->prepare('
+            INSERT INTO user_sessions (
+                session_id, user_id, ip_address, user_agent, auth_method, login_at, last_heartbeat_at, duration_seconds
+            ) VALUES (?, ?, ?, ?, ?, NOW(3), NOW(3), 0)
+            ON DUPLICATE KEY UPDATE 
+                user_id = VALUES(user_id),
+                last_heartbeat_at = NOW(3)
+        ');
+        $sessStmt->execute([$sessId, (int) $user['user_id'], $ip, $ua, $authMethod]);
+
+        audit_log(
+            'security',
+            'auth_login',
+            'Signed in successfully via ' . $authMethod,
+            'user',
+            (string) $user['user_id'],
+            ['auth_method' => $authMethod, 'username' => $user['username']],
+            $pdo,
+            $user
+        );
     } catch (Throwable $e) {
         error_log('[CafeFlow Auth] ' . $e->getMessage());
     }
 }
 
 /**
- * Destroys session and cleans up cookies.
+ * Destroys session, updates logout timestamp/duration in user_sessions, and cleans up cookies.
  */
-function logout_user(): void
+function logout_user(string $reason = 'user_logout'): void
 {
-    clear_auth_cache();
     init_session();
+    $sessId = session_id() ?: ($_SESSION['user_session_id'] ?? null);
+    $user = current_user();
+
+    if ($sessId) {
+        try {
+            $pdo = db();
+            $stmt = $pdo->prepare('
+                UPDATE user_sessions
+                   SET logout_at = NOW(3),
+                       duration_seconds = TIMESTAMPDIFF(SECOND, login_at, NOW(3)),
+                       logout_reason = ?
+                 WHERE session_id = ?
+            ');
+            $stmt->execute([$reason, $sessId]);
+
+            audit_log(
+                'security',
+                'auth_logout',
+                'User signed out (' . $reason . ')',
+                'user',
+                $user ? (string)$user['user_id'] : null,
+                ['reason' => $reason],
+                $pdo,
+                $user
+            );
+        } catch (Throwable $e) {
+            error_log('[CafeFlow Auth Logout] ' . $e->getMessage());
+        }
+    }
+
+    clear_auth_cache();
     $_SESSION = [];
-    if (ini_get('session.use_cookies')) {
+    if (!headers_sent() && ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
         setcookie(
             session_name(),
@@ -247,7 +314,9 @@ function logout_user(): void
             $params['httponly']
         );
     }
-    session_destroy();
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        @session_destroy();
+    }
 }
 
 /**
@@ -367,7 +436,7 @@ function record_2fa_attempt(int $userId, string $ip, string $attemptType, bool $
 }
 
 /**
- * Records an entry in the security audit log.
+ * Records an entry in the security audit log, with dual-write bridge to primary audit_logs.
  */
 function log_security_audit(PDO $pdo, ?int $actorUserId, ?int $targetUserId, string $action, ?array $metadata = null): void
 {
@@ -381,6 +450,22 @@ function log_security_audit(PDO $pdo, ?int $actorUserId, ?int $targetUserId, str
             VALUES (?, ?, ?, ?, ?, ?)
         ');
         $stmt->execute([$actorUserId, $targetUserId, $action, $ip, $userAgent, $metaJson]);
+
+        // Dual-write bridge to unified audit_logs
+        $meta = is_array($metadata) ? $metadata : [];
+        if ($targetUserId !== null) {
+            $meta['target_user_id'] = $targetUserId;
+        }
+        $desc = 'Security event: ' . str_replace('_', ' ', $action);
+        audit_log(
+            'security',
+            $action,
+            $desc,
+            'user',
+            $targetUserId !== null ? (string)$targetUserId : ($actorUserId !== null ? (string)$actorUserId : null),
+            $meta,
+            $pdo
+        );
     } catch (Throwable $e) {
         error_log('[CafeFlow Audit] ' . $e->getMessage());
     }

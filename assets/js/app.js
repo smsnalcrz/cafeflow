@@ -45,6 +45,25 @@ window.CafeFlow = window.CafeFlow || {};
     if (window.CafeFlow.security2fa && window.CafeFlow.security2fa.initSecurityEvents) {
       window.CafeFlow.security2fa.initSecurityEvents();
     }
+    if (window.CafeFlow.audit && window.CafeFlow.audit.initAuditEvents) {
+      window.CafeFlow.audit.initAuditEvents();
+    }
+
+    // 1.1 Client Session Heartbeat (60s timer + visibilitychange ping)
+    const pingHeartbeat = () => {
+      if (document.visibilityState === 'visible' && currentUser && currentUser.user_id && currentUser.csrf_token) {
+        fetch('api/heartbeat.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': currentUser.csrf_token
+          },
+          body: JSON.stringify({ csrf_token: currentUser.csrf_token })
+        }).catch(() => {});
+      }
+    };
+    setInterval(pingHeartbeat, 60000);
+    document.addEventListener('visibilitychange', pingHeartbeat);
 
     // 2. Global Brand Logo click behavior
     const brandEl = $('.brand');

@@ -165,6 +165,17 @@ if ($action === 'create') {
         VALUES (?, ?, ?, ?, ?, ?)
     ');
     $stmt->execute([$fullName, $username, $email ?: null, $passHash, $role, $status]);
+    $newUserId = (int) $pdo->lastInsertId();
+
+    audit_log(
+        'account',
+        'user_create',
+        "Created staff account @{$username} ({$role})",
+        'user',
+        (string)$newUserId,
+        ['role' => $role, 'username' => $username, 'status' => $status],
+        $pdo
+    );
 
     send_json([
         'success' => true,
@@ -262,6 +273,16 @@ if ($action === 'update') {
         clear_auth_cache();
     }
 
+    audit_log(
+        'account',
+        'user_update',
+        "Updated staff account @{$target['username']} ({$newRole}, {$newStatus})",
+        'user',
+        (string)$targetId,
+        ['role' => $newRole, 'status' => $newStatus, 'full_name' => $fullName],
+        $pdo
+    );
+
     send_json([
         'success' => true,
         'message' => "Account for '{$target['username']}' updated successfully."
@@ -309,6 +330,16 @@ if ($action === 'toggle_status') {
         clear_auth_cache();
     }
 
+    audit_log(
+        'account',
+        'user_status_toggle',
+        "Set account @{$target['username']} to {$newStatus}",
+        'user',
+        (string)$targetId,
+        ['old_status' => $target['status'], 'new_status' => $newStatus, 'username' => $target['username']],
+        $pdo
+    );
+
     $statusLabel = ucfirst($newStatus);
     send_json([
         'success' => true,
@@ -344,6 +375,16 @@ if ($action === 'reset_password') {
     $passHash = password_hash($newPassword, PASSWORD_DEFAULT);
     $upStmt = $pdo->prepare('UPDATE users SET password_hash = ? WHERE user_id = ?');
     $upStmt->execute([$passHash, $targetId]);
+
+    audit_log(
+        'account',
+        'password_reset',
+        "Reset password for staff account @{$target['username']}",
+        'user',
+        (string)$targetId,
+        ['username' => $target['username']],
+        $pdo
+    );
 
     send_json([
         'success' => true,
@@ -390,6 +431,16 @@ if ($action === 'delete') {
 
     $delStmt = $pdo->prepare('DELETE FROM users WHERE user_id = ?');
     $delStmt->execute([$targetId]);
+
+    audit_log(
+        'account',
+        'user_delete',
+        "Deleted staff account @{$target['username']} (#{$targetId})",
+        'user',
+        (string)$targetId,
+        ['username' => $target['username'], 'role' => $target['role']],
+        $pdo
+    );
 
     send_json([
         'success' => true,

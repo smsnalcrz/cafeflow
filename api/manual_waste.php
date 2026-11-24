@@ -222,6 +222,25 @@ try {
     }
 
     $pdo->commit();
+
+    audit_log(
+        'inventory',
+        'waste_manual',
+        "Recorded manual waste: " . number_format($amountFloat, 2) . " {$unit} of {$itemName} (" . $reason . ")",
+        'inventory',
+        $matchedItemId !== null ? (string)$matchedItemId : null,
+        [
+            'item_id'            => $matchedItemId,
+            'item_name'          => $itemName,
+            'amount'             => $amountFloat,
+            'unit'               => $unit,
+            'cost_php'           => round($costCents / 100, 2),
+            'reason'             => $reason,
+            'inventory_deducted' => $inventoryDeducted
+        ],
+        $pdo,
+        $user
+    );
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

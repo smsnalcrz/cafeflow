@@ -133,6 +133,28 @@ try {
     $updateStmt->execute([$newStatus, $userId, $reason, $transactionId]);
 
     $pdo->commit();
+
+    $actionKey = $newStatus === 'Voided' ? 'order_void' : 'order_cancel';
+    $desc = $newStatus === 'Voided'
+        ? "Voided completed Order #{$transactionId} ({$reason})"
+        : "Cancelled pending Order #{$transactionId} ({$reason})";
+
+    audit_log(
+        'pos_order',
+        $actionKey,
+        $desc,
+        'transaction',
+        (string) $transactionId,
+        [
+            'tx_id'              => $transactionId,
+            'reason'             => $reason,
+            'previous_status'    => $currentStatus,
+            'new_status'         => $newStatus,
+            'inventory_reversed' => $inventoryReversed
+        ],
+        $pdo,
+        $user
+    );
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

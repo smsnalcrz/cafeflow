@@ -99,6 +99,14 @@ switch ($action) {
                 'INSERT INTO inventory (name, current_stock, unit_measure, restock_threshold) VALUES (?, ?, ?, ?)'
             )->execute([$name, $stock, $unit, $alert]);
             $newItemId = (int) $pdo->lastInsertId();
+            audit_log(
+                'inventory',
+                'stock_create',
+                "Added new inventory supply: {$name} ({$stock} {$unit})",
+                'inventory',
+                (string)$newItemId,
+                ['name' => $name, 'initial_stock' => $stock, 'unit' => $unit, 'threshold' => $alert]
+            );
             send_json(['success' => true, 'item_id' => $newItemId]);
         } catch (PDOException $e) {
             duplicate_name_guard($e);
@@ -129,6 +137,14 @@ switch ($action) {
                     SET name = ?, unit_measure = ?, current_stock = ?, restock_threshold = ?
                   WHERE item_id = ?'
             )->execute([$name, $unit, $stock, $alert, $id]);
+            audit_log(
+                'inventory',
+                'stock_adjustment',
+                "Adjusted inventory supply: {$name} (Stock: {$stock} {$unit})",
+                'inventory',
+                (string)$id,
+                ['name' => $name, 'stock' => $stock, 'unit' => $unit, 'threshold' => $alert]
+            );
         } catch (PDOException $e) {
             duplicate_name_guard($e);
             throw $e;
@@ -143,6 +159,14 @@ switch ($action) {
         }
         $pdo->prepare('UPDATE inventory SET current_stock = current_stock + ? WHERE item_id = ?')
             ->execute([$amount, $id]);
+        audit_log(
+            'inventory',
+            'stock_restock',
+            "Restocked +{$amount} units of inventory item #{$id}",
+            'inventory',
+            (string)$id,
+            ['amount' => $amount]
+        );
         break;
 
     case 'delete':
@@ -184,6 +208,14 @@ switch ($action) {
 
         try {
             $pdo->prepare('DELETE FROM inventory WHERE item_id = ?')->execute([$id]);
+            audit_log(
+                'inventory',
+                'stock_delete',
+                "Deleted inventory supply: {$itemName} (#{$id})",
+                'inventory',
+                (string)$id,
+                ['name' => $itemName]
+            );
         } catch (PDOException $e) {
             fail(409, 'Cannot delete supply: Database constraint prevented removal.');
         }
@@ -195,6 +227,14 @@ switch ($action) {
         $stAct = $pdo->prepare('SELECT is_active FROM inventory WHERE item_id = ?');
         $stAct->execute([$id]);
         $newActive = (int) $stAct->fetchColumn();
+        audit_log(
+            'inventory',
+            'stock_toggle_active',
+            ($newActive === 1 ? 'Activated' : 'Deactivated') . " inventory supply #{$id}",
+            'inventory',
+            (string)$id,
+            ['is_active' => $newActive]
+        );
         send_json([
             'success'   => true,
             'is_active' => $newActive === 1,

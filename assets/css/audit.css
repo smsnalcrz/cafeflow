@@ -1,0 +1,375 @@
+/**
+ * CafeFlow POS - Audit Log & Activity Tracking Styles
+ * Manager-only activity feed, session KPIs, filter chips, and inspect drawers.
+ */
+
+.audit-live-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .audit-live-status {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.audit-live-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  box-shadow: 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: auditPulse 2s infinite;
+}
+
+@keyframes auditPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+}
+
+/* KPI Summary Cards */
+.audit-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  padding: 16px 20px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+
+.audit-stat-card {
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+[data-theme="dark"] .audit-stat-card {
+  background: #1c2620;
+}
+
+.audit-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.audit-stat-num {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.audit-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.audit-stat-card.stat-online .audit-stat-num {
+  color: #16a34a;
+}
+[data-theme="dark"] .audit-stat-card.stat-online .audit-stat-num {
+  color: #4ade80;
+}
+
+.audit-stat-card.stat-actions .audit-stat-num {
+  color: #2563eb;
+}
+[data-theme="dark"] .audit-stat-card.stat-actions .audit-stat-num {
+  color: #60a5fa;
+}
+
+.audit-stat-card.stat-sessions .audit-stat-num {
+  color: #d97706;
+}
+[data-theme="dark"] .audit-stat-card.stat-sessions .audit-stat-num {
+  color: #fbbf24;
+}
+
+.audit-stat-card.stat-duration .audit-stat-num {
+  color: #7c3aed;
+}
+[data-theme="dark"] .audit-stat-card.stat-duration .audit-stat-num {
+  color: #a78bfa;
+}
+
+/* Filter Controls Bar */
+.audit-controls-bar {
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audit-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.audit-chip {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.audit-chip:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.audit-chip.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.audit-secondary-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.audit-select,
+.audit-date-input {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+}
+
+.audit-select:focus,
+.audit-date-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.15);
+}
+
+/* Activity Feed Table */
+.audit-table-wrap {
+  flex: 1;
+  overflow: auto;
+  max-height: calc(100vh - 360px);
+}
+
+.audit-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.audit-table th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.audit-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+
+.audit-table tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+
+[data-theme="dark"] .audit-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Category Badges */
+.audit-cat-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.cat-pos_order {
+  background: rgba(34, 197, 94, 0.12);
+  color: #16a34a;
+}
+.cat-inventory {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+.cat-catalog {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+.cat-account {
+  background: rgba(168, 85, 247, 0.12);
+  color: #9333ea;
+}
+.cat-security {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+}
+.cat-navigation {
+  background: rgba(107, 114, 128, 0.12);
+  color: #4b5563;
+}
+.cat-system {
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+}
+
+[data-theme="dark"] .cat-pos_order { color: #4ade80; background: rgba(34, 197, 94, 0.2); }
+[data-theme="dark"] .cat-inventory { color: #fbbf24; background: rgba(245, 158, 11, 0.2); }
+[data-theme="dark"] .cat-catalog   { color: #60a5fa; background: rgba(59, 130, 246, 0.2); }
+[data-theme="dark"] .cat-account   { color: #c084fc; background: rgba(168, 85, 247, 0.2); }
+[data-theme="dark"] .cat-security  { color: #f87171; background: rgba(239, 68, 68, 0.2); }
+[data-theme="dark"] .cat-navigation{ color: #9ca3af; background: rgba(107, 114, 128, 0.2); }
+[data-theme="dark"] .cat-system    { color: #38bdf8; background: rgba(14, 165, 233, 0.2); }
+
+/* Staff Snapshot Badge */
+.audit-staff-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audit-avatar-xs {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.audit-avatar-manager {
+  background: #ea580c;
+}
+
+.audit-avatar-barista {
+  background: #059669;
+}
+
+.audit-avatar-system {
+  background: #475569;
+}
+
+.audit-time-cell {
+  white-space: nowrap;
+}
+
+.audit-relative-time {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Pagination Footer */
+.audit-footer-bar {
+  padding: 10px 20px;
+  background: var(--surface-alt);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.audit-page-info {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.audit-page-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+/* Detail Modal / Drawer */
+.audit-json-box {
+  background: #0f172a;
+  color: #38bdf8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 280px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+@media (max-width: 900px) {
+  .audit-overview-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .audit-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .audit-category-chips {
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+}

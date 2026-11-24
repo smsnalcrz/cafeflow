@@ -151,6 +151,20 @@ try {
     }
 
     $pdo->commit();
+
+    audit_log(
+        'pos_order',
+        'order_complete',
+        "Completed Order #{$transactionId} in Barista Queue",
+        'transaction',
+        (string) $transactionId,
+        [
+            'tx_id'             => $transactionId,
+            'deducted_supplies' => count($aggregatedConsumption ?? []),
+            'low_stock_alerts'  => count($lowStock ?? [])
+        ],
+        $pdo
+    );
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
