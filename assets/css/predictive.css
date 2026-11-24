@@ -68,15 +68,15 @@
   padding: 14px 18px;
   border-radius: var(--radius);
   margin-bottom: 18px;
-  background: rgba(192, 124, 46, 0.08);
-  border: 1.5px solid rgba(192, 124, 46, 0.35);
+  background: var(--caramel-soft);
+  border: 1.5px solid var(--line);
 }
 .pred-alert-icon {
   font-size: 24px;
   line-height: 1;
   flex-shrink: 0;
   margin-top: 2px;
-  color: #c07c2e;
+  color: var(--caramel);
 }
 .pred-alert-body {
   flex: 1;
@@ -92,7 +92,7 @@
 .pred-alert-title {
   font-size: 13.5px;
   font-weight: 800;
-  color: #8c5314;
+  color: var(--ink);
   letter-spacing: .3px;
   text-transform: uppercase;
 }
@@ -101,8 +101,8 @@
   font-weight: 700;
   padding: 3px 9px;
   border-radius: 999px;
-  background: #c07c2e;
-  color: #fff;
+  background: var(--caramel);
+  color: #ffffff;
   letter-spacing: .4px;
 }
 .pred-alert-text {
@@ -123,7 +123,7 @@
   margin-bottom: 20px;
 }
 .pred-kpi-card {
-  background: var(--surface-raised);
+  background: var(--surface-card);
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 14px 16px;
@@ -131,7 +131,7 @@
   flex-direction: column;
   gap: 4px;
   box-shadow: var(--shadow-xs);
-  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast), background-color var(--dur-fast), border-color var(--dur-fast);
 }
 .pred-kpi-card:hover {
   transform: translateY(-2px);
@@ -179,12 +179,13 @@
  *  Interactive What-If Simulator Panel
  * ------------------------------------------------------------------ */
 .pred-sim-card {
-  background: #ffffff;
-  border: 1.5px solid rgba(192, 124, 46, 0.35);
+  background: var(--surface-card);
+  border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 16px 20px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--dur-fast), border-color var(--dur-fast);
 }
 .pred-sim-header {
   display: flex;
@@ -202,7 +203,7 @@
 .pred-sim-title {
   font-size: 13.5px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   text-transform: uppercase;
   letter-spacing: .4px;
 }
@@ -210,8 +211,8 @@
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #fdf3e7;
-  color: #8c5314;
+  background: var(--caramel-soft);
+  color: var(--caramel);
   font-weight: 700;
 }
 .pred-sim-controls {
@@ -242,21 +243,21 @@
   font-size: 12px;
   font-weight: 600;
   border-radius: 999px;
-  background: var(--cream);
+  background: var(--surface);
   border: 1px solid var(--line);
   color: var(--ink);
   cursor: pointer;
   transition: all var(--dur-fast);
 }
 .pred-sim-btn:hover {
-  background: rgba(192, 124, 46, 0.12);
-  border-color: #c07c2e;
+  background: var(--caramel-soft);
+  border-color: var(--caramel);
 }
 .pred-sim-btn.active {
-  background: #c07c2e;
-  border-color: #c07c2e;
+  background: var(--caramel);
+  border-color: var(--caramel);
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(192, 124, 46, 0.4);
+  box-shadow: 0 2px 6px rgba(200, 125, 75, 0.35);
 }
 .pred-sim-reset-btn {
   padding: 6px 14px;
@@ -293,14 +294,14 @@
   justify-content: space-between;
   padding: 12px 18px;
   border-bottom: 1px solid var(--line);
-  background: var(--cream);
+  background: var(--surface);
   flex-wrap: wrap;
   gap: 8px;
 }
 .chart-panel-title {
   font-size: 13.5px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   letter-spacing: .2px;
 }
 .chart-panel-subtitle {
@@ -349,7 +350,7 @@
 .pred-cat-name {
   font-size: 13px;
   font-weight: 700;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .pred-cat-sub {
   font-size: 11px;
@@ -361,7 +362,7 @@
 .pred-cat-pct {
   font-size: 13.5px;
   font-weight: 800;
-  color: #c07c2e;
+  color: var(--caramel);
 }
 .pred-cat-rev {
   font-size: 11px;
@@ -378,13 +379,15 @@
   padding: 16px;
 }
 .pred-shift-card {
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
   padding: 14px 16px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  box-shadow: var(--shadow-xs);
+  transition: background-color var(--dur-fast), border-color var(--dur-fast);
 }
 .pred-shift-head {
   display: flex;
@@ -394,14 +397,14 @@
 .pred-shift-name {
   font-size: 13px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .pred-shift-badge {
   font-size: 10.5px;
   padding: 2px 7px;
   border-radius: 999px;
-  background: rgba(42, 155, 82, 0.15);
-  color: #1e7e3e;
+  background: var(--green-light);
+  color: var(--green);
   font-weight: 700;
 }
 .pred-shift-time {
@@ -411,7 +414,7 @@
 .pred-shift-profile {
   font-size: 12.5px;
   font-weight: 700;
-  color: #c07c2e;
+  color: var(--caramel);
   margin-top: 2px;
 }
 .pred-shift-tasks {
@@ -442,7 +445,7 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
   padding: 14px 18px;
-  background: #f7f9f7;
+  background: var(--surface);
   border-top: 1px solid var(--line);
 }
 .pred-fin-col {
@@ -459,7 +462,7 @@
 .pred-fin-val {
   font-size: 16px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .pred-fin-sub {
   font-size: 11px;
@@ -493,13 +496,13 @@
   gap: 6px;
   font-size: 12.5px;
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
   text-transform: uppercase;
   letter-spacing: .3px;
 }
 .pred-explain-desc {
   font-size: 12px;
-  color: var(--ink);
+  color: var(--muted);
   line-height: 1.5;
   margin: 0;
 }
@@ -507,7 +510,7 @@
 /* Calculation Diagnostics Collapsible Details */
 .pred-breakdown-details {
   border-top: 1px solid var(--line);
-  background: var(--parchment);
+  background: var(--surface);
   padding: 14px 20px;
 }
 .pred-breakdown-toggle {
@@ -518,7 +521,7 @@
   border: none;
   font-size: 12.5px;
   font-weight: 700;
-  color: #c07c2e;
+  color: var(--caramel);
   cursor: pointer;
   padding: 0;
 }
@@ -538,9 +541,9 @@
   border-bottom: 1px solid var(--line);
 }
 .pred-breakdown-table th {
-  background: var(--cream);
+  background: var(--surface-raised);
   font-weight: 800;
-  color: var(--espresso);
+  color: var(--ink);
 }
 .pred-breakdown-table td.num {
   text-align: right;
@@ -554,7 +557,7 @@
  * ------------------------------------------------------------------ */
 .pred-narrative-box {
   border-top: 1px solid var(--line);
-  background: var(--parchment);
+  background: var(--surface);
   padding: 16px 20px 18px;
   display: flex;
   flex-direction: column;
@@ -568,7 +571,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .6px;
-  color: #c07c2e;
+  color: var(--caramel);
 }
 .pred-narrative-body {
   font-family: 'Work Sans', system-ui, -apple-system, sans-serif;
@@ -628,3 +631,218 @@
   .pred-chart-body { height: 240px; }
   .pred-alert-banner { flex-direction: column; gap: 8px; }
 }
+
+
+/* ======================================================================
+   DARK THEME REFINEMENTS FOR PREDICTIVE ANALYTICS
+   ====================================================================== */
+[data-theme="dark"] #predictiveModal,
+[data-theme="dark"] .predictive-modal-card {
+  background: var(--bg);
+}
+
+[data-theme="dark"] .pred-alert-banner {
+  background: rgba(217, 143, 94, 0.12);
+  border-color: rgba(217, 143, 94, 0.35);
+}
+[data-theme="dark"] .pred-alert-icon {
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-alert-title {
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-alert-tag {
+  background: var(--caramel);
+  color: #ffffff;
+}
+[data-theme="dark"] .pred-alert-text {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .pred-kpi-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-kpi-card.hero {
+  background: linear-gradient(135deg, #1C2B1F 0%, #121D15 100%);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-kpi-badge.up {
+  background: var(--green-light);
+  color: var(--green);
+}
+[data-theme="dark"] .pred-kpi-badge.down {
+  background: var(--red-light);
+  color: var(--red);
+}
+
+[data-theme="dark"] .pred-sim-card {
+  background: var(--surface-card);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-sim-title {
+  color: var(--ink);
+}
+[data-theme="dark"] .pred-sim-tag {
+  background: var(--caramel-soft);
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-sim-btn {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--ink);
+}
+[data-theme="dark"] .pred-sim-btn:hover {
+  background: var(--caramel-soft);
+  border-color: var(--caramel);
+}
+[data-theme="dark"] .pred-sim-btn.active {
+  background: var(--caramel);
+  border-color: var(--caramel);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(217, 143, 94, 0.35);
+}
+[data-theme="dark"] .pred-sim-reset-btn {
+  background: transparent;
+  border-color: var(--line);
+  color: var(--muted);
+}
+[data-theme="dark"] .pred-sim-reset-btn:hover {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--caramel);
+}
+
+[data-theme="dark"] .pred-chart-card {
+  background: var(--surface-card);
+  border-color: var(--line);
+}
+[data-theme="dark"] .chart-panel-head {
+  background: var(--surface);
+  border-bottom-color: var(--line);
+}
+[data-theme="dark"] .chart-panel-title {
+  color: var(--ink);
+}
+[data-theme="dark"] .chart-panel-subtitle {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .pred-cat-row {
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-cat-name {
+  color: var(--ink);
+}
+[data-theme="dark"] .pred-cat-pct {
+  color: var(--caramel);
+}
+
+[data-theme="dark"] .pred-shift-card {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-shift-name {
+  color: var(--ink);
+}
+[data-theme="dark"] .pred-shift-badge {
+  background: var(--green-light);
+  color: var(--green);
+}
+[data-theme="dark"] .pred-shift-profile {
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-shift-tasks {
+  color: var(--ink-mid);
+}
+
+[data-theme="dark"] .stock-badge.critical {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: rgba(224, 83, 83, 0.35);
+}
+[data-theme="dark"] .stock-badge.warning {
+  background: var(--amber-light);
+  color: var(--amber);
+  border-color: rgba(229, 152, 70, 0.35);
+}
+[data-theme="dark"] .stock-badge.monitor {
+  background: var(--blue-light);
+  color: var(--blue);
+  border-color: rgba(162, 133, 212, 0.35);
+}
+[data-theme="dark"] .stock-badge.healthy {
+  background: var(--green-light);
+  color: var(--green);
+  border-color: rgba(56, 155, 114, 0.35);
+}
+
+[data-theme="dark"] .pred-finance-bar {
+  background: var(--surface);
+  border-top-color: var(--line);
+}
+[data-theme="dark"] .pred-fin-label {
+  color: var(--muted);
+}
+[data-theme="dark"] .pred-fin-val {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .pred-explain-section {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-explain-title {
+  color: var(--ink);
+}
+[data-theme="dark"] .pred-explain-desc {
+  color: var(--ink-mid);
+}
+[data-theme="dark"] .pred-breakdown-details {
+  background: var(--surface);
+  border-top-color: var(--line);
+}
+[data-theme="dark"] .pred-breakdown-toggle {
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-breakdown-table th {
+  background: var(--surface-raised);
+  color: var(--ink);
+  border-bottom-color: var(--line);
+}
+[data-theme="dark"] .pred-breakdown-table td {
+  border-bottom-color: var(--line);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .pred-narrative-box {
+  background: var(--surface);
+  border-top-color: var(--line);
+}
+[data-theme="dark"] .pred-narrative-tag {
+  color: var(--caramel);
+}
+[data-theme="dark"] .pred-narrative-body {
+  color: var(--ink);
+}
+
+[data-theme="dark"] .pred-table-wrap {
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-table-wrap th {
+  background: var(--surface);
+  color: var(--muted);
+  border-bottom-color: var(--line);
+}
+[data-theme="dark"] .pred-table-wrap td {
+  border-bottom-color: var(--line);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .pred-tag-pill.summer { background: var(--amber-light); color: var(--amber); }
+[data-theme="dark"] .pred-tag-pill.monsoon { background: var(--blue-light); color: var(--blue); }
+[data-theme="dark"] .pred-tag-pill.holiday { background: var(--red-light); color: var(--red); }
+[data-theme="dark"] .pred-tag-pill.baseline { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+[data-theme="dark"] .pred-tag-pill.payday { background: var(--green-light); color: var(--green); }

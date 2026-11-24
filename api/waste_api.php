@@ -443,9 +443,14 @@ $logsStmt = $pdo->prepare("
     LEFT JOIN users u ON u.user_id = wl.wasted_by_user_id
     WHERE {$wasteWhereSql}
     ORDER BY wl.wasted_at DESC, wl.waste_id DESC
-    LIMIT {$limit} OFFSET {$offset}
+    LIMIT :lim OFFSET :off
 ");
-$logsStmt->execute($wasteParams);
+foreach ($wasteParams as $paramK => $paramV) {
+    $logsStmt->bindValue($paramK, $paramV);
+}
+$logsStmt->bindValue(':lim', (int)$limit, PDO::PARAM_INT);
+$logsStmt->bindValue(':off', (int)$offset, PDO::PARAM_INT);
+$logsStmt->execute();
 $logs = $logsStmt->fetchAll();
 
 // Format logs for frontend presentation

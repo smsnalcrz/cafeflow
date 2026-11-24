@@ -258,6 +258,10 @@ if ($action === 'update') {
         $upStmt->execute([$fullName, $email ?: null, $newRole, $newStatus, $targetId]);
     }
 
+    if ($targetId === $currentUserId) {
+        clear_auth_cache();
+    }
+
     send_json([
         'success' => true,
         'message' => "Account for '{$target['username']}' updated successfully."
@@ -300,6 +304,10 @@ if ($action === 'toggle_status') {
 
     $upStmt = $pdo->prepare('UPDATE users SET status = ? WHERE user_id = ?');
     $upStmt->execute([$newStatus, $targetId]);
+
+    if ($targetId === $currentUserId) {
+        clear_auth_cache();
+    }
 
     $statusLabel = ucfirst($newStatus);
     send_json([

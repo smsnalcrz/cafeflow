@@ -115,6 +115,14 @@ switch ($action) {
         if ($stock === null || $alert === null) {
             fail(422, 'Stock and restock alert must be numbers of 0 or more.');
         }
+
+        // Prevent duplicate inventory items on rename (case-insensitive check against other items)
+        $stCheck = $pdo->prepare('SELECT item_id FROM inventory WHERE LOWER(name) = LOWER(?) AND item_id != ?');
+        $stCheck->execute([$name, $id]);
+        if ($stCheck->fetchColumn()) {
+            fail(409, "An inventory item named '$name' already exists in the inventory.");
+        }
+
         try {
             $pdo->prepare(
                 'UPDATE inventory

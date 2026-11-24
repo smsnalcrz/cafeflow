@@ -187,26 +187,34 @@ else {
 $startStr = $dtStart->format('Y-m-d 00:00:00');
 $endStr   = $dtEnd->format('Y-m-d 00:00:00');
 
+$includeMockParam = $_GET['include_mock'] ?? null;
+// If include_mock is explicitly '0' or 'false', only aggregate live/real transactions (is_mock = 0 or NULL)
+$filterOnlyReal = ($includeMockParam === '0' || $includeMockParam === 'false');
+$mockFilterSql  = $filterOnlyReal ? " AND (is_mock = 0 OR is_mock IS NULL)" : "";
+$mockFilterTql  = $filterOnlyReal ? " AND (t.is_mock = 0 OR t.is_mock IS NULL)" : "";
+
 $pdo = db();
 
 // -----------------------------------------------------------------------------
 // Summary (orders, total, cash, gcash, pending, mock/real splits)
 // -----------------------------------------------------------------------------
 $stmt = $pdo->prepare(
-    "SELECT COUNT(CASE WHEN status = 'Completed' THEN 1 END)                   AS orders,
-            COALESCE(SUM(CASE WHEN status = 'Completed' THEN total_amount ELSE 0 END), 0) AS total,
-            COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'Cash'  THEN total_amount ELSE 0 END), 0) AS cash,
-            COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'GCash' THEN total_amount ELSE 0 END), 0) AS gcash,
-            COALESCE(SUM(CASE WHEN status = 'Pending'   THEN 1 ELSE 0 END), 0)     AS pending,
-            COALESCE(SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END), 0)     AS cancelled,
-            COALESCE(SUM(CASE WHEN status = 'Voided'    THEN 1 ELSE 0 END), 0)     AS voided,
+    "SELECT COUNT(CASE WHEN status = 'Completed' {$mockFilterSql} THEN 1 END) AS orders,
+            COALESCE(SUM(CASE WHEN status = 'Completed' {$mockFilterSql} THEN total_amount ELSE 0 END), 0) AS total,
+            COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'Cash' {$mockFilterSql} THEN total_amount ELSE 0 END), 0) AS cash,
+            COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'GCash' {$mockFilterSql} THEN total_amount ELSE 0 END), 0) AS gcash,
+            COALESCE(SUM(CASE WHEN status = 'Pending' {$mockFilterSql} THEN 1 ELSE 0 END), 0) AS pending,
+            COALESCE(SUM(CASE WHEN status = 'Cancelled' {$mockFilterSql} THEN 1 ELSE 0 END), 0) AS cancelled,
+            COALESCE(SUM(CASE WHEN status = 'Voided' {$mockFilterSql} THEN 1 ELSE 0 END), 0) AS voided,
             COALESCE(SUM(CASE WHEN status = 'Completed' AND is_mock = 1 THEN 1 ELSE 0 END), 0) AS mock_orders,
-            COALESCE(SUM(CASE WHEN status = 'Completed' AND (is_mock = 0 OR is_mock IS NULL) THEN 1 ELSE 0 END), 0) AS real_orders
+            COALESCE(SUM(CASE WHEN status = 'Completed' AND (is_mock = 0 OR is_mock IS NULL) THEN 1 ELSE 0 END), 0) AS real_orders,
+            COALESCE(SUM(CASE WHEN status = 'Completed' AND is_mock = 1 THEN total_amount ELSE 0 END), 0) AS mock_total,
+            COALESCE(SUM(CASE WHEN status = 'Completed' AND (is_mock = 0 OR is_mock IS NULL) THEN total_amount ELSE 0 END), 0) AS real_total
        FROM transactions
       WHERE `timestamp` >= :start AND `timestamp` < :end"
 );
 $stmt->execute([':start' => $startStr, ':end' => $endStr]);
-$s = $stmt->fetch() ?: ['orders' => 0, 'total' => 0, 'cash' => 0, 'gcash' => 0, 'pending' => 0, 'cancelled' => 0, 'voided' => 0, 'mock_orders' => 0, 'real_orders' => 0];
+$s = $stmt->fetch() ?: ['orders' => 0, 'total' => 0, 'cash' => 0, 'gcash' => 0, 'pending' => 0, 'cancelled' => 0, 'voided' => 0, 'mock_orders' => 0, 'real_orders' => 0, 'mock_total' => 0, 'real_total' => 0];
 
 $mockOrders = (int) ($s['mock_orders'] ?? 0);
 $realOrders = (int) ($s['real_orders'] ?? 0);
@@ -234,7 +242,7 @@ $stmt = $pdo->prepare(
        FROM transaction_items ti
        JOIN transactions t   ON t.transaction_id = ti.transaction_id
        LEFT JOIN menu_products p ON p.product_id = ti.product_id
-      WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed'
+      WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed' {$mockFilterTql}
       GROUP BY name, category, macro_category
       ORDER BY qty DESC, revenue DESC, name ASC
       LIMIT 100"
@@ -270,7 +278,7 @@ $stmt = $pdo->prepare(
             COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'Cash'  THEN total_amount ELSE 0 END), 0) AS cash,
             COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'GCash' THEN total_amount ELSE 0 END), 0) AS gcash
        FROM transactions
-      WHERE `timestamp` >= :start AND `timestamp` < :end
+      WHERE `timestamp` >= :start AND `timestamp` < :end {$mockFilterSql}
       GROUP BY sale_date
       ORDER BY sale_date DESC"
 );
@@ -287,7 +295,7 @@ $stmt = $pdo->prepare(
        FROM transaction_items ti
        JOIN transactions t ON t.transaction_id = ti.transaction_id
        LEFT JOIN menu_products p ON p.product_id = ti.product_id
-      WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed'
+      WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed' {$mockFilterTql}
       GROUP BY category
       ORDER BY revenue DESC"
 );
@@ -377,7 +385,7 @@ if ($rangeType === 'year') {
                 COALESCE(SUM(CASE WHEN status = 'Completed' AND payment_method = 'GCash' THEN total_amount ELSE 0 END), 0) AS gcash,
                 COUNT(DISTINCT CASE WHEN status = 'Completed' THEN DATE(`timestamp`) END) AS active_days
            FROM transactions
-          WHERE `timestamp` >= :start AND `timestamp` < :end
+          WHERE `timestamp` >= :start AND `timestamp` < :end {$mockFilterSql}
           GROUP BY m_num, m_key, m_name, m_full_name
           ORDER BY m_num ASC"
     );
@@ -485,7 +493,7 @@ if ($rangeType === 'year') {
            FROM transaction_items ti
            JOIN transactions t   ON t.transaction_id = ti.transaction_id
            LEFT JOIN menu_products p ON p.product_id = ti.product_id
-          WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed'
+          WHERE t.`timestamp` >= :start AND t.`timestamp` < :end AND t.status = 'Completed' {$mockFilterTql}
           GROUP BY name, category, macro_category, size_code, size_label, size_oz
           ORDER BY qty DESC, revenue DESC, name ASC"
     );
@@ -543,7 +551,7 @@ if ($rangeType === 'date' || $rangeType === 'today' || $startDateStr === $endDat
                 COUNT(*)          AS orders,
                 COALESCE(SUM(total_amount), 0) AS total
            FROM transactions
-          WHERE `timestamp` >= :start AND `timestamp` < :end AND status = 'Completed'
+          WHERE `timestamp` >= :start AND `timestamp` < :end AND status = 'Completed' {$mockFilterSql}
           GROUP BY sale_hour
           ORDER BY sale_hour ASC"
     );
@@ -652,6 +660,11 @@ send_json([
         'pending'           => (int) $s['pending'],
         'cancelled'         => (int) $s['cancelled'],
         'voided'            => (int) $s['voided'],
+        'real_orders'       => $realOrders,
+        'mock_orders'       => $mockOrders,
+        'real_total'        => (float) ($s['real_total'] ?? 0),
+        'mock_total'        => (float) ($s['mock_total'] ?? 0),
+        'include_mock'      => !$filterOnlyReal,
         'aov'               => $aov,
         'avg_daily_revenue' => $avgDailyRev,
         'best_month'        => $bestMonth,

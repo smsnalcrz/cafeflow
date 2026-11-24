@@ -235,9 +235,11 @@ window.CafeFlow = window.CafeFlow || {};
       function onKeyDown(e) {
         if (e.key === 'Escape') {
           e.preventDefault();
+          e.stopPropagation();
           cleanup(false);
         } else if (e.key === 'Enter' && e.target !== cancelBtn) {
           e.preventDefault();
+          e.stopPropagation();
           cleanup(true);
         }
       }
