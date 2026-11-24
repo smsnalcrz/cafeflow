@@ -297,13 +297,62 @@
   color: var(--caramel);
 }
 .toolbar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
+  flex-wrap: wrap;
 }
 .status-period {
   font-weight: 700;
   color: var(--ink);
+}
+.dataset-seg {
+  display: inline-flex;
+  align-items: center;
+  background: var(--cream, #f5f0eb);
+  border: 1.5px solid var(--line, #e2d9cf);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+}
+.dataset-pill {
+  border: none;
+  background: transparent;
+  color: var(--muted, #8c7e72);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all var(--dur-fast, .15s) ease;
+  line-height: 1.2;
+}
+.dataset-pill:hover:not(.on) {
+  color: var(--ink, #2c231d);
+  background: rgba(0,0,0,.03);
+}
+.dataset-pill.on {
+  background: var(--caramel, #c07c2e);
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+}
+:root[data-theme="dark"] .dataset-seg {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.12);
+}
+:root[data-theme="dark"] .dataset-pill {
+  color: #a89f91;
+}
+:root[data-theme="dark"] .dataset-pill:hover:not(.on) {
+  color: #f5f0eb;
+  background: rgba(255,255,255,.05);
+}
+:root[data-theme="dark"] .dataset-pill.on {
+  background: var(--caramel, #d88d35);
+  color: #1a1410;
 }
 
 /* ======================================================================
