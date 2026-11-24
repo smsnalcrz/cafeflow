@@ -32,7 +32,7 @@ window.CafeFlow = window.CafeFlow || {};
 
     const tbody = $('#auditTableBody');
     if (tbody && state.offset === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">Loading audit records...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">Loading audit records...</td></tr>';
     }
 
     try {
@@ -118,7 +118,7 @@ window.CafeFlow = window.CafeFlow || {};
     if (!tbody) return;
 
     if (!Array.isArray(logs) || logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: var(--text-muted); font-size: 14px;">No audit trail events match the selected filters.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: var(--muted); font-size: 14px;">No audit trail events match the selected filters.</td></tr>';
       return;
     }
 
@@ -141,8 +141,8 @@ window.CafeFlow = window.CafeFlow || {};
             <div class="audit-staff-cell">
               <div class="audit-avatar-xs ${roleClass}">${escapeHtml(roleInitial)}</div>
               <div>
-                <strong style="display:block; line-height:1.2;">@${escapeHtml(log.username)}</strong>
-                <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted);">${escapeHtml(role)}</span>
+                <strong style="display:block; line-height:1.2; color:var(--ink);">@${escapeHtml(log.username)}</strong>
+                <span style="font-size:10px; font-weight:700; text-transform:uppercase; color:var(--muted);">${escapeHtml(role)}</span>
               </div>
             </div>
           </td>
@@ -152,18 +152,18 @@ window.CafeFlow = window.CafeFlow || {};
             </span>
           </td>
           <td>
-            <div style="font-weight:600; color:var(--text);">${escapeHtml(log.description)}</div>
-            <div style="font-size:11px; color:var(--text-muted); font-family:monospace;">${escapeHtml(log.action)}</div>
+            <div style="font-weight:600; color:var(--ink);">${escapeHtml(log.description)}</div>
+            <div style="font-size:11px; color:var(--muted); font-family:monospace;">${escapeHtml(log.action)}</div>
           </td>
           <td>
-            ${log.session_duration ? `<span style="font-weight:600; color:#7c3aed;">${escapeHtml(log.session_duration)}</span>` : '<span class="muted">--</span>'}
+            ${log.session_duration ? `<span style="font-weight:700; color:var(--purple);">${escapeHtml(log.session_duration)}</span>` : '<span class="muted">--</span>'}
           </td>
-          <td style="font-family:monospace; font-size:12px; color:var(--text-muted);">
+          <td style="font-family:monospace; font-size:12px; color:var(--muted);">
             ${escapeHtml(log.ip_address)}
           </td>
           <td style="text-align:center;">
             ${hasMeta ? `
-              <button type="button" class="btn ghost btn-sm btn-inspect-audit" data-meta="${escapeAttr(metaString)}" data-title="${escapeAttr(log.description)}" style="padding:4px 8px; font-size:11px;">
+              <button type="button" class="btn ghost btn-sm btn-inspect-audit" data-meta="${escapeAttr(metaString)}" data-title="${escapeAttr(log.description)}" style="padding:4px 10px; font-size:11.5px;">
                 Inspect
               </button>
             ` : '<span class="muted" style="font-size:11px;">None</span>'}
@@ -190,19 +190,19 @@ window.CafeFlow = window.CafeFlow || {};
     if (!modal) {
       modal = document.createElement('div');
       modal.id = 'auditInspectModal';
-      modal.className = 'modal';
+      modal.className = 'sheet confirm-modal-sheet';
       modal.innerHTML = `
-        <div class="modal-card" style="max-width: 540px;">
-          <div class="modal-head">
-            <h3 id="auditInspectTitle" style="margin:0; font-size:16px;">Audit Details</h3>
-            <button type="button" class="btn ghost" id="auditInspectCloseBtn" style="padding:4px 8px;">✕</button>
+        <div class="modal-card">
+          <div class="modal-head" style="padding: 16px 20px;">
+            <h3 id="auditInspectTitle" style="margin:0; font-size:16px; font-weight:800; color:var(--ink);">Audit Record Details</h3>
+            <button type="button" class="btn ghost btn-sm" id="auditInspectCloseBtn" style="padding:4px 8px; margin-left:auto;">✕</button>
           </div>
-          <div class="modal-body" style="padding: 16px 20px;">
-            <p style="font-size:12px; color:var(--text-muted); margin:0 0 10px;">Contextual Event Payload (Sanitized JSON):</p>
+          <div class="modal-body" style="padding: 18px 22px; overflow-y: auto;">
+            <p style="font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; margin:0 0 10px;">Contextual Event Payload (JSON):</p>
             <pre class="audit-json-box" id="auditInspectJson"></pre>
           </div>
-          <div style="padding: 12px 20px; border-top: 1px solid var(--border); text-align:right;">
-            <button type="button" class="btn primary btn-sm" id="auditInspectOkBtn">Done</button>
+          <div style="padding: 12px 20px; background: var(--surface); border-top: 1.5px solid var(--line); display:flex; justify-content:flex-end;">
+            <button type="button" class="btn primary btn-sm" id="auditInspectOkBtn" style="padding:8px 22px;">Done</button>
           </div>
         </div>
       `;

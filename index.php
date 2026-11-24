@@ -102,10 +102,6 @@ $cssModules = [
         <svg class="nav-icon" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
         <span>Predictive Analytics</span>
       </button>
-      <button type="button" class="nav-btn" data-view="audit" id="auditNavBtn">
-        <svg class="nav-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-        <span>Audit Log</span>
-      </button>
       <?php endif; ?>
     </nav>
 
@@ -368,18 +364,6 @@ $cssModules = [
         <div class="mgr-card-value" id="mgrCardPredictiveHighlight">Forecast Engine</div>
         <p class="muted" style="margin: 0 0 10px;">Seasonality-aware ML demand forecasting for daily, 7-day, monthly, and yearly revenue.</p>
         <button type="button" class="btn primary mgr-card-btn" id="mgrOpenPredictiveBtn">Launch Predictive Engine</button>
-      </div>
-
-      <div class="mgr-card">
-        <div class="mgr-card-header">
-          <span class="mgr-card-title">Audit Log &amp; Activity</span>
-          <div class="mgr-card-icon-badge">
-            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-          </div>
-        </div>
-        <div class="mgr-card-value" id="mgrCardAuditActionsToday">-- events today</div>
-        <p class="muted" style="margin: 0 0 10px;">Monitor real-time user sessions, tab transitions, cashier orders, voids, and security events.</p>
-        <button type="button" class="btn primary mgr-card-btn" id="mgrOpenAuditBtn">View Audit Trail</button>
       </div>
     </div>
 
@@ -1498,7 +1482,7 @@ $cssModules = [
   <?php if ($currentRole === 'manager'): ?>
   <!-- Audit Log & User Activity Modal -->
   <div class="modal" id="auditModal" hidden>
-    <div class="modal-card" style="max-width: 1100px;">
+    <div class="modal-card">
       <div class="modal-head">
         <div style="display:flex; align-items:center; gap:12px;">
           <h2>Audit Log &amp; Activity Trail</h2>
@@ -1554,40 +1538,42 @@ $cssModules = [
           </select>
           <input type="date" id="auditDateFrom" class="audit-date-input" title="From Date">
           <input type="date" id="auditDateTo" class="audit-date-input" title="To Date">
-          <button type="button" class="btn ghost btn-sm" id="auditResetDateBtn" style="padding:5px 8px;" title="Reset Dates">Reset</button>
+          <button type="button" class="btn ghost btn-sm" id="auditResetDateBtn" style="padding:6px 10px;" title="Reset Dates">Reset</button>
         </div>
       </div>
 
-      <!-- Activity Feed Table -->
-      <div class="audit-table-wrap">
-        <table class="audit-table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>Staff User</th>
-              <th>Category</th>
-              <th>Action &amp; Description</th>
-              <th>Session Dwell</th>
-              <th>IP Address</th>
-              <th style="text-align:center;">Metadata</th>
-            </tr>
-          </thead>
-          <tbody id="auditTableBody">
-            <tr>
-              <td colspan="7" style="text-align:center; padding: 30px; color: var(--text-muted);">
-                Loading audit trail records...
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <div class="modal-body">
+        <!-- Activity Feed Table -->
+        <div class="audit-table-wrap">
+          <table class="audit-table">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Staff User</th>
+                <th>Category</th>
+                <th>Action &amp; Description</th>
+                <th>Session Dwell</th>
+                <th>IP Address</th>
+                <th style="text-align:center;">Metadata</th>
+              </tr>
+            </thead>
+            <tbody id="auditTableBody">
+              <tr>
+                <td colspan="7" style="text-align:center; padding: 30px; color: var(--muted);">
+                  Loading audit trail records...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-      <!-- Pagination Footer -->
-      <div class="audit-footer-bar">
-        <div class="audit-page-info" id="auditPaginationInfo">Loading...</div>
-        <div class="audit-page-buttons">
-          <button type="button" class="btn ghost btn-sm" id="auditPrevPageBtn" disabled>◀ Previous</button>
-          <button type="button" class="btn ghost btn-sm" id="auditNextPageBtn" disabled>Next ▶</button>
+        <!-- Pagination Footer -->
+        <div class="audit-footer-bar">
+          <div class="audit-page-info" id="auditPaginationInfo">Loading...</div>
+          <div class="audit-page-buttons">
+            <button type="button" class="btn ghost btn-sm" id="auditPrevPageBtn" disabled>◀ Previous</button>
+            <button type="button" class="btn ghost btn-sm" id="auditNextPageBtn" disabled>Next ▶</button>
+          </div>
         </div>
       </div>
     </div>

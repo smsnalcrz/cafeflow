@@ -115,7 +115,7 @@ window.CafeFlow = window.CafeFlow || {};
       loadManagerDashboard();
       const urlParams = new URLSearchParams(window.location.search);
       const reqView = urlParams.get('view');
-      if (reqView === 'inventory' || reqView === 'report' || reqView === 'accounts' || reqView === 'predictive' || reqView === 'waste') {
+      if (reqView === 'inventory' || reqView === 'report' || reqView === 'accounts' || reqView === 'predictive' || reqView === 'waste' || reqView === 'audit') {
         showView(reqView);
       } else {
         showView('dashboard');
