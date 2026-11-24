@@ -67,6 +67,12 @@ def get_db_connection():
             continue
     raise last_err
 
+def write_data_cell(cell, value):
+    cell.value = value
+    if isinstance(value, str):
+        cell.data_type = "s"
+
+
 def setup_page(ws, orientation='portrait', title_rows=None):
     ws.views.sheetView[0].showGridLines = True
     ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE if orientation == 'landscape' else ws.ORIENTATION_PORTRAIT
@@ -639,7 +645,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         ("GCash Digital E-Wallet", len(gcash_tx_ids), gcash_sales)
     ]
     for idx, (p_name, p_cnt, p_rev) in enumerate(pay_data, start=15):
-        ws1[f"A{idx}"] = p_name
+        write_data_cell(ws1[f"A{idx}"], p_name)
         ws1[f"B{idx}"] = p_cnt
         ws1[f"C{idx}"] = p_rev
         ws1[f"A{idx}"].font = font_main
@@ -712,7 +718,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     sorted_cats = sorted(category_mix.items(), key=lambda x: x[1]['sales'], reverse=True)
     c_row = 22
     for cat_name, c_data in sorted_cats:
-        ws1[f"A{c_row}"] = cat_name
+        write_data_cell(ws1[f"A{c_row}"], cat_name)
         ws1[f"B{c_row}"] = c_data['qty']
         ws1[f"C{c_row}"] = c_data['sales']
         ws1[f"D{c_row}"] = f"=C{c_row}/$C${22 + len(sorted_cats)}"
@@ -1047,10 +1053,10 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     inv_r_row = 9
     for item in reorder_items_data:
         ws_inv_reorder[f"A{inv_r_row}"] = item['id']
-        ws_inv_reorder[f"B{inv_r_row}"] = item['name']
-        ws_inv_reorder[f"C{inv_r_row}"] = item['cat']
+        write_data_cell(ws_inv_reorder[f"B{inv_r_row}"], item['name'])
+        write_data_cell(ws_inv_reorder[f"C{inv_r_row}"], item['cat'])
         ws_inv_reorder[f"D{inv_r_row}"] = item['stock']
-        ws_inv_reorder[f"E{inv_r_row}"] = item['unit']
+        write_data_cell(ws_inv_reorder[f"E{inv_r_row}"], item['unit'])
         ws_inv_reorder[f"F{inv_r_row}"] = item['thresh']
         ws_inv_reorder[f"G{inv_r_row}"] = item['daily_b']
         ws_inv_reorder[f"H{inv_r_row}"] = item['burn_7']
@@ -1380,8 +1386,8 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         rank_label = f"#{rank}"
 
         ws3[f"A{p_row}"] = rank_label
-        ws3[f"B{p_row}"] = p_name
-        ws3[f"C{p_row}"] = p_data['cat']
+        write_data_cell(ws3[f"B{p_row}"], p_name)
+        write_data_cell(ws3[f"C{p_row}"], p_data['cat'])
         ws3[f"D{p_row}"] = p_data['price']
         ws3[f"E{p_row}"] = p_data['qty']
         ws3[f"F{p_row}"] = p_data['sales']
@@ -1551,7 +1557,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         for col_idx, val in enumerate(row_vals, start=1):
             col_letter = get_column_letter(col_idx)
             cell = ws2[f"{col_letter}{l_row}"]
-            cell.value = val
+            write_data_cell(cell, val)
             cell.font = font_main
             cell.border = border_thin
             if is_zebra:
@@ -1711,9 +1717,9 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
             deficit = 0.0
 
         ws4[f"A{i_row}"] = f"#{i_id}"
-        ws4[f"B{i_row}"] = i_name
+        write_data_cell(ws4[f"B{i_row}"], i_name)
         ws4[f"C{i_row}"] = c_stock
-        ws4[f"D{i_row}"] = u_meas
+        write_data_cell(ws4[f"D{i_row}"], u_meas)
         ws4[f"E{i_row}"] = r_thresh
         ws4[f"F{i_row}"] = deficit
         ws4[f"G{i_row}"] = status_text
@@ -1945,9 +1951,9 @@ def generate_inventory_workbook(output_path):
         active_text = "Active" if is_active else "Inactive"
 
         ws1[f"A{i_row}"] = f"#{i_id:02d}"
-        ws1[f"B{i_row}"] = name
+        write_data_cell(ws1[f"B{i_row}"], name)
         ws1[f"C{i_row}"] = stock
-        ws1[f"D{i_row}"] = unit
+        write_data_cell(ws1[f"D{i_row}"], unit)
         ws1[f"E{i_row}"] = threshold
         ws1[f"F{i_row}"] = status_text
         ws1[f"G{i_row}"] = active_text
@@ -2028,12 +2034,12 @@ def generate_inventory_workbook(output_path):
     r_row = 5
     for r in recipe_rows:
         ws2[f"A{r_row}"] = f"#{r['product_id']:02d}"
-        ws2[f"B{r_row}"] = r['product_name']
-        ws2[f"C{r_row}"] = r['category']
+        write_data_cell(ws2[f"B{r_row}"], r['product_name'])
+        write_data_cell(ws2[f"C{r_row}"], r['category'])
         ws2[f"D{r_row}"] = float(r['product_price'] or 0)
-        ws2[f"E{r_row}"] = r['supply_name']
+        write_data_cell(ws2[f"E{r_row}"], r['supply_name'])
         ws2[f"F{r_row}"] = float(r['deduction_amount'] or 0)
-        ws2[f"G{r_row}"] = r['unit_measure']
+        write_data_cell(ws2[f"G{r_row}"], r['unit_measure'])
 
         for c in ["A", "B", "C", "D", "E", "F", "G"]:
             cell = ws2[f"{c}{r_row}"]

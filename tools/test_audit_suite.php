@@ -366,6 +366,16 @@ $hasRequiredHeaders = str_contains($csvOutput, 'Log ID') &&
                       str_contains($csvOutput, 'IP Address');
 assertTest('CSV Export: Contains required CSV header columns', $hasRequiredHeaders);
 
+$formulaCells = ['=1', ' +1', '-1', '@name', "\ttext", " \rtext", "\u{00A0}=1"];
+$normalCells = ['DK Cafe', 'coffee, "iced"', 'backslash\\"quote', ''];
+$csvStream = fopen('php://temp', 'w+');
+write_spreadsheet_csv_row($csvStream, array_merge($formulaCells, $normalCells));
+rewind($csvStream);
+assertTest('CSV Export: spreadsheet prefixes are quoted and ordinary cells round-trip',
+    fgetcsv($csvStream, 0, ',', '"', '') === array_merge(
+        array_map(static fn($value) => "'" . $value, $formulaCells), $normalCells));
+fclose($csvStream);
+
 // 8.3 Immutability / Method Not Allowed check
 $_SERVER['REQUEST_METHOD'] = 'POST';
 $_GET = [];

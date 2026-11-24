@@ -9,6 +9,7 @@
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/auth.php';
 require_once __DIR__ . '/../core/audit.php';
+require_once __DIR__ . '/../core/csv.php';
 
 $currentUser = require_role('manager'); // Barista role receives HTTP 403 automatically
 $pdo = db();
@@ -159,7 +160,7 @@ if ($exportCsv) {
     $csvStmt->execute($params);
 
     while ($row = $csvStmt->fetch(PDO::FETCH_ASSOC)) {
-        fputcsv($out, [
+        write_spreadsheet_csv_row($out, [
             $row['log_id'],
             $row['created_at'],
             audit_public_session_id($row['session_id']) ?? '',
