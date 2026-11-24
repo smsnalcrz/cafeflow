@@ -11,6 +11,7 @@ if (!getenv('DB_NAME')) {
     exit(1);
 }
 require_once __DIR__ . '/../core/db.php';
+require_once __DIR__ . '/../core/audit_metadata.php';
 
 try {
     $pdo = new PDO('mysql:host=' . DB_HOST . ';port=' . DB_PORT . ';dbname=' . DB_NAME . ';charset=utf8mb4',
@@ -30,8 +31,26 @@ try {
         SET s.session_id = m.new_id,
             s.logout_reason = IF(s.logout_at IS NULL, 'revoked', s.logout_reason),
             s.logout_at = COALESCE(s.logout_at, s.last_heartbeat_at)");
+    $redacted = 0;
+    foreach ([['audit_logs', 'log_id', 'metadata_json'], ['security_audit_log', 'audit_id', 'metadata']] as [$table, $id, $column]) {
+        $cursor = 0;
+        $read = $pdo->prepare("SELECT $id, IF(OCTET_LENGTH($column) <= 65536, $column, NULL) AS payload FROM $table
+            WHERE $id > ? AND $column IS NOT NULL ORDER BY $id LIMIT 100 FOR UPDATE");
+        $write = $pdo->prepare("UPDATE $table SET $column = ? WHERE $id = ?");
+        do {
+            $read->execute([$cursor]);
+            $rows = $read->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $row) {
+                $cursor = $row[$id];
+                $clean = audit_stored_metadata($row['payload']);
+                if ($clean !== null && json_encode(json_decode($clean)) === json_encode(json_decode($row['payload']))) continue;
+                $write->execute([$clean, $cursor]);
+                $redacted++;
+            }
+        } while (count($rows) === 100);
+    }
     $pdo->commit();
-    echo "Converted $logs events and $sessions sessions.\n";
+    echo "Converted $logs events and $sessions sessions. Sanitized $redacted metadata records.\n";
 } catch (Throwable $e) {
     if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
     fwrite(STDERR, "Audit session conversion failed (code " . $e->getCode() . ").\n");

@@ -203,7 +203,7 @@ if ($exportCsv) {
             $row['target_type'] ?? '',
             $row['target_id'] ?? '',
             $row['ip_address'],
-            $row['metadata_json'] ?? ''
+            audit_stored_metadata($row['metadata_json']) ?? ''
         ]);
     }
 
@@ -251,10 +251,7 @@ $rawLogs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $logs = [];
 foreach ($rawLogs as $r) {
-    $meta = null;
-    if (!empty($r['metadata_json'])) {
-        $meta = json_decode($r['metadata_json'], true);
-    }
+    $meta = json_decode(audit_stored_metadata($r['metadata_json']) ?? 'null', true);
 
     $durSec = (int) ($r['session_duration_seconds'] ?? 0);
     $durFormatted = null;

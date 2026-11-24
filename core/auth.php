@@ -456,7 +456,7 @@ function log_security_audit(PDO $pdo, ?int $actorUserId, ?int $targetUserId, str
     try {
         $ip = get_client_ip();
         $userAgent = substr($_SERVER['HTTP_USER_AGENT'] ?? 'CLI/Unknown', 0, 255);
-        $metaJson = $metadata !== null ? json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null;
+        $metaJson = audit_metadata_json($metadata);
 
         $stmt = $pdo->prepare('
             INSERT INTO security_audit_log (actor_user_id, target_user_id, action, ip_address, user_agent, metadata)

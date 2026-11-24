@@ -82,6 +82,8 @@ echo "\n--- 2. Testing Core Audit Logging & Secret Redaction ---\n";
 $testAction = 'test_audit_event_' . bin2hex(random_bytes(4));
 $testMeta = [
     'test_key'         => 'safe_value',
+    'nested'           => [(object)['keep' => 7, 'accessToken' => 'private-fixture',
+        'details' => ['Set-Cookie' => 'private-fixture', 'TOTP_Secret' => 'private-fixture']]],
     'password'         => 'super_secret_123',
     'confirm_password' => 'super_secret_123',
     'secret'           => 'BASE32SECRETVAL',
@@ -109,6 +111,10 @@ assertTest('Audit Engine: Timestamp precision has microseconds', (bool)preg_matc
 
 $savedMeta = json_decode($logRow['metadata_json'] ?? '{}', true);
 assertTest('Redaction: Safe metadata preserved', ($savedMeta['test_key'] ?? '') === 'safe_value');
+assertTest('Redaction: nested arrays and objects preserve safe fields and remove secrets',
+    ($savedMeta['nested'][0]['keep'] ?? null) === 7 && !str_contains($logRow['metadata_json'], 'private-fixture'));
+assertTest('Redaction: oversized metadata cannot exceed the storage budget',
+    audit_metadata_json(array_fill(0, 16, str_repeat('a', 1024))) === null);
 assertTest('Redaction: Sensitive password strictly redacted', !isset($savedMeta['password']) && !isset($savedMeta['confirm_password']));
 assertTest('Redaction: Sensitive 2FA secrets strictly redacted', !isset($savedMeta['secret']) && !isset($savedMeta['two_factor_secret']) && !isset($savedMeta['recovery_code']));
 assertTest('Redaction: CSRF token strictly redacted', !isset($savedMeta['csrf_token']));
@@ -310,13 +316,16 @@ $pdo->exec("DELETE FROM audit_logs WHERE target_id IN ('999', '9999', '888', '10
 echo "\n--- 7. Testing security_audit_log Dual-Write Bridge ---\n";
 
 $bridgeAction = 'bridge_test_2fa_reset_' . bin2hex(random_bytes(3));
-log_security_audit($pdo, 2, 1, $bridgeAction, ['reason' => 'Unit test dual write']);
+log_security_audit($pdo, 2, 1, $bridgeAction, ['reason' => 'Unit test dual write',
+    'context' => ['recoveryCodes' => ['private-fixture']]]);
 
 $secRow = $pdo->query("SELECT * FROM security_audit_log WHERE action = '{$bridgeAction}' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 assertTest('Bridge: Successfully wrote to legacy security_audit_log table', !empty($secRow));
 
 $auditRow = $pdo->query("SELECT * FROM audit_logs WHERE action = '{$bridgeAction}' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 assertTest('Bridge: Successfully dual-wrote to primary audit_logs table', !empty($auditRow));
+assertTest('Bridge: both stored copies redact nested recovery codes',
+    !str_contains($secRow['metadata'], 'private-fixture') && !str_contains($auditRow['metadata_json'], 'private-fixture'));
 
 // Clean up bridge test rows
 $pdo->exec("DELETE FROM security_audit_log WHERE action = '{$bridgeAction}'");
@@ -335,6 +344,11 @@ $_SESSION['full_name'] = 'Manager';
 clear_auth_cache();
 
 // 8.1 API JSON Response
+$legacyAction = 'legacy_fixture_' . bin2hex(random_bytes(4));
+$legacyInsert = $pdo->prepare("INSERT INTO audit_logs
+    (session_id, username_snapshot, user_role_snapshot, category, action, description, metadata_json, ip_address)
+    VALUES ('legacy-session-fixture', 'fixture', 'manager', 'system', ?, 'Historical audit fixture', ?, '127.0.0.1')");
+$legacyInsert->execute([$legacyAction, '{"context":{"keep":"historical-value","csrfToken":"private-fixture"}}']);
 $_SERVER['REQUEST_METHOD'] = 'GET';
 $_GET = ['limit' => 10, 'offset' => 0];
 
@@ -347,6 +361,10 @@ assertTest('Audit API: Returns valid JSON with success: true', !empty($apiJson) 
 assertTest('Audit API: Includes pagination metadata', isset($apiJson['pagination']['total']) && isset($apiJson['pagination']['limit']));
 assertTest('Audit API: Includes live metrics (online_count, sessions, actions, duration)', isset($apiJson['metrics']['online_count']) && isset($apiJson['metrics']['sessions_today']));
 assertTest('Audit API: Returns logs array with formatted timestamps', is_array($apiJson['logs']));
+$legacyResult = array_values(array_filter($apiJson['logs'], static fn($row) => $row['action'] === $legacyAction));
+assertTest('Audit API: historical sessions and nested secrets are masked on read',
+    ($legacyResult[0]['metadata']['context'] ?? null) === ['keep' => 'historical-value']
+    && array_key_exists('session_id', $legacyResult[0]) && $legacyResult[0]['session_id'] === null);
 
 // 8.2 API CSV Export
 $_SERVER['REQUEST_METHOD'] = 'GET';
@@ -365,6 +383,10 @@ $hasRequiredHeaders = str_contains($csvOutput, 'Log ID') &&
                       str_contains($csvOutput, 'Description') &&
                       str_contains($csvOutput, 'IP Address');
 assertTest('CSV Export: Contains required CSV header columns', $hasRequiredHeaders);
+assertTest('CSV Export: historical sensitive values are removed before serialization',
+    str_contains($csvOutput, $legacyAction) && !str_contains($csvOutput, 'private-fixture')
+    && !str_contains($csvOutput, 'legacy-session-fixture'));
+$pdo->prepare('DELETE FROM audit_logs WHERE action = ?')->execute([$legacyAction]);
 
 $formulaCells = ['=1', ' +1', '-1', '@name', "\ttext", " \rtext", "\u{00A0}=1"];
 $normalCells = ['DK Cafe', 'coffee, "iced"', 'backslash\\"quote', ''];

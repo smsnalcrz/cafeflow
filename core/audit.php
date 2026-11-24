@@ -7,6 +7,7 @@
  * inventory adjustments, and order operations.
  */
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/audit_metadata.php';
 require_once __DIR__ . '/auth.php';
 
 function audit_public_session_id(?string $value): ?string
@@ -64,20 +65,6 @@ if (!function_exists('audit_log')) {
             $sessionId = $_SESSION['audit_tracking_id'] ?? null;
             $ip = function_exists('get_client_ip') ? get_client_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
 
-            // Redact any sensitive passwords or secrets from metadata
-            if (is_array($metadata)) {
-                unset(
-                    $metadata['password'],
-                    $metadata['new_password'],
-                    $metadata['confirm_password'],
-                    $metadata['secret'],
-                    $metadata['two_factor_secret'],
-                    $metadata['recovery_code'],
-                    $metadata['recovery_codes'],
-                    $metadata['csrf_token']
-                );
-            }
-
             $stmt = $pdo->prepare('
                 INSERT INTO audit_logs (
                     session_id, user_id, username_snapshot, user_role_snapshot,
@@ -95,7 +82,7 @@ if (!function_exists('audit_log')) {
                 substr($description, 0, 255),
                 $targetType ? substr($targetType, 0, 50) : null,
                 $targetId !== null ? substr((string)$targetId, 0, 64) : null,
-                $metadata ? json_encode($metadata, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) : null,
+                audit_metadata_json($metadata),
                 substr($ip, 0, 45)
             ]);
         } catch (Throwable $e) {
