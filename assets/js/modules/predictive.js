@@ -390,12 +390,18 @@ window.CafeFlow = window.CafeFlow || {};
           },
           tooltip: {
             backgroundColor: colors.tooltipBg,
-            titleColor: colors.text,
-            bodyColor: colors.text,
+            titleColor: '#FFFFFF',
+            bodyColor: '#FFFFFF',
+            footerColor: '#FFFFFF',
+            titleFont: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', size: 12, weight: '700' },
+            bodyFont: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', size: 12, weight: '500' },
             borderColor: colors.tooltipBorder,
             borderWidth: 1,
             padding: 10,
+            displayColors: true,
+            boxPadding: 4,
             callbacks: {
+              labelTextColor: () => '#FFFFFF',
               label: (context) => {
                 const val = context.parsed.y;
                 if (val === null || val === undefined) {

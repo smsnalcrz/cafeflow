@@ -18,3 +18,8 @@ exports/
 *.xlsx
 ~$*.xlsx
 *.jsonl
+
+# Cloudflare temporary deployment binary & state
+cloudflare_deploy/bin/
+cloudflare_deploy/.cf_tunnel_state.json
+cloudflare_deploy/.cf_tunnel.log

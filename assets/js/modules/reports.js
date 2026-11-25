@@ -693,14 +693,15 @@ window.CafeFlow = window.CafeFlow || {};
           legend: { display: false },
           tooltip: {
             backgroundColor: colors.tooltipBg,
-            titleColor: colors.text,
-            bodyColor: colors.isDark ? 'rgba(250, 247, 242, 0.92)' : 'rgba(255, 255, 255, 0.95)',
+            titleColor: '#FFFFFF',
+            bodyColor: '#FFFFFF',
             borderColor: colors.tooltipBorder,
             borderWidth: 1,
             padding: 10,
             cornerRadius: 8,
             boxPadding: 4,
             callbacks: {
+              labelTextColor: function() { return '#FFFFFF'; },
               title: function(itemsList) {
                 return itemsList[0] ? itemsList[0].label : '';
               },

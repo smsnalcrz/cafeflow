@@ -15,6 +15,11 @@ $currentUser = require_login();
 $currentRole = strtolower($currentUser['role'] ?? 'barista');
 $csrfToken = get_csrf_token();
 
+if (!headers_sent()) {
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+}
+
 // Cache-bust the CSS/JS by file modification time so the tablet never runs stale code.
 $ver = static fn(string $f): int => (int) @filemtime(__DIR__ . '/' . $f);
 
