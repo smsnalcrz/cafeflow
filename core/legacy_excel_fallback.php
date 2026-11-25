@@ -126,7 +126,7 @@ foreach ($transactions as $tx) {
     $txId = (int)$tx['transaction_id'];
     $receiptNo = sprintf('#%05d', $txId);
     $itemsSummary = isset($itemsByTx[$txId]) ? implode('; ', $itemsByTx[$txId]) : '—';
-    $isMock = !empty($tx['is_mock']) ? 'Synthetic / Mock' : 'Live Order';
+    $isMock = 'POS Order';
 
     if ($tx['status'] === 'Completed') {
         $sumTotal += (float)$tx['total_amount'];

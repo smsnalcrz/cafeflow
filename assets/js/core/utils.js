@@ -272,6 +272,36 @@ window.CafeFlow = window.CafeFlow || {};
   }
 
   /* ------------------------------------------------------------------ *
+   *  Lightweight Pub/Sub Event Bus (Decoupled Cross-Module Messaging)
+   * ------------------------------------------------------------------ */
+  const _listeners = new Map();
+  const events = {
+    on(event, fn) {
+      if (typeof fn !== 'function') return () => {};
+      if (!_listeners.has(event)) _listeners.set(event, new Set());
+      _listeners.get(event).add(fn);
+      return () => this.off(event, fn);
+    },
+    off(event, fn) {
+      const set = _listeners.get(event);
+      if (set) set.delete(fn);
+    },
+    emit(event, payload) {
+      const set = _listeners.get(event);
+      if (!set) return;
+      for (const fn of Array.from(set)) {
+        try {
+          fn(payload);
+        } catch (err) {
+          console.error(`[CafeFlow.events] Error in listener for "${event}":`, err);
+        }
+      }
+    }
+  };
+
+  window.CafeFlow.events = events;
+
+  /* ------------------------------------------------------------------ *
    *  Export to CafeFlow Namespace
    * ------------------------------------------------------------------ */
   window.CafeFlow.utils = {
@@ -292,6 +322,7 @@ window.CafeFlow = window.CafeFlow || {};
     addDays,
     addMonths,
     formatHour,
-    dayLabel
+    dayLabel,
+    events
   };
 })();

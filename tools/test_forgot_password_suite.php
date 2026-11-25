@@ -59,9 +59,13 @@ $originalSecret = $manager['two_factor_secret'];
 $originalPassHash = $manager['password_hash'];
 $managerId = (int) $manager['user_id'];
 
-// User without 2FA
+// User without 2FA (or create fallback if all users have 2FA enabled)
 $stmtNo2fa = $pdo->query("SELECT user_id, username, two_factor_enabled FROM users WHERE two_factor_enabled = 0 LIMIT 1");
 $userNo2fa = $stmtNo2fa->fetch();
+if (!$userNo2fa) {
+    $pdo->prepare("INSERT INTO users (full_name, username, email, password_hash, role, status, two_factor_enabled) VALUES ('No 2FA Test', 'test_no_2fa_user', 'no2fa@cafeflow.com', ?, 'barista', 'active', 0)")->execute([password_hash('No2faPass123!', PASSWORD_DEFAULT)]);
+    $userNo2fa = ['user_id' => (int) $pdo->lastInsertId(), 'username' => 'test_no_2fa_user', 'two_factor_enabled' => 0];
+}
 assertTest("Found user without 2FA for negative testing (username: {$userNo2fa['username']})", $userNo2fa !== false);
 
 // -----------------------------------------------------------------------------
@@ -307,6 +311,8 @@ assertTest("Final Check: two_factor_secret was NOT cleared or changed",
     $mgrFinal['two_factor_secret'] === $originalSecret);
 assertTest("Final Check: two_factor_enabled is still 1",
     (int) $mgrFinal['two_factor_enabled'] === 1);
+
+$pdo->exec("DELETE FROM users WHERE username = 'test_no_2fa_user'");
 
 echo "\n======================================================================\n";
 echo "   TEST RUN COMPLETE: $testsPassed PASSED, $testsFailed FAILED\n";

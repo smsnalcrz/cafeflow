@@ -24,8 +24,6 @@ window.CafeFlow = window.CafeFlow || {};
 
   let reportRange = 'today'; // 'today' | 'date' | '7days' | 'month' | 'year'
 
-  let includeMockData = true; // Default to true so realistic mock data is visible immediately
-
   let selectedDate = toIsoDate(now);
 
   let selected7DayStart = toIsoDate(addDays(now, -6));
@@ -56,13 +54,6 @@ window.CafeFlow = window.CafeFlow || {};
     $$('#rangeSeg button').forEach(b => {
       b.classList.toggle('on', b.dataset.range === reportRange);
     });
-
-    const allBtn = $('#repDatasetAllBtn');
-    const liveBtn = $('#repDatasetLiveBtn');
-    if (allBtn && liveBtn) {
-      allBtn.classList.toggle('on', includeMockData);
-      liveBtn.classList.toggle('on', !includeMockData);
-    }
 
     const todayGrp = $('#todayPickerGroup');
     if (todayGrp) todayGrp.hidden = reportRange !== 'today';
@@ -118,13 +109,12 @@ window.CafeFlow = window.CafeFlow || {};
   }
 
   function getReportUrl() {
-    const mockParam = includeMockData ? '&include_mock=1' : '';
-    if (reportRange === 'today') return `report.php?range=today${mockParam}`;
-    if (reportRange === 'date') return `report.php?range=date&date=${encodeURIComponent(selectedDate)}${mockParam}`;
-    if (reportRange === '7days') return `report.php?range=7days&start=${encodeURIComponent(selected7DayStart)}${mockParam}`;
-    if (reportRange === 'month') return `report.php?range=month&month=${encodeURIComponent(selectedMonth)}${mockParam}`;
-    if (reportRange === 'year') return `report.php?range=year&year=${encodeURIComponent(selectedYear)}${mockParam}`;
-    return `report.php?range=today${mockParam}`;
+    if (reportRange === 'today') return 'report.php?range=today';
+    if (reportRange === 'date') return `report.php?range=date&date=${encodeURIComponent(selectedDate)}`;
+    if (reportRange === '7days') return `report.php?range=7days&start=${encodeURIComponent(selected7DayStart)}`;
+    if (reportRange === 'month') return `report.php?range=month&month=${encodeURIComponent(selectedMonth)}`;
+    if (reportRange === 'year') return `report.php?range=year&year=${encodeURIComponent(selectedYear)}`;
+    return 'report.php?range=today';
   }
 
   async function loadReport() {
@@ -1240,20 +1230,16 @@ window.CafeFlow = window.CafeFlow || {};
 
   function generateYearlyStrategicNarrative(r) {
     var s = r.summary || {};
-    var health = r.data_health || {};
     var tot = money(s.total || 0);
     var ord = (s.orders || 0).toLocaleString();
     var aov = money(s.aov || (s.orders ? s.total / s.orders : 0));
     var daily = money(s.avg_daily_revenue || 0);
     var bestM = s.best_month ? (s.best_month.name + ' (' + money(s.best_month.total) + ', ' + s.best_month.orders + ' orders)') : 'Q1/Q4 peaks';
     var lowM = s.lowest_month ? (s.lowest_month.name + ' (' + money(s.lowest_month.total) + ')') : 'Monsoon off-peak';
-    var isMock = health.dataset_type === 'synthetic';
 
     var p1 = 'Annual gross revenue reached ' + tot + ' across ' + ord + ' completed customer transactions, delivering a robust Average Order Value (AOV) of ' + aov + ' and an operating baseline of ' + daily + ' per business day. Peak sales momentum concentrated heavily in ' + bestM + ', driven by seasonal beverage demand and extended evening foot traffic, whereas ' + lowM + ' marked the seasonal trough with reduced daily order velocity.';
 
-    var p2 = isMock
-      ? 'This 2025 historical dataset reflects distinct Philippine retail dynamics—including the Tag-init summer beach influx (March–May), Habagat monsoon lulls (July–August), and the intense Q4 Ber-months holiday surge fueled by 13th-month bonus payouts. The annual volume curves provide valuable operational baselines for store management to anticipate ingredient procurement, stock buffering, and seasonal barista scheduling.'
-      : 'Store sales records confirm steady revenue consistency and high GCash digital adoption across the operating calendar. Store management can utilize this full-year historical velocity pattern to guide menu pricing strategies, seasonal promotional campaigns, and automated reorder triggers for high-volume coffee and pastry inventory.';
+    var p2 = 'Store sales records reflect distinct Philippine retail dynamics—including the Tag-init summer beach influx (March–May), Habagat monsoon lulls (July–August), and the Q4 Ber-months holiday surge—alongside steady GCash digital adoption across the operating calendar. Store management can utilize this full-year velocity pattern to guide menu pricing strategies, ingredient procurement, and stock buffering.';
 
     return [p1, p2];
   }
@@ -1687,26 +1673,7 @@ window.CafeFlow = window.CafeFlow || {};
       yrPicker.value = String(r.year || selectedYear);
     }
 
-    // 1. Dataset Integrity Alert Banner (shown only for simulated test datasets)
-    var isMock = health.dataset_type === 'synthetic';
-    if (isMock) {
-      var alertBanner = h('div', { class: 'dataset-alert-banner alert-mock' },
-        h('div', { class: 'dataset-alert-icon', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.65 18.2A2 2 0 0 0 6.36 21h11.28a2 2 0 0 0 1.71-2.8L14 9.31V2"></path><line x1="8" y1="2" x2="16" y2="2"></line></svg>' }),
-        h('div', { class: 'dataset-alert-body' },
-          h('div', { class: 'dataset-alert-header' },
-            h('span', { class: 'dataset-alert-title', text: 'Simulated Historical Test Dataset (2025)' }),
-            h('span', { class: 'dataset-alert-tag', text: 'Historical Archive (2025)' })
-          ),
-          h('p', {
-            class: 'dataset-alert-text',
-            text: 'This annual view presents 7,521 simulated transactions spanning 365 calendar days representing 2025 historical retail seasonality (Tag-init summer spikes, Habagat monsoon dips, and Q4 holiday surges). Financial and tax audits must reference actual store sales data.'
-          })
-        )
-      );
-      body.append(alertBanner);
-    }
-
-    // 2. 8-Card Annual KPI Summary Grid
+    // 1. 8-Card Annual KPI Summary Grid
     var drinksQty = r.category_summary ? (r.category_summary.drinks_qty || 0) : 0;
     var snacksQty = r.category_summary ? (r.category_summary.snacks_qty || 0) : 0;
     var bestMonthStr = s.best_month ? (s.best_month.name + ' (' + money(s.best_month.total) + ')') : 'N/A';
@@ -1851,7 +1818,7 @@ window.CafeFlow = window.CafeFlow || {};
         });
 
         tbody.innerHTML = '';
-        prodList.slice(0, 30).forEach(function(p) {
+        prodList.forEach(function(p) {
           var share = p.revenue_share_pct || 0;
           var tr = h('tr', {},
             h('td', { style: 'font-weight: 600;', text: p.name }),
@@ -1894,7 +1861,8 @@ window.CafeFlow = window.CafeFlow || {};
 
       renderProdRows();
       var table = h('table', { class: 'table' }, thead, tbody);
-      prodWrap.append(table);
+      var scrollBox = h('div', { class: 'product-perf-scroll-box' }, table);
+      prodWrap.append(scrollBox);
       body.append(prodWrap);
     }
 
@@ -2336,9 +2304,6 @@ window.CafeFlow = window.CafeFlow || {};
     }
 
     var metaText = `${r.start_date} to ${r.end_date}`;
-    if (r.data_health && r.data_health.dataset_type === 'synthetic') {
-      metaText += ' · Simulated Historical Dataset';
-    }
 
     // Executive Header Banner
     const bannerPrintBtn = h('button', {
@@ -2366,31 +2331,6 @@ window.CafeFlow = window.CafeFlow || {};
       h('div', { class: 'report-banner-actions' }, bannerPrintBtn, bannerExcelBtn)
     );
     body.append(banner);
-
-    // Notice when viewing in Live POS Only mode with 0 transactions but mock records available
-    if (!includeMockData && Number(s.orders || 0) === 0 && Number(s.mock_orders || 0) > 0) {
-      const liveEmptyBanner = h('div', { class: 'dataset-alert-banner alert-mock', style: 'margin-bottom: 16px;' },
-        h('div', { class: 'dataset-alert-icon', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' }),
-        h('div', { class: 'dataset-alert-body' },
-          h('div', { class: 'dataset-alert-header' },
-            h('span', { class: 'dataset-alert-title', text: 'Live POS Only Mode (0 Live Records)' }),
-            h('span', { class: 'dataset-alert-tag', text: `${s.mock_orders.toLocaleString()} Mock Records Available` })
-          ),
-          h('p', { class: 'dataset-alert-text', text: `Showing only actual live POS transactions (0 found for ${r.label}). There are ${s.mock_orders.toLocaleString()} simulated test transactions in the database.` }),
-          h('button', {
-            type: 'button',
-            class: 'btn small primary',
-            style: 'margin-top: 8px; width: fit-content;',
-            onclick: () => {
-              includeMockData = true;
-              syncToolbarUI();
-              loadReport();
-            }
-          }, 'Switch to All Data (Mock + Real)')
-        )
-      );
-      body.append(liveEmptyBanner);
-    }
 
     // Render Executive 5-Card KPI Summary
     body.append(renderExecutiveKpiGrid(r));
@@ -2808,16 +2748,15 @@ window.CafeFlow = window.CafeFlow || {};
 
 
     const isMultiDayRange = Boolean(r && r.start_date && r.end_date && r.start_date !== r.end_date);
-    const mockParam = includeMockData ? '&include_mock=1' : '';
     let txUrl = 'transactions_api.php';
     if (isYearly) {
-      txUrl += `?range=year&year=${encodeURIComponent(r.year || selectedYear)}&limit=250${mockParam}`;
+      txUrl += `?range=year&year=${encodeURIComponent(r.year || selectedYear)}&limit=250`;
     } else if (isMultiDayRange) {
-      txUrl += `?start=${encodeURIComponent(r.start_date)}&end=${encodeURIComponent(r.end_date)}${mockParam}`;
+      txUrl += `?start=${encodeURIComponent(r.start_date)}&end=${encodeURIComponent(r.end_date)}`;
     } else if (r && r.start_date) {
-      txUrl += `?date=${encodeURIComponent(r.start_date)}${mockParam}`;
+      txUrl += `?date=${encodeURIComponent(r.start_date)}`;
     } else if (r && r.range) {
-      txUrl += `?range=${encodeURIComponent(r.range)}${mockParam}`;
+      txUrl += `?range=${encodeURIComponent(r.range)}`;
     }
 
     try {
@@ -3113,19 +3052,18 @@ window.CafeFlow = window.CafeFlow || {};
   function exportTransactions(start, end) {
 
     let url;
-    const mockParam = includeMockData ? '&include_mock=1' : '';
 
     if (start && end && start !== end) {
 
-      url = `api/export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${mockParam}`;
+      url = `api/export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
 
     } else if (start) {
 
-      url = `api/export_excel.php?date=${encodeURIComponent(start)}${mockParam}`;
+      url = `api/export_excel.php?date=${encodeURIComponent(start)}`;
 
     } else {
 
-      url = `api/export_excel.php?all=1${mockParam}`;
+      url = 'api/export_excel.php?all=1';
 
     }
 
@@ -3378,29 +3316,6 @@ window.CafeFlow = window.CafeFlow || {};
     if (printReportBtn) {
       printReportBtn.addEventListener('click', () => {
         window.print();
-      });
-    }
-
-    // Dataset Mode Toggle (All Data vs Live Only)
-    const repDatasetAllBtn = $('#repDatasetAllBtn');
-    if (repDatasetAllBtn) {
-      repDatasetAllBtn.addEventListener('click', () => {
-        if (!includeMockData) {
-          includeMockData = true;
-          syncToolbarUI();
-          loadReport();
-        }
-      });
-    }
-
-    const repDatasetLiveBtn = $('#repDatasetLiveBtn');
-    if (repDatasetLiveBtn) {
-      repDatasetLiveBtn.addEventListener('click', () => {
-        if (includeMockData) {
-          includeMockData = false;
-          syncToolbarUI();
-          loadReport();
-        }
       });
     }
 

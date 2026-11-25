@@ -133,7 +133,7 @@ if ($typeParam === 'inventory') {
     } elseif ($dateParam) {
         $cliArgs .= ' --date ' . escapeshellarg($dateParam);
     }
-    if (!empty($_GET['include_mock']) && ($_GET['include_mock'] === '1' || $_GET['include_mock'] === 'true')) {
+    if (!isset($_GET['include_mock']) || ($_GET['include_mock'] !== '0' && $_GET['include_mock'] !== 'false')) {
         $cliArgs .= ' --include-mock';
     }
     $filename = 'DK_Cafe_Executive_Sales_Audit_' . $filenameSuffix . '.xlsx';

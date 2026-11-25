@@ -2623,6 +2623,33 @@
   text-transform: uppercase;
   letter-spacing: .5px;
 }
+.product-perf-scroll-box {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm, 10px);
+  margin-top: 10px;
+}
+.product-perf-scroll-box .table {
+  margin: 0;
+  min-width: 680px;
+}
+.product-perf-scroll-box .table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line);
+}
+[data-theme="dark"] .product-perf-scroll-box {
+  border-color: var(--line);
+}
+[data-theme="dark"] .product-perf-scroll-box .table thead th {
+  background: var(--surface);
+  box-shadow: 0 1px 0 var(--line);
+}
 .variant-size-pill {
   display: inline-flex;
   align-items: center;

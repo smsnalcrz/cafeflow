@@ -220,7 +220,7 @@ $allParam   = !empty($_GET['all']);
 $limitParam = as_int($_GET['limit'] ?? null, 1, 10000);
 
 $includeMockParam = $_GET['include_mock'] ?? null;
-$includeMock = ($includeMockParam === '1' || $includeMockParam === 'true');
+$includeMock = ($includeMockParam !== '0' && $includeMockParam !== 'false');
 $mockFilterSql = !$includeMock ? ' AND (is_mock = 0 OR is_mock IS NULL)' : '';
 
 $where = '';

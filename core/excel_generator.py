@@ -115,7 +115,7 @@ def auto_fit_columns(ws, min_col=1, max_col=None, start_row=4, min_width=12, pad
             max_len = max(max_len, len(val_str))
         ws.column_dimensions[col_letter].width = max(max_len + padding, min_width)
 
-def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False, report_type="sales", include_mock=False):
+def generate_sales_workbook(output_path, start_date=None, end_date=None, single_date=None, is_all=False, report_type="sales", include_mock=True):
     conn = get_db_connection()
 
     where_clause = ""

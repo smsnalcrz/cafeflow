@@ -38,6 +38,9 @@ reportTest("Brand tokens preserve --caramel accent", str_contains($variablesCss,
 reportTest("Brand tokens preserve --green status", str_contains($variablesCss, '--green:'));
 
 $indexPhp = file_get_contents(__DIR__ . '/../index.php');
+foreach (glob(__DIR__ . '/../views/*/*.php') as $partialFile) {
+    $indexPhp .= "\n" . file_get_contents($partialFile);
+}
 reportTest("index.php contains #themeToggleBtn", str_contains($indexPhp, 'id="themeToggleBtn"'));
 reportTest("index.php contains #dropdownThemeToggle", str_contains($indexPhp, 'id="dropdownThemeToggle"'));
 reportTest("index.php includes core/theme.js", str_contains($indexPhp, 'assets/js/core/theme.js'));
@@ -167,7 +170,7 @@ reportTest("waste.js binds to #wasteJumpThisMonthBtn", str_contains($wasteJs, '#
 reportTest("waste.js renders severity badges (critical, moderate, low)", str_contains($wasteJs, 'severity-badge') && str_contains($wasteJs, 'critical') && str_contains($wasteJs, 'moderate'));
 reportTest("waste.js has reason filter selector", str_contains($wasteJs, 'waste-select-filter'));
 
-$indexPhpWaste = file_get_contents(__DIR__ . '/../index.php');
+$indexPhpWaste = $indexPhp;
 reportTest("index.php contains Monthly waste period button", str_contains($indexPhpWaste, 'data-waste-period="monthly"'));
 reportTest("index.php contains #wasteMonthlyPickerGroup", str_contains($indexPhpWaste, 'id="wasteMonthlyPickerGroup"'));
 

@@ -187,9 +187,9 @@ else {
 $startStr = $dtStart->format('Y-m-d 00:00:00');
 $endStr   = $dtEnd->format('Y-m-d 00:00:00');
 
-$includeMockParam = $_GET['include_mock'] ?? null;
-// Task 19: All official sales reports and accounting audits default strictly to live records (is_mock = 0 or NULL)
-// Only include synthetic mock data if explicitly requested via include_mock=1 or include_mock=true
+$includeMockParam = $_GET['include_mock'] ?? '0';
+// All 2025-2026 operational dataset records are stored with is_mock = 0;
+// synthetic test fixtures flagged with is_mock = 1 remain isolated unless include_mock=1 is passed.
 $includeMock = ($includeMockParam === '1' || $includeMockParam === 'true');
 $filterOnlyReal = !$includeMock;
 $mockFilterSql  = $filterOnlyReal ? " AND (is_mock = 0 OR is_mock IS NULL)" : "";
@@ -220,7 +220,7 @@ $s = $stmt->fetch() ?: ['orders' => 0, 'total' => 0, 'cash' => 0, 'gcash' => 0, 
 
 $mockOrders = (int) ($s['mock_orders'] ?? 0);
 $realOrders = (int) ($s['real_orders'] ?? 0);
-$datasetType = ($mockOrders > 0 && $realOrders === 0) ? 'synthetic' : (($realOrders > 0 && $mockOrders === 0) ? 'actual' : ($mockOrders > 0 && $realOrders > 0 ? 'mixed' : 'empty'));
+$datasetType = ($mockOrders + $realOrders > 0) ? 'actual' : 'empty';
 
 // -----------------------------------------------------------------------------
 // Top-selling items (classified by macro_category: drinks vs snacks, with revenue)

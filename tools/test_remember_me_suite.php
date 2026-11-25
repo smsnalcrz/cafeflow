@@ -25,14 +25,14 @@ echo "======================================================================\n";
 echo "   CAFEFLOW REMEMBER ME PERSISTENT AUTHENTICATION TEST SUITE          \n";
 echo "======================================================================\n\n";
 
-// Fetch or create a test user
-$userStmt = $pdo->query("SELECT user_id, full_name, username, email, role, status FROM users WHERE role = 'barista' LIMIT 1");
-$testUser = $userStmt->fetch(PDO::FETCH_ASSOC);
-if (!$testUser) {
-    echo "No test barista user found.\n";
-    exit(1);
-}
-$userId = (int) $testUser['user_id'];
+// Create an isolated test barista user so tests never mutate real store accounts
+$pdo->exec("DELETE FROM users WHERE username = 'test_remember_barista'");
+$insStmt = $pdo->prepare("
+    INSERT INTO users (full_name, username, email, password_hash, role, status, two_factor_enabled)
+    VALUES ('Remember Test Barista', 'test_remember_barista', 'test_remember@cafeflow.com', ?, 'barista', 'active', 0)
+");
+$insStmt->execute([password_hash('TestPass123!', PASSWORD_DEFAULT)]);
+$userId = (int) $pdo->lastInsertId();
 
 // Clean up any existing tokens for this user
 $pdo->prepare("DELETE FROM user_remember_tokens WHERE user_id = ?")->execute([$userId]);
@@ -142,8 +142,9 @@ clear_remember_me_token($pdo);
 assert_test(empty($_COOKIE[REMEMBER_ME_COOKIE_NAME]), "clear_remember_me_token() removes client cookie");
 assert_test(is_device_remembered($userId, $pdo) === false, "is_device_remembered() returns false after explicit revocation");
 
-// Reset test user 2FA status
-$pdo->prepare("UPDATE users SET two_factor_enabled = 0, two_factor_secret = NULL WHERE user_id = ?")->execute([$userId]);
+// Clean up isolated test user & remember tokens
+$pdo->prepare("DELETE FROM user_remember_tokens WHERE user_id = ?")->execute([$userId]);
+$pdo->prepare("DELETE FROM users WHERE user_id = ?")->execute([$userId]);
 $_SESSION = [];
 
 echo "\n======================================================================\n";

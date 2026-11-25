@@ -125,6 +125,7 @@ window.CafeFlow = window.CafeFlow || {};
       await api('inventory_api.php', { action: 'delete', item_id: id });
       toast(`Deleted "${name}" from inventory`);
       await loadInventory();
+      if (window.CafeFlow.events) window.CafeFlow.events.emit('inventory:changed', { action: 'delete', item_id: id });
       if (window.CafeFlow.products && window.CafeFlow.products.loadSupplyList) {
         await window.CafeFlow.products.loadSupplyList();
       }
@@ -218,6 +219,7 @@ window.CafeFlow = window.CafeFlow || {};
       closeSheet();
       toast('Inventory updated');
       await loadInventory();
+      if (window.CafeFlow.events) window.CafeFlow.events.emit('inventory:changed', payload);
       if (window.CafeFlow.menu && window.CafeFlow.menu.loadMenu) {
         window.CafeFlow.menu.loadMenu();
       }

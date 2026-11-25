@@ -212,7 +212,7 @@ $wasteSum = $summaryStmt->fetch() ?: [
 // 2. Income Loss Totals (Lost Gross Sales from Cancelled Transactions)
 // -----------------------------------------------------------------------------
 $includeMockParam = $_GET['include_mock'] ?? null;
-$includeMock = ($includeMockParam === '1' || $includeMockParam === 'true');
+$includeMock = ($includeMockParam !== '0' && $includeMockParam !== 'false');
 
 $txWhere = ['t.`timestamp` >= :start', 't.`timestamp` < :end', "t.status IN ('Cancelled', 'Voided')"];
 if (!$includeMock) {

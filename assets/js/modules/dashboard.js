@@ -34,7 +34,7 @@ window.CafeFlow = window.CafeFlow || {};
 
       // 3. Load today's sales + render dashboard charts
       const todayIso = toIsoDate(new Date());
-      const repData = await api('report.php?range=date&date=' + encodeURIComponent(todayIso) + '&include_mock=1');
+      const repData = await api('report.php?range=date&date=' + encodeURIComponent(todayIso));
       const salesTodayEl = $('#mgrCardSalesToday');
       if (salesTodayEl) {
         const totalSales = (repData.summary && repData.summary.total) || 0;
