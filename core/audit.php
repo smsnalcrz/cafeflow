@@ -207,6 +207,9 @@ function audit_flush_fallback_records(?PDO $pdo = null): int
         }
         flock($fh, LOCK_UN);
         fclose($fh);
+        if (empty($remaining)) {
+            @unlink($fallbackFile);
+        }
     } catch (Throwable $e) {
         error_log('[CafeFlow Audit Flush Error] ' . $e->getMessage());
         if (is_resource($fh)) {

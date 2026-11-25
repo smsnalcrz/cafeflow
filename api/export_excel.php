@@ -11,8 +11,8 @@
 require_once __DIR__ . '/../core/db.php';
 require_once __DIR__ . '/../core/auth.php';
 
-// RBAC: Both Barista and Manager can export sales reports
-require_role(['barista', 'manager']);
+// RBAC: Both Barista and Manager can export sales reports; Predictive is strictly Manager-only
+$currentUser = require_role(['barista', 'manager']);
 require_method('GET');
 
 $pdo = db();
@@ -23,6 +23,20 @@ $startParam = $_GET['start'] ?? null;
 $endParam   = $_GET['end']   ?? null;
 $allParam   = !empty($_GET['all']);
 $typeParam  = strtolower($_GET['type'] ?? 'sales');
+
+if ($typeParam === 'predictive' && strtolower((string)($currentUser['role'] ?? '')) !== 'manager') {
+    fail(403, 'Access denied: Predictive Machine Learning Analytics exports are restricted to Store Managers.');
+}
+
+function is_valid_iso_date(?string $str): bool {
+    if (!$str || !preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $str, $m)) {
+        return false;
+    }
+    $y = (int) $m[1];
+    $mo = (int) $m[2];
+    $d = (int) $m[3];
+    return $y >= 2020 && $y <= 2035 && checkdate($mo, $d, $y);
+}
 
 /**
  * Locate verified Python executable that contains openpyxl and pymysql.
@@ -72,15 +86,19 @@ $filenameSuffix = '';
 if ($allParam) {
     $periodLabel = 'All Available Transactions';
     $filenameSuffix = 'All_' . date('Ymd_His');
-} elseif ($startParam && $endParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $startParam) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $endParam)) {
+} elseif (is_valid_iso_date($startParam) && is_valid_iso_date($endParam)) {
     $periodLabel = "$startParam to $endParam";
     $filenameSuffix = "{$startParam}_to_{$endParam}";
-} elseif ($dateParam && preg_match('/^\d{4}-\d{2}-\d{2}$/', $dateParam)) {
+} elseif (is_valid_iso_date($dateParam)) {
     $periodLabel = $dateParam;
     $filenameSuffix = $dateParam;
+    $startParam = null;
+    $endParam = null;
 } else {
     $today = (new DateTimeImmutable('today', $tz))->format('Y-m-d');
     $dateParam = $today;
+    $startParam = null;
+    $endParam = null;
     $periodLabel = $today;
     $filenameSuffix = $today;
 }
@@ -102,6 +120,8 @@ if ($typeParam === 'inventory') {
     } else {
         $cliArgs .= ' --all';
     }
+    // Predictive models calibrate from the full historical operating baseline
+    $cliArgs .= ' --include-mock';
     $filename = 'DK_Cafe_Executive_Predictive_Forecast_' . $filenameSuffix . '.xlsx';
 } else {
     // Default: Sales Audit & Management Workbook (all 7 sheets)

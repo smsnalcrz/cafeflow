@@ -298,6 +298,11 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.chart-panel-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
 .chart-panel-title {
   font-size: 13.5px;
   font-weight: 800;
@@ -310,7 +315,7 @@
   font-weight: 500;
 }
 .pred-chart-body {
-  height: 290px;
+  height: 330px;
   padding: 14px 18px 18px;
   position: relative;
 }
@@ -370,58 +375,201 @@
 }
 
 /* ------------------------------------------------------------------ *
- *  Section 4: Operational Intelligence (Staffing & Inventory)
+ *  Peak Demand Intelligence Section (Peak Hours, Days, Months)
  * ------------------------------------------------------------------ */
-.pred-shifts-grid {
+.pred-peak-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
-  padding: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
 }
-.pred-shift-card {
+.pred-peak-card {
   background: var(--surface-card);
   border: 1.5px solid var(--line);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   box-shadow: var(--shadow-xs);
-  transition: background-color var(--dur-fast), border-color var(--dur-fast);
+  transition: transform var(--dur-fast), box-shadow var(--dur-fast);
 }
-.pred-shift-head {
+.pred-peak-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+.pred-peak-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
-.pred-shift-name {
-  font-size: 13px;
+.pred-peak-icon-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pred-peak-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--caramel-soft);
+  color: var(--caramel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.pred-peak-title {
+  font-size: 12px;
   font-weight: 800;
-  color: var(--ink);
-}
-.pred-shift-badge {
-  font-size: 10.5px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  background: var(--green-light);
-  color: var(--green);
-  font-weight: 700;
-}
-.pred-shift-time {
-  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
   color: var(--muted);
 }
-.pred-shift-profile {
-  font-size: 12.5px;
+.pred-peak-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--caramel-soft);
+  color: var(--caramel);
+}
+.pred-peak-highlight {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -.3px;
+  line-height: 1.25;
+}
+.pred-peak-meta {
+  font-size: 13px;
   font-weight: 700;
   color: var(--caramel);
-  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.pred-shift-tasks {
+.pred-peak-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 0;
+}
+.pred-peak-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+.pred-peak-rank-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 11.5px;
   color: var(--ink);
-  line-height: 1.4;
-  margin: 4px 0 0;
+}
+.pred-peak-rank-hour {
+  font-weight: 600;
+}
+.pred-peak-rank-val {
+  font-weight: 700;
+  color: var(--muted);
+}
+
+/* Variance Pills */
+.pred-var-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.pred-var-pill.positive {
+  background: var(--green-light);
+  color: var(--green);
+}
+.pred-var-pill.negative {
+  background: rgba(220, 53, 69, 0.12);
+  color: #dc3545;
+}
+.pred-var-pill.neutral {
+  background: var(--line);
+  color: var(--muted);
+}
+
+/* Table Card & Filter Toolbar */
+.pred-table-card {
+  background: var(--surface-card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  margin-bottom: 22px;
+}
+.pred-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sub, var(--surface));
+  flex-wrap: wrap;
+}
+.pred-search-input {
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--ink);
+  outline: none;
+  min-width: 200px;
+}
+.pred-search-input:focus {
+  border-color: var(--caramel);
+}
+.pred-table-scroll {
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pred-table-scroll .table {
+  min-width: 680px;
+  margin: 0;
+}
+
+/* Materials Summary Bar */
+.pred-mats-summary-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--surface-sub, var(--surface));
+  border-bottom: 1px solid var(--line);
+}
+.pred-mats-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pred-mats-kpi-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: .3px;
+}
+.pred-mats-kpi-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--ink);
 }
 
 /* Stock Status Badges */
@@ -620,22 +768,46 @@
 @media (max-width: 900px) {
   .pred-split-grid { grid-template-columns: 1fr; }
   .pred-kpi-grid { grid-template-columns: repeat(2, 1fr); }
-  .pred-chart-body { height: 260px; }
+  .pred-chart-body { height: 270px; }
 }
 
 @media (max-width: 768px) {
   .pred-kpi-grid { grid-template-columns: 1fr; }
   .pred-sim-controls { grid-template-columns: 1fr; }
-  .pred-shifts-grid { grid-template-columns: 1fr; }
+  .pred-peak-grid { grid-template-columns: 1fr; }
   .pred-finance-bar { grid-template-columns: 1fr 1fr; }
-  .pred-chart-body { height: 240px; }
+  .pred-chart-body { height: 240px; padding: 10px 12px; }
   .pred-alert-banner { flex-direction: column; gap: 8px; }
+  #predPeriodSeg {
+    width: 100%;
+    overflow-x: auto;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+  }
+  .pred-table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .pred-search-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .pred-mats-summary-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
-
 
 /* ======================================================================
    DARK THEME REFINEMENTS FOR PREDICTIVE ANALYTICS
    ====================================================================== */
+[data-theme="dark"] .pred-var-pill.positive {
+  background: var(--green-light);
+  color: var(--green);
+}
+[data-theme="dark"] .pred-var-pill.negative {
+  background: var(--red-light);
+  color: var(--red);
+}
 [data-theme="dark"] #predictiveModal,
 [data-theme="dark"] .predictive-modal-card {
   background: var(--bg);
@@ -739,22 +911,30 @@
   color: var(--caramel);
 }
 
-[data-theme="dark"] .pred-shift-card {
+[data-theme="dark"] .pred-peak-card {
   background: var(--surface-raised);
   border-color: var(--line);
 }
-[data-theme="dark"] .pred-shift-name {
+[data-theme="dark"] .pred-peak-highlight {
   color: var(--ink);
 }
-[data-theme="dark"] .pred-shift-badge {
-  background: var(--green-light);
-  color: var(--green);
-}
-[data-theme="dark"] .pred-shift-profile {
+[data-theme="dark"] .pred-peak-icon {
+  background: rgba(217, 143, 94, 0.2);
   color: var(--caramel);
 }
-[data-theme="dark"] .pred-shift-tasks {
-  color: var(--ink-mid);
+[data-theme="dark"] .pred-table-card {
+  background: var(--surface-card);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-table-toolbar,
+[data-theme="dark"] .pred-mats-summary-bar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+[data-theme="dark"] .pred-search-input {
+  background: var(--surface-raised);
+  border-color: var(--line);
+  color: var(--ink);
 }
 
 [data-theme="dark"] .stock-badge.critical {

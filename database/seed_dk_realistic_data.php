@@ -977,10 +977,9 @@ try {
 // -----------------------------------------------------------------------------
 $skipDump = in_array('--skip-sql-dump', $argv ?? [], true);
 if (!$skipDump) {
-    logMsg("\nGenerating standalone importable SQL dumps...");
+    logMsg("\nGenerating standalone importable SQL dump...");
     $sqlFiles = [
         __DIR__ . '/cafeflow_mock_data_realistic.sql',
-        __DIR__ . '/cafeflow_mock_data_1_year.sql', // Backward compatibility for existing import scripts
     ];
 
     foreach ($sqlFiles as $sqlPath) {

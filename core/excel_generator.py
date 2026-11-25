@@ -391,7 +391,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         if is_pd and dow in (0, 5, 6):
             cycle_desc = "Quincena Payday & Weekend Peak"
             rush_hr = "7:00 PM"
-            rec = "Deploy +1 Senior Barista; prep cold brew, croffles, and extra 16oz/22oz cups"
+            rec = "Quincena payday rush; ensure espresso beans, milk, and 16oz/22oz cup inventory replenished"
         elif is_pd:
             cycle_desc = "Quincena Payday Surge (+22.6%)"
             rush_hr = "6:30 PM"
@@ -407,11 +407,11 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         elif dow == 1:
             cycle_desc = "Monday Baseline Trough"
             rush_hr = "8:00 AM"
-            rec = "Morning commute rush; ideal shift for deep equipment sanitization & stock counts"
+            rec = "Morning commute rush; ensure batch brew prepped and pastry display restocked"
         else:
             cycle_desc = "Midweek Operating Baseline"
             rush_hr = "1:00 PM"
-            rec = "Standard 2-barista shift; maintain FIFO milk rotation and pastry replenishment"
+            rec = "Standard operating cadence; maintain FIFO milk rotation and pastry replenishment"
 
         forecast_30.append({
             'idx': i,
@@ -1152,39 +1152,38 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         ws_inv_reorder.column_dimensions[col_letter].width = w_val
 
     # =========================================================================
-    # SHEET 4: Hourly Rush & Staffing Model
+    # SHEET 4: Hourly Rush & Peak Demand
     # =========================================================================
-    ws_hourly = wb.create_sheet(title="Hourly Rush & Staffing Model")
+    ws_hourly = wb.create_sheet(title="Hourly Rush & Peak Demand")
     ws_hourly.sheet_properties.tabColor = COLOR_NAVY
     setup_page(ws_hourly, orientation='landscape', title_rows='6:6')
 
-    ws_hourly.merge_cells("A1:J1")
-    ws_hourly.merge_cells("A2:J2")
-    ws_hourly["A1"] = "DK CAFE · HOURLY DEMAND VELOCITY & BARISTA SHIFT DEPLOYMENT MODEL"
+    ws_hourly.merge_cells("A1:I1")
+    ws_hourly.merge_cells("A2:I2")
+    ws_hourly["A1"] = "DK CAFE · HOURLY DEMAND VELOCITY & PEAK DEMAND INTELLIGENCE"
     ws_hourly["A1"].font = font_title
     ws_hourly["A1"].fill = fill_navy
     ws_hourly["A1"].alignment = align_center
     ws_hourly.row_dimensions[1].height = 32
 
-    ws_hourly["A2"] = f"Empirical Rush Patterns & Optimal Store Labor Distribution (6:00 AM – 10:00 PM) | Exported: {now_str}"
+    ws_hourly["A2"] = f"Empirical Rush Patterns & Hourly Sales Distribution (6:00 AM – 10:00 PM) | Exported: {now_str}"
     ws_hourly["A2"].font = font_subtitle
     ws_hourly["A2"].fill = fill_navy
     ws_hourly["A2"].alignment = align_center
     ws_hourly.row_dimensions[2].height = 18
     ws_hourly.row_dimensions[3].height = 10
 
-    # Hourly Table Headers
+    # Hourly Table Headers (Cleaned: No Barista Headcounts)
     h_headers = [
         ("Time Window", 16),
-        ("Operational Phase", 20),
+        ("Operational Phase", 24),
         ("Historical Orders", 16),
         ("Historical Sales", 16),
         ("Share of Day", 14),
-        ("Projected Peak Sales", 20),
-        ("Projected Peak Orders", 20),
-        ("Recommended Baristas", 22),
-        ("Floor & Cashier Staff", 20),
-        ("Operational Shift Focus & Directives", 45)
+        ("Expected Sales", 18),
+        ("Expected Orders", 16),
+        ("Demand Intensity", 22),
+        ("Operational Focus & Directives", 50)
     ]
     ws_hourly.row_dimensions[6].height = 26
     for col_idx, (h_text, _) in enumerate(h_headers, start=1):
@@ -1213,49 +1212,41 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         h_sales = float(hr_rec['sales'])
         h_pct = (h_sales / tot_hourly_sales) if tot_hourly_sales > 0 else 0.0
 
-        # Operational phase & staffing recommendations
+        # Operational phase & demand intensity
         if h in (6, 7):
             phase = "Opening Prep & Early Commute"
-            rec_baristas = 1
-            rec_floor = "1 Cashier / Opener"
+            demand_level = "Light Commute Volume"
             directive = "Brew espresso baseline, prep ice bins, verify cash drawer float"
         elif h in (8, 9):
             phase = "Morning Breakfast Rush"
-            rec_baristas = 2
-            rec_floor = "1 Cashier"
+            demand_level = "Morning Peak Demand"
             directive = "High hot/iced coffee volume, fresh pastry displays, quick ticket dispatch"
         elif h in (10, 11):
             phase = "Midday Transition"
-            rec_baristas = 2
-            rec_floor = "1 Cashier"
+            demand_level = "Steady Midday Flow"
             directive = "Prep cold brew kegs, restock milk carafes, clean drip trays"
         elif h in (12, 13):
             phase = "Lunch Run & Croffle Peak"
-            rec_baristas = 2
-            rec_floor = "1 Cashier"
+            demand_level = "Elevated Lunch Rush"
             directive = "Heavier savory sandwich and croffle orders; coordinate hot kitchen pickup"
         elif h in (14, 15, 16):
             phase = "Afternoon Leisure Lull"
-            rec_baristas = 1
-            rec_floor = "1 Floater"
+            demand_level = "Moderate Afternoon Flow"
             directive = "Prep boba pearls, clean blenders, restock dry cups and lids"
         elif h in (17, 18, 19):
             phase = "Prime Evening Apex Rush"
-            rec_baristas = 3
-            rec_floor = "1 Dedicated Cashier"
-            directive = "PEAK STORE VOLUME: All espresso stations active; manage queue throughput"
+            demand_level = "MAXIMUM STORE PEAK"
+            directive = "PEAK STORE VOLUME: Evening social rush, maximum ticket throughput"
         elif h == 20:
             phase = "Post-Dinner Beverage Rush"
-            rec_baristas = 2
-            rec_floor = "1 Cashier"
+            demand_level = "Secondary Evening Surge"
             directive = "Milk series and decaf beverages; wipe tables, clean milk steam wands"
         else:
             phase = "Night Wind-Down & Closing"
-            rec_baristas = 1
-            rec_floor = "1 Closer"
+            demand_level = "Closing Wind-Down"
             directive = "Lock POS registers, run Z-Reading reconciliation, sanitize espresso groupheads"
 
-        proj_peak_sales = round(grand_daily_mean * h_pct * 1.45, 2)
+        proj_peak_sales = round(grand_daily_mean * h_pct, 2)
         proj_peak_orders = max(1, round(proj_peak_sales / grand_aov))
 
         ws_hourly[f"A{h_table_row}"] = time_win
@@ -1265,11 +1256,10 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         ws_hourly[f"E{h_table_row}"] = f"=D{h_table_row}/$D${7 + 17}"
         ws_hourly[f"F{h_table_row}"] = proj_peak_sales
         ws_hourly[f"G{h_table_row}"] = proj_peak_orders
-        ws_hourly[f"H{h_table_row}"] = rec_baristas
-        ws_hourly[f"I{h_table_row}"] = rec_floor
-        ws_hourly[f"J{h_table_row}"] = directive
+        ws_hourly[f"H{h_table_row}"] = demand_level
+        ws_hourly[f"I{h_table_row}"] = directive
 
-        for col_idx in range(1, 11):
+        for col_idx in range(1, 10):
             col_letter = get_column_letter(col_idx)
             cell = ws_hourly[f"{col_letter}{h_table_row}"]
             cell.font = font_main
@@ -1285,15 +1275,13 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         ws_hourly[f"F{h_table_row}"].alignment = align_right
         ws_hourly[f"G{h_table_row}"].alignment = align_right
         ws_hourly[f"H{h_table_row}"].alignment = align_center
-        ws_hourly[f"I{h_table_row}"].alignment = align_center
-        ws_hourly[f"J{h_table_row}"].alignment = align_left
+        ws_hourly[f"I{h_table_row}"].alignment = align_left
 
         ws_hourly[f"C{h_table_row}"].number_format = FMT_INTEGER
         ws_hourly[f"D{h_table_row}"].number_format = FMT_CURRENCY
         ws_hourly[f"E{h_table_row}"].number_format = FMT_PERCENT
         ws_hourly[f"F{h_table_row}"].number_format = FMT_CURRENCY
         ws_hourly[f"G{h_table_row}"].number_format = FMT_INTEGER
-        ws_hourly[f"H{h_table_row}"].number_format = '#,##0 "Staff"'
 
         ws_hourly.row_dimensions[h_table_row].height = 20
         h_table_row += 1
@@ -1306,8 +1294,10 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     ws_hourly[f"E{h_table_row}"] = f"=SUM(E7:E{h_table_row-1})"
     ws_hourly[f"F{h_table_row}"] = f"=SUM(F7:F{h_table_row-1})"
     ws_hourly[f"G{h_table_row}"] = f"=SUM(G7:G{h_table_row-1})"
+    ws_hourly[f"H{h_table_row}"] = "Full Day Cadence"
+    ws_hourly[f"I{h_table_row}"] = "Centralized demand profile"
 
-    for col_idx in range(1, 11):
+    for col_idx in range(1, 10):
         col_letter = get_column_letter(col_idx)
         cell = ws_hourly[f"{col_letter}{h_table_row}"]
         cell.font = font_total
@@ -1337,7 +1327,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     chart_hourly.set_categories(cats_ref_h)
     ws_hourly.add_chart(chart_hourly, f"B{h_table_row + 2}")
 
-    ws_hourly.auto_filter.ref = f"A6:J{h_table_row-1}"
+    ws_hourly.auto_filter.ref = f"A6:I{h_table_row-1}"
     ws_hourly.freeze_panes = "A7"
 
     for col_idx, (_, w_val) in enumerate(h_headers, start=1):

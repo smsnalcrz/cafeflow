@@ -26,6 +26,7 @@
   /* Semantic surfaces */
   --bg:             #FAF7F2;   /* 60% steamed-milk cream background */
   --surface:        #FAF7F2;   /* steamed-milk surface */
+  --surface-sub:    #F5EFE8;   /* secondary toolbar & table summary surface */
   --surface-raised: #FFFFFF;   /* pure white cards & modals */
   --surface-card:   #FFFFFF;
   --ink:            #2C1E16;   /* dark espresso primary text */
@@ -94,6 +95,7 @@ body.dark-mode {
   /* Semantic surfaces in Dark Mode */
   --bg:             #18120D;   /* 60% espresso night canvas */
   --surface:        #221913;   /* dark card surface */
+  --surface-sub:    #221913;   /* secondary dark toolbar surface */
   --surface-raised: #2C211A;   /* elevated roastery cards */
   --surface-card:   #2C211A;
   --ink:            #FAF7F2;   /* crisp steamed-milk text for high legibility */

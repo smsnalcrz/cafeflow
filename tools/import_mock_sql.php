@@ -13,10 +13,7 @@ $customFile = $argv[1] ?? null;
 if ($customFile && file_exists($customFile)) {
     $sqlFile = $customFile;
 } else {
-    // Prefer realistic mock data file, fallback to 1_year
-    $candRealistic = __DIR__ . '/../database/cafeflow_mock_data_realistic.sql';
-    $cand1Year = __DIR__ . '/../database/cafeflow_mock_data_1_year.sql';
-    $sqlFile = file_exists($candRealistic) ? $candRealistic : $cand1Year;
+    $sqlFile = __DIR__ . '/../database/cafeflow_mock_data_realistic.sql';
 }
 
 if (!file_exists($sqlFile)) {
