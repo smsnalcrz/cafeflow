@@ -20,6 +20,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 // GET: List Accounts and Directory Overview Stats
 // -----------------------------------------------------------------------------
 if ($method === 'GET') {
+    release_session_lock();
     $rows = $pdo->query('
         SELECT user_id, full_name, username, email, role, status, created_at, updated_at, last_login,
                two_factor_enabled, two_factor_confirmed_at, two_factor_reenroll_required

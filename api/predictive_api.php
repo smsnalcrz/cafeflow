@@ -25,6 +25,7 @@ $currentUser = current_user();
 if (!$currentUser || $currentUser['role'] !== 'manager') {
     fail(403, 'Access denied: Predictive Machine Learning Analytics is restricted to Store Managers.');
 }
+release_session_lock();
 
 $perfStart = microtime(true);
 $pdo = db();

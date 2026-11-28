@@ -191,10 +191,33 @@ window.CafeFlow = window.CafeFlow || {};
     const mats = data.materials_consumed || {};
     const evalData = data.model_evaluation || {};
 
-    // Update toolbar status badge
+    // Update toolbar status & picker badges
     const statusEl = $('#predStatusPeriod');
     if (statusEl) {
       statusEl.textContent = `${period.label || 'Forecast'}`;
+    }
+
+    const dailyBadge = $('#predDailyBadge');
+    if (dailyBadge && _predPeriod === 'daily') {
+      const hasRecorded = (salesF.actual_sales !== null && salesF.actual_sales !== undefined);
+      dailyBadge.textContent = period.is_today
+        ? 'Today Live'
+        : (period.is_past ? 'Historical Actual' : (hasRecorded ? 'Recorded Actuals' : 'Future Forecast'));
+    }
+    const sevenBadge = $('#pred7DayBadge');
+    if (sevenBadge && _predPeriod === '7days' && period.start_date && period.end_date) {
+      const sDt = parseIsoDate(period.start_date);
+      const eDt = parseIsoDate(period.end_date);
+      const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      sevenBadge.textContent = `${fmt(sDt)} – ${fmt(eDt)}`;
+    }
+    const monthBadge = $('#predMonthBadge');
+    if (monthBadge && _predPeriod === 'month') {
+      monthBadge.textContent = (data.season_info && data.season_info.tag) ? data.season_info.tag : 'Monthly Cycle';
+    }
+    const yearBadge = $('#predYearBadge');
+    if (yearBadge && _predPeriod === 'year') {
+      yearBadge.textContent = `${period.days_count || 365} Days`;
     }
 
     // 1. Executive Model Calibration Banner
@@ -250,7 +273,12 @@ window.CafeFlow = window.CafeFlow || {};
 
     if (actSales !== null && actSales !== undefined) {
       actSalesValText = money(actSales);
-      actSalesSubText = `${actOrders || 0} completed orders recorded`;
+      const expToDate = salesF.expected_to_date;
+      if (expToDate !== null && expToDate !== undefined && Math.abs(Number(expToDate) - expSales) > 0.5) {
+        actSalesSubText = `${actOrders || 0} orders · vs ${money(expToDate)} expected to date`;
+      } else {
+        actSalesSubText = `${actOrders || 0} completed orders recorded`;
+      }
       if (varAmt !== null && varAmt !== undefined) {
         const sign = varAmt >= 0 ? '+' : '';
         const isPos = varAmt >= 0;
@@ -408,6 +436,9 @@ window.CafeFlow = window.CafeFlow || {};
                   return `${context.dataset.label}: No transactions recorded`;
                 }
                 const pt = points[context.dataIndex] || {};
+                if (context.dataset.label === 'Actual' && pt.is_closed && Number(val) === 0) {
+                  return 'Actual: Store Closed (₱0.00)';
+                }
                 let ordText = '';
                 if (context.dataset.label === 'Expected' && pt.expected_orders) {
                   ordText = ` (~${pt.expected_orders} orders)`;
@@ -454,6 +485,14 @@ window.CafeFlow = window.CafeFlow || {};
 
     // 1. Peak Hours Card
     const hourRanking = pHour.ranking || [];
+    const peakHrNum = Number(pHour.hour ?? 16);
+    const peakHrDesc = peakHrNum < 12
+      ? 'Morning coffee & breakfast rush window based on historical order timing.'
+      : (peakHrNum < 17
+        ? 'Peak afternoon merienda & coastal beverage demand window.'
+        : 'Peak late-afternoon to evening leisure & dine-in rush window.');
+    const hourPrefix = (_predPeriod === 'daily') ? 'Projected:' : 'Avg/day at peak hour:';
+
     const hourCard = h('div', { class: 'pred-peak-card' },
       h('div', { class: 'pred-peak-head' },
         h('div', { class: 'pred-peak-icon-title' },
@@ -462,12 +501,12 @@ window.CafeFlow = window.CafeFlow || {};
         ),
         h('span', { class: 'pred-peak-badge', text: 'Customer Rush' })
       ),
-      h('span', { class: 'pred-peak-highlight', text: pHour.label || '7:00 PM – 8:00 PM' }),
+      h('span', { class: 'pred-peak-highlight', text: pHour.label || '4:00 PM – 5:00 PM' }),
       h('div', { class: 'pred-peak-meta' },
-        h('span', { text: `Projected: ${money(pHour.expected_sales || 0)}` }),
-        pHour.expected_orders ? h('span', { style: 'color: var(--muted); font-weight: normal;', text: `(~${pHour.expected_orders} orders)` }) : null
+        h('span', { text: `${hourPrefix} ${money(pHour.expected_sales || 0)}` }),
+        pHour.expected_orders ? h('span', { style: 'color: var(--muted); font-weight: normal;', text: `(~${pHour.expected_orders} ord)` }) : null
       ),
-      h('p', { class: 'pred-peak-sub', text: 'Highest sales concentration during evening leisure and study hours.' })
+      h('p', { class: 'pred-peak-sub', text: peakHrDesc })
     );
 
     if (hourRanking.length > 0) {
@@ -487,11 +526,12 @@ window.CafeFlow = window.CafeFlow || {};
     const dayActualText = pDay.actual_sales !== null && pDay.actual_sales !== undefined
       ? ` | Actual: ${money(pDay.actual_sales)}`
       : '';
+    const dayCardTitle = (_predPeriod === 'daily') ? 'Target Operating Day' : 'Peak Operating Day';
     const dayCard = h('div', { class: 'pred-peak-card' },
       h('div', { class: 'pred-peak-head' },
         h('div', { class: 'pred-peak-icon-title' },
           h('div', { class: 'pred-peak-icon', html: '📅' }),
-          h('span', { class: 'pred-peak-title', text: 'Peak Operating Day' })
+          h('span', { class: 'pred-peak-title', text: dayCardTitle })
         ),
         h('span', { class: 'pred-peak-badge', text: pDay.day_name || 'Saturday' })
       ),
@@ -507,13 +547,15 @@ window.CafeFlow = window.CafeFlow || {};
     const monthActualText = pMonth.actual_sales !== null && pMonth.actual_sales !== undefined
       ? ` | Actual: ${money(pMonth.actual_sales)}`
       : '';
+    const monthCardTitle = (_predPeriod === 'month') ? 'Target Monthly Horizon' : 'Peak Seasonal Month';
+    const monthCardBadge = (_predPeriod === 'month') ? 'Selected Month' : 'Annual Peak';
     const monthCard = h('div', { class: 'pred-peak-card' },
       h('div', { class: 'pred-peak-head' },
         h('div', { class: 'pred-peak-icon-title' },
           h('div', { class: 'pred-peak-icon', html: '☀️' }),
-          h('span', { class: 'pred-peak-title', text: 'Peak Seasonal Month' })
+          h('span', { class: 'pred-peak-title', text: monthCardTitle })
         ),
-        h('span', { class: 'pred-peak-badge', text: 'Annual Peak' })
+        h('span', { class: 'pred-peak-badge', text: monthCardBadge })
       ),
       h('span', { class: 'pred-peak-highlight', text: pMonth.month_name || 'May' }),
       h('div', { class: 'pred-peak-meta' },
@@ -537,11 +579,15 @@ window.CafeFlow = window.CafeFlow || {};
 
     const card = h('div', { class: 'pred-table-card' });
 
+    const prodSubText = (totActualUnits !== null && totActualUnits !== undefined)
+      ? `Projected Volume: ${totExpectedUnits.toLocaleString()} units | Actual Sold: ${Number(totActualUnits).toLocaleString()} units`
+      : `Projected Volume: ${totExpectedUnits.toLocaleString()} units across menu items`;
+
     // Table Header Toolbar
     const toolbar = h('div', { class: 'pred-table-toolbar' },
       h('div', { class: 'chart-panel-title-wrap' },
         h('span', { class: 'chart-panel-title', text: 'Products Sold · Demand Ranking & Unit Projections' }),
-        h('span', { class: 'chart-panel-subtitle', text: `Projected Volume: ${totExpectedUnits} units across menu items` })
+        h('span', { class: 'chart-panel-subtitle', text: prodSubText })
       ),
       h('input', {
         type: 'text',
@@ -666,7 +712,7 @@ window.CafeFlow = window.CafeFlow || {};
         h('span', { class: 'pred-mats-kpi-val', text: `${(summary.total_beans_g || 0).toLocaleString()} g` })
       ),
       h('div', { class: 'pred-mats-kpi' },
-        h('span', { class: 'pred-mats-kpi-label', text: 'Full Cream Milk' }),
+        h('span', { class: 'pred-mats-kpi-label', text: 'Milk & Dairy' }),
         h('span', { class: 'pred-mats-kpi-val', text: `${(summary.total_milk_ml || 0).toLocaleString()} ml` })
       ),
       h('div', { class: 'pred-mats-kpi' },
@@ -730,7 +776,9 @@ window.CafeFlow = window.CafeFlow || {};
             ? `${Number(m.actual_amount).toLocaleString()} ${m.unit_measure}`
             : '—';
 
-          const daysRemain = Number(m.days_until_stockout || 999);
+          const daysRemain = (m.days_until_stockout !== null && m.days_until_stockout !== undefined)
+            ? Number(m.days_until_stockout)
+            : 999;
           const daysText = daysRemain >= 90 ? '> 90 days' : `${daysRemain.toFixed(1)} days`;
 
           return h('tr', {},
@@ -925,13 +973,13 @@ window.CafeFlow = window.CafeFlow || {};
           predExportBtn.disabled = false;
         }, 2500);
 
-        let url = 'api/export_excel.php?type=predictive';
+        let url = `api/export_excel.php?type=predictive&mode=${encodeURIComponent(_predPeriod)}`;
         if (_predPeriod === 'year') {
-          url += `&start=${encodeURIComponent(_targetYear)}-01-01&end=${encodeURIComponent(_targetYear)}-12-31`;
+          url += `&start=${encodeURIComponent(_targetYear)}-01-01&end=${encodeURIComponent(_targetYear)}-12-31&year=${encodeURIComponent(_targetYear)}`;
         } else if (_predPeriod === 'month') {
           const [y, m] = _targetMonth.split('-').map(Number);
           const lastD = new Date(y, m, 0).getDate();
-          url += `&start=${encodeURIComponent(_targetMonth)}-01&end=${encodeURIComponent(_targetMonth)}-${pad2(lastD)}`;
+          url += `&start=${encodeURIComponent(_targetMonth)}-01&end=${encodeURIComponent(_targetMonth)}-${pad2(lastD)}&month=${encodeURIComponent(_targetMonth)}`;
         } else if (_predPeriod === '7days') {
           const end7 = toIsoDate(addDays(parseIsoDate(_startDate7), 6));
           url += `&start=${encodeURIComponent(_startDate7)}&end=${encodeURIComponent(end7)}`;

@@ -39,9 +39,11 @@ assertTest("Accuracy % between 50% and 99%",
     $cal['eval_metrics']['accuracy_pct'] >= 50.0 && $cal['eval_metrics']['accuracy_pct'] <= 99.0);
 
 // 2. Daily Horizon
-echo PHP_EOL . "2. Testing Daily Horizon (Tomorrow & Past Day)..." . PHP_EOL;
+echo PHP_EOL . "2. Testing Daily Horizon (Unrecorded Future, Recorded Date & Past Day)..." . PHP_EOL;
 $tomorrowStr = (new DateTimeImmutable('+1 day', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
-$dailyFuture = predictive_generate_report($pdo, 'daily', ['date' => $tomorrowStr]);
+$latestRecordedDt = new DateTimeImmutable((string) ($cal['latest_tx_date'] ?? 'today'), new DateTimeZone('Asia/Manila'));
+$futureUnrecordedStr = max($tomorrowStr, $latestRecordedDt->modify('+2 days')->format('Y-m-d'));
+$dailyFuture = predictive_generate_report($pdo, 'daily', ['date' => $futureUnrecordedStr]);
 
 assertTest("Daily future returns success", $dailyFuture['success'] === true);
 assertTest("Daily future chart points count == 17 (6:00 to 22:00)", count($dailyFuture['sales_forecast']['chart_points']) === 17);
@@ -51,6 +53,11 @@ assertTest("Daily future chart points actual values are ALL NULL",
     empty(array_filter($dailyFuture['sales_forecast']['chart_points'], fn($p) => $p['actual'] !== null)));
 assertTest("Daily future Peak Hour identified with top 5 ranking",
     isset($dailyFuture['peak_demand']['peak_hour']['hour']) && count($dailyFuture['peak_demand']['peak_hour']['ranking']) === 5);
+
+// Recorded Transaction Day inside dataset (e.g. 2026-11-30)
+$dailyRecorded = predictive_generate_report($pdo, 'daily', ['date' => '2026-11-30']);
+assertTest("Daily recorded transaction date returns numeric actual_sales > 0",
+    is_numeric($dailyRecorded['sales_forecast']['actual_sales']) && $dailyRecorded['sales_forecast']['actual_sales'] > 0);
 
 // Historical Day
 $yesterdayStr = (new DateTimeImmutable('-1 day', new DateTimeZone('Asia/Manila')))->format('Y-m-d');

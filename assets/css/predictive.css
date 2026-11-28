@@ -544,6 +544,13 @@
   min-width: 680px;
   margin: 0;
 }
+.pred-table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface-sub, var(--surface));
+  box-shadow: inset 0 -1px 0 var(--line);
+}
 
 /* Materials Summary Bar */
 .pred-mats-summary-bar {

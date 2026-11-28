@@ -23,6 +23,7 @@ require_once __DIR__ . '/../core/auth.php';
 // RBAC: Requires authenticated user (both Barista and Manager can inspect transactions & e-receipts)
 
 require_login();
+release_session_lock();
 
 
 

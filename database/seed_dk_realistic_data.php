@@ -379,7 +379,7 @@ foreach ($yearsToSeed as $year) {
 
                 if (mt_rand(1, 100) <= 5) {
                     $discountType = (mt_rand(1, 2) === 1) ? 'Senior' : 'PWD';
-                    $discountRate = 0.20;
+                    $discountRate = 20.00;
                     $discount = round($orderSubtotal * 0.20, 2);
                     $discountId = ($discountType === 'Senior')
                         ? 'OSCA-2024-' . mt_rand(1000, 9999)
@@ -1078,6 +1078,46 @@ if (!$skipDump) {
                 );
             }
             fwrite($fp, implode(",\n", $rows) . ";\n\n");
+        }
+
+        // Pre-aggregated waste_report_summary chunks
+        $allWasteSummaries = [];
+        $dumpSumId = 1;
+        foreach ($dailyWasteAggregates as $dt => $agg) {
+            $allWasteSummaries[] = [
+                'summary_id'              => $dumpSumId++,
+                'summary_date'            => $dt,
+                'summary_hour'            => 255,
+                'period_type'             => 'daily',
+                'total_events'            => $agg['events'],
+                'total_items_wasted'      => $agg['amount'],
+                'total_cost_cents'        => $agg['cost_cents'],
+                'total_income_loss_cents' => $agg['income_cents'],
+            ];
+        }
+        foreach ($hourlyWasteAggregates as $agg) {
+            $allWasteSummaries[] = [
+                'summary_id'              => $dumpSumId++,
+                'summary_date'            => $agg['date'],
+                'summary_hour'            => $agg['hour'],
+                'period_type'             => 'hourly',
+                'total_events'            => $agg['events'],
+                'total_items_wasted'      => $agg['amount'],
+                'total_cost_cents'        => $agg['cost_cents'],
+                'total_income_loss_cents' => $agg['income_cents'],
+            ];
+        }
+        foreach (array_chunk($allWasteSummaries, 200) as $chunk) {
+            fwrite($fp, "INSERT INTO `waste_report_summary` (`summary_id`, `summary_date`, `summary_hour`, `period_type`, `total_events`, `total_items_wasted`, `total_cost_cents`, `total_income_loss_cents`) VALUES\n");
+            $rows = [];
+            foreach ($chunk as $ws) {
+                $rows[] = sprintf(
+                    "  (%d, '%s', %d, '%s', %d, %.2f, %d, %d)",
+                    $ws['summary_id'], $ws['summary_date'], $ws['summary_hour'], $ws['period_type'],
+                    $ws['total_events'], $ws['total_items_wasted'], $ws['total_cost_cents'], $ws['total_income_loss_cents']
+                );
+            }
+            fwrite($fp, implode(",\n", $rows) . " ON DUPLICATE KEY UPDATE `total_events` = VALUES(`total_events`), `total_items_wasted` = VALUES(`total_items_wasted`), `total_cost_cents` = VALUES(`total_cost_cents`), `total_income_loss_cents` = VALUES(`total_income_loss_cents`);\n\n");
         }
 
         fwrite($fp, "COMMIT;\n");

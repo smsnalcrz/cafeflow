@@ -132,6 +132,17 @@ function current_user(bool $forceFresh = false): ?array
 }
 
 /**
+ * Releases the PHP file-based session lock for read-only endpoints so concurrent
+ * AJAX requests from the same browser session execute in parallel without blocking.
+ */
+function release_session_lock(): void
+{
+    if (PHP_SAPI !== 'cli' && !defined('CAFEFLOW_TESTING') && session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+}
+
+/**
  * Alias for current_user() matching common naming conventions.
  */
 function get_auth_user(): ?array

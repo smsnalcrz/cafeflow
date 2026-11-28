@@ -59,6 +59,10 @@
 
         <div class="toolbar-status">
           <span class="status-period" id="reportStatusPeriod">Loading...</span>
+          <div class="dataset-seg" id="reportDatasetSeg" role="group" aria-label="Dataset source">
+            <button type="button" class="dataset-pill on" id="repDatasetAllBtn" data-mock="1" title="Display all transactions (realistic mock data + live POS)">All Data (Mock + Real)</button>
+            <button type="button" class="dataset-pill" id="repDatasetLiveBtn" data-mock="0" title="Filter strictly to real live POS transactions">Live Only</button>
+          </div>
         </div>
       </div>
 

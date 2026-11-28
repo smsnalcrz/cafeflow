@@ -18,6 +18,7 @@ const MAX_AMOUNT = 9999999;
 $pdo = db();
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    release_session_lock();
     $rows  = $pdo->query(
         'SELECT item_id, name, current_stock, unit_measure, restock_threshold, is_active
            FROM inventory

@@ -9,6 +9,7 @@ require_once __DIR__ . '/../core/auth.php';
 
 // RBAC: Only Baristas are permitted to access POS barista queue
 require_role('barista');
+release_session_lock();
 
 require_method('GET');
 $pdo = db();

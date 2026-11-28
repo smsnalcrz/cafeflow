@@ -8,9 +8,9 @@ import pymysql
 import os
 
 def get_db_connection():
-    configured_port = int(os.environ.get('DB_PORT', 3306))
+    configured_port = int(os.environ.get('DB_PORT', 3307))
     ports = [configured_port]
-    for fallback in [3306, 3307]:
+    for fallback in [3307, 3306]:
         if fallback not in ports:
             ports.append(fallback)
 

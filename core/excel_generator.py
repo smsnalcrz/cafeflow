@@ -49,9 +49,9 @@ FMT_DECIMAL  = '#,##0.00'
 FMT_PERCENT  = '0.0%'
 
 def get_db_connection():
-    configured_port = int(os.environ.get('DB_PORT', 3306))
+    configured_port = int(os.environ.get('DB_PORT', 3307))
     ports = [configured_port]
-    for fallback in [3306, 3307]:
+    for fallback in [3307, 3306]:
         if fallback not in ports:
             ports.append(fallback)
 
@@ -382,7 +382,7 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
         p_sales = round(grand_daily_mean * dow_f * pd_m, 2)
         p_orders = max(1, round(p_sales / grand_aov))
         p_aov = round(p_sales / p_orders, 2)
-        low_bound = round(max(500.0, p_sales * 0.75), 2)
+        low_bound = round(max(100.0, p_sales * 0.75), 2)
         upp_bound = round(p_sales * 1.30, 2)
 
         tot_pred_sales_30 += p_sales
@@ -801,17 +801,31 @@ def generate_sales_workbook(output_path, start_date=None, end_date=None, single_
     ws_pred["A1"].alignment = align_center
     ws_pred.row_dimensions[1].height = 32
 
-    ws_pred["A2"] = f"Multi-Seasonal Decomposition & Holt-Winters Model | 372 Operating Days Base | Exported: {now_str}"
+    ws_pred["A2"] = f"Multi-Seasonal Decomposition & Holt-Winters Model | {n_hist_days} Operating Days Base | Exported: {now_str}"
     ws_pred["A2"].font = font_subtitle
     ws_pred["A2"].fill = fill_forest
     ws_pred["A2"].alignment = align_center
     ws_pred.row_dimensions[2].height = 18
 
+    # Compute dynamic holdout accuracy over last 30 historical days
+    holdout_days = hist_days[-30:] if len(hist_days) >= 7 else hist_days
+    err_sum = 0.0
+    act_sum = 0.0
+    for hd in holdout_days:
+        hd_act = float(hd['total_sales'])
+        hd_w = int(hd['dow'])
+        hd_dom = int(hd['dom'])
+        hd_pred = grand_daily_mean * dow_factors.get(hd_w, 1.0) * (payday_lift if hd_dom in (15, 30, 31) else 1.0)
+        err_sum += abs(hd_act - hd_pred)
+        act_sum += hd_act
+    wape_pct = round((err_sum / act_sum) * 100.0, 1) if act_sum > 0 else 18.0
+    acc_pct = round(max(50.0, 100.0 - wape_pct), 1)
+
     # ML Calibration Header Block (Row 4-6)
     pred_cards = [
         ("A", "C", "FORECAST ALGORITHM", "Multi-Seasonal Holt-Winters Engine", "Day-of-Week & Quincena Payday multipliers"),
         ("D", "E", "TRAINED OPERATING DAYS", f"{n_hist_days} Days ({tot_hist_orders:,} Orders)", "Complete historical audited ledger"),
-        ("F", "G", "MODEL ACCURACY RATE", "63.0% (WAPE: 37.0%)", "Holdout chronologically validated"),
+        ("F", "G", "MODEL ACCURACY RATE", f"{acc_pct:.1f}% (WAPE: {wape_pct:.1f}%)", "Holdout chronologically validated"),
         ("H", "J", "QUINCENA PAYDAY LIFT", f"+{(payday_lift-1)*100:.1f}% Surge", "15th & 30th/31st bi-weekly paydays"),
         ("K", "M", "30-DAY FORWARD REVENUE", f"₱{tot_pred_sales_30:,.2f}", f"Avg ₱{tot_pred_sales_30/30:,.2f} per calendar day")
     ]

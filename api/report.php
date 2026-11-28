@@ -17,6 +17,7 @@ require_once __DIR__ . '/../core/auth.php';
 
 // RBAC: Both Barista and Manager can view sales reports (e.g. for shift closing or when manager is not present)
 require_role(['barista', 'manager']);
+release_session_lock();
 
 require_method('GET');
 
@@ -319,6 +320,11 @@ if (empty($availableYears)) {
 // -----------------------------------------------------------------------------
 // Waste & Loss Tracking for reporting window
 // -----------------------------------------------------------------------------
+$wasteMockJoin = $filterOnlyReal ? " LEFT JOIN transactions t ON t.transaction_id = wl.transaction_id " : "";
+$wasteMockWhere = $filterOnlyReal
+    ? " AND ((wl.transaction_id IS NULL AND wl.reason NOT LIKE '%[Mock]%') OR (wl.transaction_id IS NOT NULL AND (t.is_mock = 0 OR t.is_mock IS NULL)))"
+    : "";
+
 $wasteStmt = $pdo->prepare("
     SELECT
         COUNT(DISTINCT wl.waste_id)        AS total_waste_events,
@@ -329,7 +335,8 @@ $wasteStmt = $pdo->prepare("
         COALESCE(SUM(CASE WHEN wl.unit = 'ml' THEN wl.amount_wasted ELSE 0 END), 0.00)  AS total_wasted_ml,
         COALESCE(SUM(CASE WHEN wl.unit = 'pcs' THEN wl.amount_wasted ELSE 0 END), 0.00) AS total_wasted_pcs
     FROM waste_log wl
-    WHERE wl.wasted_at >= :start AND wl.wasted_at < :end
+    {$wasteMockJoin}
+    WHERE wl.wasted_at >= :start AND wl.wasted_at < :end {$wasteMockWhere}
 ");
 $wasteStmt->execute([':start' => $startStr, ':end' => $endStr]);
 $wSum = $wasteStmt->fetch() ?: [
@@ -349,18 +356,19 @@ $cancelledLossStmt = $pdo->prepare("
         COALESCE(SUM(total_amount), 0.00) AS income_loss_php
     FROM transactions
     WHERE `timestamp` >= :start AND `timestamp` < :end
-      AND status IN ('Cancelled', 'Voided')
+      AND status IN ('Cancelled', 'Voided') {$mockFilterSql}
 ");
 $cancelledLossStmt->execute([':start' => $startStr, ':end' => $endStr]);
 $cLoss = $cancelledLossStmt->fetch() ?: ['cancelled_orders' => 0, 'income_loss_php' => 0.0];
 
 $wasteTrendStmt = $pdo->prepare("
     SELECT
-        DATE(wasted_at) AS waste_date,
-        COUNT(DISTINCT waste_id) AS events,
-        COALESCE(SUM(estimated_cost_php), 0.00) AS cost_php
-    FROM waste_log
-    WHERE wasted_at >= :start AND wasted_at < :end
+        DATE(wl.wasted_at) AS waste_date,
+        COUNT(DISTINCT wl.waste_id) AS events,
+        COALESCE(SUM(wl.estimated_cost_php), 0.00) AS cost_php
+    FROM waste_log wl
+    {$wasteMockJoin}
+    WHERE wl.wasted_at >= :start AND wl.wasted_at < :end {$wasteMockWhere}
     GROUP BY waste_date
     ORDER BY waste_date ASC
 ");

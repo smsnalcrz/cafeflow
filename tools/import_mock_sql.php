@@ -24,9 +24,20 @@ $fileSizeKb = round(filesize($sqlFile) / 1024, 1);
 echo "Importing {$fileSizeKb} KB realistic mock dataset from:\n  " . basename($sqlFile) . "\n";
 $start = microtime(true);
 
-$mysqli = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, (int)DB_PORT);
-if ($mysqli->connect_error) {
-    die("MySQL Connection Error ({$mysqli->connect_errno}): {$mysqli->connect_error}\n");
+$mysqli = null;
+$portsToTry = array_values(array_unique(array_filter([(int)DB_PORT, 3307, 3306])));
+$lastConnectErr = '';
+foreach ($portsToTry as $tryPort) {
+    mysqli_report(MYSQLI_REPORT_OFF);
+    $candidate = @new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME, $tryPort);
+    if (!$candidate->connect_error) {
+        $mysqli = $candidate;
+        break;
+    }
+    $lastConnectErr = "({$candidate->connect_errno}): {$candidate->connect_error}";
+}
+if (!$mysqli) {
+    die("MySQL Connection Error {$lastConnectErr}\n");
 }
 
 $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);

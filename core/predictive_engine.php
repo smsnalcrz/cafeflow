@@ -237,6 +237,67 @@ function predictive_calibrate_model(PDO $pdo): array
     $totalUnitsAll = (int) array_sum(array_column($allProdSales, 'total_units_sold'));
     $basketRatio = $totalOrdersAll > 0 ? ($totalUnitsAll / $totalOrdersAll) : 1.33;
 
+    // Preload historical cup-size distribution per product so recipe burn reflects Hot (12oz) & Grande (22oz) orders
+    $sizeDistStmt = $pdo->query("
+        SELECT ti.product_id,
+               ti.size_code,
+               ti.size_label,
+               SUM(ti.quantity) AS qty
+          FROM transaction_items ti
+          JOIN transactions t ON t.transaction_id = ti.transaction_id
+         WHERE t.status = 'Completed' AND ti.product_id IS NOT NULL
+         GROUP BY ti.product_id, ti.size_code, ti.size_label
+    ");
+    $prodSizeMix = [];
+    foreach ($sizeDistStmt->fetchAll(PDO::FETCH_ASSOC) as $sr) {
+        $pid = (int) $sr['product_id'];
+        $prodSizeMix[$pid][] = [
+            'size_code'  => $sr['size_code'] ?: null,
+            'size_label' => $sr['size_label'] ?: null,
+            'qty'        => (int) $sr['qty'],
+        ];
+    }
+
+    // Preload explicit product ingredients once to avoid N+1 DB queries
+    $ingRows = $pdo->query("
+        SELECT pi.product_id, pi.item_id, pi.deduction_amount, i.name, i.unit_measure, i.current_stock
+          FROM product_ingredients pi
+          JOIN inventory i ON i.item_id = pi.item_id
+         ORDER BY pi.product_id, pi.id ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+    $preloadedIngredients = [];
+    foreach ($ingRows as $ir) {
+        $preloadedIngredients[(int) $ir['product_id']][] = $ir;
+    }
+
+    // Calendar occupancy / open-day ratios (accounts for weekly rest days & monsoon closures)
+    $firstDate = new DateTimeImmutable($rawHistoricalDays[0]['tx_date'], $tz);
+    $lastDate  = new DateTimeImmutable($rawHistoricalDays[$nDaysRaw - 1]['tx_date'], $tz);
+    $calendarSpanDays = max(1, ((int) $firstDate->diff($lastDate)->format('%a')) + 1);
+    $operatingRatio = max(0.65, min(1.0, round($nDaysRaw / $calendarSpanDays, 4)));
+
+    $monthYearSeen = [];
+    foreach ($rawHistoricalDays as $d) {
+        $ym = substr($d['tx_date'], 0, 7);
+        $monthYearSeen[$ym] = ($monthYearSeen[$ym] ?? 0) + 1;
+    }
+    $moyOpenBuckets = array_fill(1, 12, []);
+    foreach ($monthYearSeen as $ym => $openCnt) {
+        $dtM = DateTimeImmutable::createFromFormat('!Y-m', $ym, $tz);
+        if ($dtM) {
+            $mNum = (int) $dtM->format('n');
+            $daysInM = (int) $dtM->format('t');
+            $moyOpenBuckets[$mNum][] = min(1.0, $openCnt / max(1, $daysInM));
+        }
+    }
+    $monthlyOpenRatios = [];
+    for ($m = 1; $m <= 12; $m++) {
+        $b = $moyOpenBuckets[$m];
+        $monthlyOpenRatios[$m] = !empty($b)
+            ? max(0.65, min(1.0, round(array_sum($b) / count($b), 4)))
+            : $operatingRatio;
+    }
+
     // Macro-category groupings
     $macroCategoryShares = [
         'Espresso & Coffee'      => ['units' => 0, 'revenue' => 0.0, 'share_pct' => 0.0],
@@ -280,11 +341,16 @@ function predictive_calibrate_model(PDO $pdo): array
         'weekend_surge_pct'      => $weekendSurgePct,
         'hourly_weights'         => $hourlyWeights,
         'all_prod_sales'         => $allProdSales,
+        'prod_size_mix'          => $prodSizeMix,
+        'preloaded_ingredients'  => $preloadedIngredients,
+        'operating_ratio'        => $operatingRatio,
+        'monthly_open_ratios'    => $monthlyOpenRatios,
         'total_units_all'        => $totalUnitsAll,
         'total_orders_all'       => $totalOrdersAll,
         'basket_ratio'           => $basketRatio,
         'macro_category_shares'  => $macroCategoryShares,
         'training_days'          => $nDays,
+        'latest_tx_date'         => $rawHistoricalDays[$nDaysRaw - 1]['tx_date'],
         'eval_metrics'           => [
             'mae'          => $evalMae,
             'wape_pct'     => $evalWape,
@@ -300,7 +366,8 @@ function predictive_calibrate_model(PDO $pdo): array
 function predictive_compute_daily(
     string $dateStr,
     array $cal,
-    DateTimeImmutable $referenceDate
+    DateTimeImmutable $referenceDate,
+    bool $applyOperatingRatio = false
 ): array {
     $dt = new DateTimeImmutable($dateStr);
     $dow = (int) $dt->format('w');
@@ -311,14 +378,15 @@ function predictive_compute_daily(
 
     $daysDelta = (int) $referenceDate->diff($dt)->format('%r%a');
     $daysDeltaClamped = max(-60, min(120, $daysDelta));
-    $trendAdjustedBase = max(300.0, $cal['grand_daily_mean'] + ($cal['trend_slope_daily'] * $daysDeltaClamped));
+    $trendAdjustedBase = max(250.0, $cal['grand_daily_mean'] + ($cal['trend_slope_daily'] * $daysDeltaClamped));
 
     $dowFactor = $cal['dow_factors'][$dow] ?? 1.0;
     $moyFactor = $cal['moy_factors'][$moy] ?? 1.0;
     $paydayFactor = $isPayday ? $cal['payday_lift'] : 1.0;
+    $openRatio = $applyOperatingRatio ? ($cal['monthly_open_ratios'][$moy] ?? $cal['operating_ratio'] ?? 1.0) : 1.0;
 
-    $predSales = $trendAdjustedBase * $dowFactor * $moyFactor * $paydayFactor;
-    $predSales = round(max(300.0, $predSales), 2);
+    $predSales = $trendAdjustedBase * $dowFactor * $moyFactor * $paydayFactor * $openRatio;
+    $predSales = round(max(200.0, $predSales), 2);
 
     $dowAov = ($isWeekend ? $cal['grand_aov'] * 1.08 : $cal['grand_aov'] * 0.96);
     $predOrders = max(1, (int) round($predSales / max(80.0, $dowAov)));
@@ -418,7 +486,7 @@ function predictive_get_actual_hourly(PDO $pdo, string $dateStr): array
     ");
     $stmt->execute([
         ':start' => $dateStr . ' 00:00:00',
-        ':end'   => $dateStr . ' 23:59:59'
+        ':end'   => (new DateTimeImmutable($dateStr))->modify('+1 day')->format('Y-m-d 00:00:00')
     ]);
     $map = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -430,8 +498,14 @@ function predictive_get_actual_hourly(PDO $pdo, string $dateStr): array
     return $map;
 }
 
-function predictive_get_actual_monthly_map(PDO $pdo, int $year): array
+function predictive_get_actual_monthly_map(PDO $pdo, int $year, ?string $maxDateInclusive = null): array
 {
+    $yearEndExcl = sprintf('%04d-01-01 00:00:00', $year + 1);
+    $capEndExcl = $maxDateInclusive
+        ? (new DateTimeImmutable($maxDateInclusive))->modify('+1 day')->format('Y-m-d 00:00:00')
+        : $yearEndExcl;
+    $effectiveEnd = ($capEndExcl < $yearEndExcl) ? $capEndExcl : $yearEndExcl;
+
     $stmt = $pdo->prepare("
         SELECT MONTH(`timestamp`) as m_num,
                COUNT(*) as orders,
@@ -445,7 +519,7 @@ function predictive_get_actual_monthly_map(PDO $pdo, int $year): array
     ");
     $stmt->execute([
         ':start' => sprintf('%04d-01-01 00:00:00', $year),
-        ':end'   => sprintf('%04d-01-01 00:00:00', $year + 1)
+        ':end'   => $effectiveEnd
     ]);
     $map = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -538,23 +612,43 @@ function predictive_compute_products_and_materials(
         $invDbItems[(int)$inv['item_id']] = $inv;
     }
 
+    // Hamilton / Largest-Remainder apportionment so projected product units sum cleanly to $expectedTotalUnits
+    $allocUnits = [];
+    $remainders = [];
+    $sumFloored = 0;
+    foreach ($cal['all_prod_sales'] as $idx => $p) {
+        $share = (float) $p['total_units_sold'] / max(1, $cal['total_units_all']);
+        $exact = $expectedTotalUnits * $share;
+        $floored = (int) floor($exact);
+        $allocUnits[$idx] = $floored;
+        $remainders[$idx] = $exact - $floored;
+        $sumFloored += $floored;
+    }
+    $leftover = max(0, $expectedTotalUnits - $sumFloored);
+    if ($leftover > 0 && !empty($remainders)) {
+        arsort($remainders);
+        foreach (array_keys($remainders) as $idx) {
+            if ($leftover <= 0) break;
+            $allocUnits[$idx]++;
+            $leftover--;
+        }
+    }
+
     $totalProjUnitsSum = 0;
     $rank = 1;
-    foreach ($cal['all_prod_sales'] as $p) {
+    $preloadedIngsMap = $cal['preloaded_ingredients'] ?? [];
+    $prodSizeMixMap   = $cal['prod_size_mix'] ?? [];
+
+    foreach ($cal['all_prod_sales'] as $idx => $p) {
         $pId = (int) $p['product_id'];
         $share = (float)$p['total_units_sold'] / max(1, $cal['total_units_all']);
-        $expUnits = (int) round($expectedTotalUnits * $share);
-
-        // Ensure top 5 products have at least 1 unit projected in small horizons
-        if ($expUnits <= 0 && $rank <= 5) {
-            $expUnits = 1;
-        }
+        $expUnits = $allocUnits[$idx] ?? 0;
 
         $totalProjUnitsSum += $expUnits;
         $expRev = round($expUnits * (float)$p['price'], 2);
 
-        $actUnits = $actualProdMap ? ($actualProdMap[$pId]['units'] ?? 0) : null;
-        $actRev   = $actualProdMap ? ($actualProdMap[$pId]['revenue'] ?? 0.0) : null;
+        $actUnits = ($actualProdMap !== null) ? ($actualProdMap[$pId]['units'] ?? 0) : null;
+        $actRev   = ($actualProdMap !== null) ? ($actualProdMap[$pId]['revenue'] ?? 0.0) : null;
 
         $topProducts[] = [
             'rank'             => $rank++,
@@ -569,21 +663,68 @@ function predictive_compute_products_and_materials(
             'share_pct'        => round($share * 100.0, 1),
         ];
 
-        // Centralized Recipe Engine Consumption
+        // Centralized Recipe Engine Consumption (distributed across historical cup sizes when present)
         if ($expUnits > 0) {
-            $productRow = ['product_id' => $pId, 'name' => $p['name'], 'category' => $p['category']];
-            $recipeDeductions = calculate_product_consumption($productRow, null, $expUnits, $pdo);
-            foreach ($recipeDeductions as $rd) {
-                $itemId = (int) $rd['item_id'];
-                if (!isset($rawConsumptionMap[$itemId])) {
-                    $rawConsumptionMap[$itemId] = [
-                        'item_id'         => $itemId,
-                        'name'            => $rd['name'],
-                        'unit_measure'    => $rd['unit'],
-                        'expected_amount' => 0.0,
-                    ];
+            $productRow = [
+                'product_id'            => $pId,
+                'name'                  => $p['name'],
+                'category'              => $p['category'],
+                'preloaded_ingredients' => $preloadedIngsMap[$pId] ?? [],
+            ];
+
+            $sizeMix = $prodSizeMixMap[$pId] ?? [];
+            $totSizeQty = array_sum(array_column($sizeMix, 'qty'));
+
+            $accumulateDeductions = static function (array $deductions) use (&$rawConsumptionMap): void {
+                foreach ($deductions as $rd) {
+                    $itemId = (int) $rd['item_id'];
+                    if (!isset($rawConsumptionMap[$itemId])) {
+                        $rawConsumptionMap[$itemId] = [
+                            'item_id'         => $itemId,
+                            'name'            => $rd['name'],
+                            'unit_measure'    => $rd['unit'],
+                            'expected_amount' => 0.0,
+                        ];
+                    }
+                    $rawConsumptionMap[$itemId]['expected_amount'] += (float) $rd['amount'];
                 }
-                $rawConsumptionMap[$itemId]['expected_amount'] += (float) $rd['amount'];
+            };
+
+            if ($totSizeQty > 0 && count($sizeMix) > 1) {
+                $assignedSizeUnits = 0;
+                $sizeRem = [];
+                $sizeAlloc = [];
+                foreach ($sizeMix as $sIdx => $sm) {
+                    $exactSz = $expUnits * ($sm['qty'] / $totSizeQty);
+                    $flSz = (int) floor($exactSz);
+                    $sizeAlloc[$sIdx] = $flSz;
+                    $sizeRem[$sIdx] = $exactSz - $flSz;
+                    $assignedSizeUnits += $flSz;
+                }
+                $remSz = max(0, $expUnits - $assignedSizeUnits);
+                if ($remSz > 0) {
+                    arsort($sizeRem);
+                    foreach (array_keys($sizeRem) as $sIdx) {
+                        if ($remSz <= 0) break;
+                        $sizeAlloc[$sIdx]++;
+                        $remSz--;
+                    }
+                }
+                foreach ($sizeMix as $sIdx => $sm) {
+                    $uCnt = $sizeAlloc[$sIdx] ?? 0;
+                    if ($uCnt > 0) {
+                        $accumulateDeductions(calculate_product_consumption($productRow, $sm['size_code'], $uCnt, $pdo, $sm['size_label']));
+                    }
+                }
+            } else {
+                $onlySize = $sizeMix[0] ?? null;
+                $accumulateDeductions(calculate_product_consumption(
+                    $productRow,
+                    $onlySize['size_code'] ?? null,
+                    $expUnits,
+                    $pdo,
+                    $onlySize['size_label'] ?? null
+                ));
             }
         }
     }
@@ -622,7 +763,7 @@ function predictive_compute_products_and_materials(
             $statusClass = 'monitor';
         }
 
-        $actAmt = $actualIngMap ? ($actualIngMap[$itemId]['amount'] ?? 0.0) : null;
+        $actAmt = ($actualIngMap !== null) ? ($actualIngMap[$itemId]['amount'] ?? 0.0) : null;
 
         $nameLower = strtolower($mat['name']);
         if (str_contains($nameLower, 'bean')) {
@@ -630,11 +771,11 @@ function predictive_compute_products_and_materials(
         } elseif (str_contains($nameLower, 'milk') && !str_contains($nameLower, 'tea')) {
             $totMilkMl += $expAmt;
         } elseif (str_contains($nameLower, 'cup')) {
-            $totCupsPcs += (int) $expAmt;
+            $totCupsPcs += (int) round($expAmt);
         } elseif (str_contains($nameLower, 'lid')) {
-            $totLidsPcs += (int) $expAmt;
+            $totLidsPcs += (int) round($expAmt);
         } elseif (str_contains($nameLower, 'straw')) {
-            $totStrawsPcs += (int) $expAmt;
+            $totStrawsPcs += (int) round($expAmt);
         }
 
         $materialsList[] = [
@@ -663,7 +804,7 @@ function predictive_compute_products_and_materials(
     return [
         'products_sold' => [
             'total_expected_units' => $totalProjUnitsSum,
-            'total_actual_units'   => $actualProdMap ? array_sum(array_column($topProducts, 'actual_units')) : null,
+            'total_actual_units'   => ($actualProdMap !== null) ? array_sum(array_column($topProducts, 'actual_units')) : null,
             'items'                => $topProducts,
             'macro_categories'     => $cal['macro_category_shares']
         ],
@@ -736,7 +877,8 @@ function predictive_compute_dynamic_peak_hour(
     for ($h = 6; $h <= 22; $h++) {
         $w = (float) ($hourlyWeights[$h] ?? 0.02);
         $expSales = round($avgDailySales * $w, 2);
-        $expOrders = max(0, (int) round(($avgDailyOrders * $w) ?: ($expSales / max(80.0, $expectedAov))));
+        $rawOrders = ($avgDailyOrders * $w) ?: ($expSales / max(80.0, $expectedAov));
+        $expOrders = ($expSales > 0) ? max(1, (int) round($rawOrders)) : 0;
         $dtHr = new DateTimeImmutable(sprintf('2026-01-01 %02d:00:00', $h));
         $ranking[] = [
             'hour'   => $h,
@@ -765,7 +907,8 @@ function predictive_compute_strongest_month(array $cal, int $year, DateTimeZone 
         $dtM  = DateTimeImmutable::createFromFormat('!Y-m', $mStr, $tz);
         $days = $dtM ? (int) $dtM->format('t') : 30;
         $moyF = (float) ($cal['moy_factors'][$m] ?? 1.0);
-        $expSales = round($cal['grand_daily_mean'] * $days * $moyF, 2);
+        $openR = (float) ($cal['monthly_open_ratios'][$m] ?? $cal['operating_ratio'] ?? 1.0);
+        $expSales = round($cal['grand_daily_mean'] * $days * $moyF * $openR, 2);
         if ($best === null || $expSales > $best['expected_sales']) {
             $best = [
                 'month'          => $mStr,
@@ -813,6 +956,9 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
     $curMonthStr = $now->format('Y-m');
 
     $cal = predictive_calibrate_model($pdo);
+    $latestRecordedDate = (string) ($cal['latest_tx_date'] ?? $todayStr);
+    $actualCutoffStr    = ($latestRecordedDate > $todayStr) ? $latestRecordedDate : $todayStr;
+    $actualCutoffMonth  = substr($actualCutoffStr, 0, 7);
 
     // -------------------------------------------------------------
     // DAILY HORIZON
@@ -825,27 +971,36 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $isPast   = ($targetDateStr < $todayStr);
 
         $dailyF = predictive_compute_daily($targetDateStr, $cal, $now);
-        $actHourly = ($isPast || $isToday) ? predictive_get_actual_hourly($pdo, $targetDateStr) : [];
-        $actProd   = ($isPast || $isToday) ? predictive_get_actual_products($pdo, $targetDateStr, $targetDateStr) : null;
-        $actIng    = ($isPast || $isToday) ? predictive_get_actual_ingredients($pdo, $targetDateStr, $targetDateStr) : null;
+        $actHourly = ($targetDateStr <= $actualCutoffStr) ? predictive_get_actual_hourly($pdo, $targetDateStr) : [];
+        $dayHasActualSales = array_sum(array_column($actHourly, 'sales')) > 0;
+        $showDayActuals = $isPast || $isToday || ($isFuture && $dayHasActualSales);
+
+        $actProd   = $showDayActuals ? predictive_get_actual_products($pdo, $targetDateStr, $targetDateStr) : null;
+        $actIng    = $showDayActuals ? predictive_get_actual_ingredients($pdo, $targetDateStr, $targetDateStr) : null;
 
         // Chart points (Hourly 6:00 to 22:00)
         $chartPoints = [];
         $hourlyRanking = [];
         $totExpectedSales = $dailyF['projected_sales'];
+        $expectedThroughActuals = 0.0;
         $totActualSales = 0.0;
         $totActualOrders = 0;
         $hasActuals = false;
+        $maxRecordedHr = !empty($actHourly) ? (int) max(array_keys($actHourly)) : -1;
+        $todayHourCutoff = max($curHour, $maxRecordedHr);
+        $useActualRank = ($isPast || ($isFuture && $dayHasActualSales)) && $dayHasActualSales;
 
         for ($h = 6; $h <= 22; $h++) {
             $w = $cal['hourly_weights'][$h] ?? 0.02;
             $expSales = round($totExpectedSales * $w, 2);
-            $expOrders = max(0, (int) round($expSales / max(80.0, $dailyF['expected_aov'])));
+            $rawExpOrders = $expSales / max(80.0, $dailyF['expected_aov']);
+            $expOrders = ($expSales > 0) ? max(1, (int) round($rawExpOrders)) : 0;
 
             $act = null;
             $actOrd = null;
-            if ($isPast || ($isToday && $h <= $curHour)) {
+            if ($isPast || ($isFuture && $dayHasActualSales) || ($isToday && $h <= $todayHourCutoff)) {
                 $hasActuals = true;
+                $expectedThroughActuals += $expSales;
                 $row = $actHourly[$h] ?? null;
                 $act = $row ? (float) $row['sales'] : 0.0;
                 $actOrd = $row ? (int) $row['orders'] : 0;
@@ -865,9 +1020,7 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
                 'actual_orders'   => $actOrd,
             ];
 
-            // For past dates with actual transactions, rank by actual sales; otherwise by expected model sales
-            $useActualRank = ($isPast && $totActualSales > 0 && $act !== null);
-            $rankVal = $useActualRank ? $act : $expSales;
+            $rankVal = $useActualRank ? (float) $act : $expSales;
             $hourlyRanking[] = [
                 'hour'   => $h,
                 'label'  => $hrLabel,
@@ -893,8 +1046,9 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
 
         $totActualSales = $hasActuals ? round($totActualSales, 2) : null;
         $totActualOrders = $hasActuals ? $totActualOrders : null;
-        $varAmt = ($totActualSales !== null) ? round($totActualSales - $totExpectedSales, 2) : null;
-        $varPct = ($totActualSales !== null && $totExpectedSales > 0) ? round(($varAmt / $totExpectedSales) * 100.0, 1) : null;
+        $expectedToDate = $hasActuals ? round(($isPast || ($isFuture && $dayHasActualSales)) ? $totExpectedSales : $expectedThroughActuals, 2) : null;
+        $varAmt = ($totActualSales !== null && $expectedToDate !== null) ? round($totActualSales - $expectedToDate, 2) : null;
+        $varPct = ($totActualSales !== null && $expectedToDate !== null && $expectedToDate > 0) ? round(($varAmt / $expectedToDate) * 100.0, 1) : null;
 
         return predictive_append_compat_aliases([
             'success'      => true,
@@ -910,14 +1064,15 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
                 'is_past'    => $isPast,
             ],
             'sales_forecast' => [
-                'expected_sales'  => $dailyF['projected_sales'],
-                'expected_orders' => $dailyF['projected_orders'],
-                'expected_aov'    => $dailyF['expected_aov'],
-                'actual_sales'    => $totActualSales,
-                'actual_orders'   => $totActualOrders,
-                'variance_amount' => $varAmt,
-                'variance_pct'    => $varPct,
-                'chart_points'    => $chartPoints,
+                'expected_sales'   => $dailyF['projected_sales'],
+                'expected_to_date' => $expectedToDate,
+                'expected_orders'  => $dailyF['projected_orders'],
+                'expected_aov'     => $dailyF['expected_aov'],
+                'actual_sales'     => $totActualSales,
+                'actual_orders'    => $totActualOrders,
+                'variance_amount'  => $varAmt,
+                'variance_pct'     => $varPct,
+                'chart_points'     => $chartPoints,
             ],
             'peak_demand' => [
                 'peak_hour' => [
@@ -959,13 +1114,14 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $dtEnd   = $dtStart->modify('+6 days');
         $endDateStr = $dtEnd->format('Y-m-d');
 
-        $actMap  = predictive_get_actual_daily_map($pdo, $startDateStr, $endDateStr);
-        $actProd = predictive_get_actual_products($pdo, $startDateStr, $endDateStr);
-        $actIng  = predictive_get_actual_ingredients($pdo, $startDateStr, $endDateStr);
+        $actMap = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_daily_map($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : [];
+        $actProd = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_products($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : null;
+        $actIng  = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_ingredients($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : null;
 
         $chartPoints = [];
         $dailyRanking = [];
         $totExpectedSales = 0.0;
+        $expectedThroughActuals = 0.0;
         $totExpectedOrders = 0;
         $totActualSales = 0.0;
         $totActualOrders = 0;
@@ -976,18 +1132,21 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         for ($i = 0; $i < 7; $i++) {
             $dCur = $dtStart->modify("+$i day");
             $dStr = $dCur->format('Y-m-d');
-            $f = predictive_compute_daily($dStr, $cal, $now);
+            $f = predictive_compute_daily($dStr, $cal, $now, true);
 
             $totExpectedSales += $f['projected_sales'];
             $totExpectedOrders += $f['projected_orders'];
 
             $act = null;
             $actOrd = null;
-            if ($dStr <= $todayStr) {
+            $isClosed = false;
+            if ($dStr <= $actualCutoffStr) {
                 $hasActuals = true;
+                $expectedThroughActuals += $f['projected_sales'];
                 $row = $actMap[$dStr] ?? null;
                 $act = $row ? (float) $row['sales'] : 0.0;
                 $actOrd = $row ? (int) $row['orders'] : 0;
+                $isClosed = ($dStr !== $todayStr && $act === 0.0 && $actOrd === 0);
                 $totActualSales += $act;
                 $totActualOrders += $actOrd;
             }
@@ -1000,6 +1159,7 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
                 'actual'          => $act,
                 'expected_orders' => $f['projected_orders'],
                 'actual_orders'   => $actOrd,
+                'is_closed'       => $isClosed,
             ];
 
             $dailyRanking[] = [
@@ -1026,8 +1186,9 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $totExpectedSales = round($totExpectedSales, 2);
         $totActualSales = $hasActuals ? round($totActualSales, 2) : null;
         $totActualOrders = $hasActuals ? $totActualOrders : null;
-        $varAmt = ($totActualSales !== null) ? round($totActualSales - $totExpectedSales, 2) : null;
-        $varPct = ($totActualSales !== null && $totExpectedSales > 0) ? round(($varAmt / $totExpectedSales) * 100.0, 1) : null;
+        $expectedToDate = $hasActuals ? round($expectedThroughActuals, 2) : null;
+        $varAmt = ($totActualSales !== null && $expectedToDate !== null) ? round($totActualSales - $expectedToDate, 2) : null;
+        $varPct = ($totActualSales !== null && $expectedToDate !== null && $expectedToDate > 0) ? round(($varAmt / $expectedToDate) * 100.0, 1) : null;
 
         $prodMat = predictive_compute_products_and_materials(
             $pdo,
@@ -1050,14 +1211,15 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
                 'days_count' => 7,
             ],
             'sales_forecast' => [
-                'expected_sales'  => $totExpectedSales,
-                'expected_orders' => $totExpectedOrders,
-                'expected_aov'    => $expAov7,
-                'actual_sales'    => $totActualSales,
-                'actual_orders'   => $totActualOrders,
-                'variance_amount' => $varAmt,
-                'variance_pct'    => $varPct,
-                'chart_points'    => $chartPoints,
+                'expected_sales'   => $totExpectedSales,
+                'expected_to_date' => $expectedToDate,
+                'expected_orders'  => $totExpectedOrders,
+                'expected_aov'     => $expAov7,
+                'actual_sales'     => $totActualSales,
+                'actual_orders'    => $totActualOrders,
+                'variance_amount'  => $varAmt,
+                'variance_pct'     => $varPct,
+                'chart_points'     => $chartPoints,
             ],
             'peak_demand' => [
                 'peak_hour'  => predictive_compute_dynamic_peak_hour($totExpectedSales / 7.0, $totExpectedOrders / 7.0, $cal['hourly_weights'], $expAov7),
@@ -1089,13 +1251,14 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $startDateStr = sprintf('%s-01', $monthParam);
         $endDateStr   = sprintf('%s-%02d', $monthParam, $daysInMonth);
 
-        $actMap  = predictive_get_actual_daily_map($pdo, $startDateStr, $endDateStr);
-        $actProd = predictive_get_actual_products($pdo, $startDateStr, $endDateStr);
-        $actIng  = predictive_get_actual_ingredients($pdo, $startDateStr, $endDateStr);
+        $actMap = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_daily_map($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : [];
+        $actProd = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_products($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : null;
+        $actIng  = ($startDateStr <= $actualCutoffStr) ? predictive_get_actual_ingredients($pdo, $startDateStr, min($endDateStr, $actualCutoffStr)) : null;
 
         $chartPoints = [];
         $dailyRanking = [];
         $totExpectedSales = 0.0;
+        $expectedThroughActuals = 0.0;
         $totExpectedOrders = 0;
         $totActualSales = 0.0;
         $totActualOrders = 0;
@@ -1106,7 +1269,7 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         for ($d = 1; $d <= $daysInMonth; $d++) {
             $dStr = sprintf('%s-%02d', $monthParam, $d);
             $dCur = new DateTimeImmutable($dStr, $tz);
-            $f = predictive_compute_daily($dStr, $cal, $now);
+            $f = predictive_compute_daily($dStr, $cal, $now, true);
 
             $totExpectedSales += $f['projected_sales'];
             $totExpectedOrders += $f['projected_orders'];
@@ -1114,12 +1277,13 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
             $act = null;
             $actOrd = null;
             $isClosed = false;
-            if ($dStr <= $todayStr) {
+            if ($dStr <= $actualCutoffStr) {
                 $hasActuals = true;
+                $expectedThroughActuals += $f['projected_sales'];
                 $row = $actMap[$dStr] ?? null;
                 $act = $row ? (float) $row['sales'] : 0.0;
                 $actOrd = $row ? (int) $row['orders'] : 0;
-                $isClosed = ($act === 0.0 && $actOrd === 0);
+                $isClosed = ($dStr !== $todayStr && $act === 0.0 && $actOrd === 0);
                 $totActualSales += $act;
                 $totActualOrders += $actOrd;
             }
@@ -1160,8 +1324,9 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $totExpectedSales = round($totExpectedSales, 2);
         $totActualSales = $hasActuals ? round($totActualSales, 2) : null;
         $totActualOrders = $hasActuals ? $totActualOrders : null;
-        $varAmt = ($totActualSales !== null) ? round($totActualSales - $totExpectedSales, 2) : null;
-        $varPct = ($totActualSales !== null && $totExpectedSales > 0) ? round(($varAmt / $totExpectedSales) * 100.0, 1) : null;
+        $expectedToDate = $hasActuals ? round($expectedThroughActuals, 2) : null;
+        $varAmt = ($totActualSales !== null && $expectedToDate !== null) ? round($totActualSales - $expectedToDate, 2) : null;
+        $varPct = ($totActualSales !== null && $expectedToDate !== null && $expectedToDate > 0) ? round(($varAmt / $expectedToDate) * 100.0, 1) : null;
 
         $prodMat = predictive_compute_products_and_materials(
             $pdo,
@@ -1184,14 +1349,15 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
                 'days_count' => $daysInMonth,
             ],
             'sales_forecast' => [
-                'expected_sales'  => $totExpectedSales,
-                'expected_orders' => $totExpectedOrders,
-                'expected_aov'    => $expAovM,
-                'actual_sales'    => $totActualSales,
-                'actual_orders'   => $totActualOrders,
-                'variance_amount' => $varAmt,
-                'variance_pct'    => $varPct,
-                'chart_points'    => $chartPoints,
+                'expected_sales'   => $totExpectedSales,
+                'expected_to_date' => $expectedToDate,
+                'expected_orders'  => $totExpectedOrders,
+                'expected_aov'     => $expAovM,
+                'actual_sales'     => $totActualSales,
+                'actual_orders'    => $totActualOrders,
+                'variance_amount'  => $varAmt,
+                'variance_pct'     => $varPct,
+                'chart_points'     => $chartPoints,
             ],
             'peak_demand' => [
                 'peak_hour' => predictive_compute_dynamic_peak_hour($totExpectedSales / $daysInMonth, $totExpectedOrders / $daysInMonth, $cal['hourly_weights'], $expAovM),
@@ -1227,14 +1393,16 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
 
     $yearStartStr = sprintf('%04d-01-01', $yearParam);
     $yearEndStr   = sprintf('%04d-12-31', $yearParam);
-    $actMonthMap = predictive_get_actual_monthly_map($pdo, $yearParam);
-    $actDailyMap = predictive_get_actual_daily_map($pdo, $yearStartStr, $yearEndStr);
-    $actProd     = predictive_get_actual_products($pdo, $yearStartStr, $yearEndStr);
-    $actIng      = predictive_get_actual_ingredients($pdo, $yearStartStr, $yearEndStr);
+    $effectiveYearEnd = min($yearEndStr, $actualCutoffStr);
+    $actMonthMap = ($yearStartStr <= $actualCutoffStr) ? predictive_get_actual_monthly_map($pdo, $yearParam, $effectiveYearEnd) : [];
+    $actDailyMap = ($yearStartStr <= $actualCutoffStr) ? predictive_get_actual_daily_map($pdo, $yearStartStr, $effectiveYearEnd) : [];
+    $actProd     = ($yearStartStr <= $actualCutoffStr) ? predictive_get_actual_products($pdo, $yearStartStr, $effectiveYearEnd) : null;
+    $actIng      = ($yearStartStr <= $actualCutoffStr) ? predictive_get_actual_ingredients($pdo, $yearStartStr, $effectiveYearEnd) : null;
 
     $chartPoints = [];
     $monthlyRanking = [];
     $totExpectedSales = 0.0;
+    $expectedThroughActuals = 0.0;
     $totExpectedOrders = 0;
     $totActualSales = 0.0;
     $totActualOrders = 0;
@@ -1251,16 +1419,20 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
         $daysInYear += $daysInM;
 
         $mExpSales = 0.0;
+        $mExpSalesToDate = 0.0;
         $mExpOrders = 0;
         for ($d = 1; $d <= $daysInM; $d++) {
             $curDateStr = sprintf('%s-%02d', $mStr, $d);
-            $f = predictive_compute_daily($curDateStr, $cal, $now);
+            $f = predictive_compute_daily($curDateStr, $cal, $now, true);
             $mExpSales += $f['projected_sales'];
             $mExpOrders += $f['projected_orders'];
+            if ($curDateStr <= $actualCutoffStr) {
+                $mExpSalesToDate += $f['projected_sales'];
+            }
 
             if ($strongestDayObj === null || $f['projected_sales'] > $strongestDayObj['expected_sales']) {
                 $dCur = new DateTimeImmutable($curDateStr, $tz);
-                $dayAct = ($curDateStr <= $todayStr) ? ((float)($actDailyMap[$curDateStr]['sales'] ?? 0.0)) : null;
+                $dayAct = ($curDateStr <= $actualCutoffStr) ? ((float)($actDailyMap[$curDateStr]['sales'] ?? 0.0)) : null;
                 $strongestDayObj = [
                     'date'           => $curDateStr,
                     'day_name'       => $dCur->format('l'),
@@ -1276,9 +1448,10 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
 
         $act = null;
         $actOrd = null;
-        // Compare with current month
-        if ($mStr <= $curMonthStr) {
+        // Compare with completed/elapsed months up to current/latest recorded month
+        if ($mStr <= $actualCutoffMonth) {
             $hasActuals = true;
+            $expectedThroughActuals += $mExpSalesToDate;
             $row = $actMonthMap[$m] ?? null;
             $act = $row ? (float) $row['sales'] : 0.0;
             $actOrd = $row ? (int) $row['orders'] : 0;
@@ -1321,8 +1494,9 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
     $totExpectedSales = round($totExpectedSales, 2);
     $totActualSales = $hasActuals ? round($totActualSales, 2) : null;
     $totActualOrders = $hasActuals ? $totActualOrders : null;
-    $varAmt = ($totActualSales !== null) ? round($totActualSales - $totExpectedSales, 2) : null;
-    $varPct = ($totActualSales !== null && $totExpectedSales > 0) ? round(($varAmt / $totExpectedSales) * 100.0, 1) : null;
+    $expectedToDate = $hasActuals ? round($expectedThroughActuals, 2) : null;
+    $varAmt = ($totActualSales !== null && $expectedToDate !== null) ? round($totActualSales - $expectedToDate, 2) : null;
+    $varPct = ($totActualSales !== null && $expectedToDate !== null && $expectedToDate > 0) ? round(($varAmt / $expectedToDate) * 100.0, 1) : null;
 
     $prodMat = predictive_compute_products_and_materials(
         $pdo,
@@ -1346,14 +1520,15 @@ function predictive_generate_report(PDO $pdo, string $mode, array $params): arra
             'days_count' => $daysInYear,
         ],
         'sales_forecast' => [
-            'expected_sales'  => $totExpectedSales,
-            'expected_orders' => $totExpectedOrders,
-            'expected_aov'    => $expAovY,
-            'actual_sales'    => $totActualSales,
-            'actual_orders'   => $totActualOrders,
-            'variance_amount' => $varAmt,
-            'variance_pct'    => $varPct,
-            'chart_points'    => $chartPoints,
+            'expected_sales'   => $totExpectedSales,
+            'expected_to_date' => $expectedToDate,
+            'expected_orders'  => $totExpectedOrders,
+            'expected_aov'     => $expAovY,
+            'actual_sales'     => $totActualSales,
+            'actual_orders'    => $totActualOrders,
+            'variance_amount'  => $varAmt,
+            'variance_pct'     => $varPct,
+            'chart_points'     => $chartPoints,
         ],
         'peak_demand' => [
             'peak_hour'  => predictive_compute_dynamic_peak_hour($totExpectedSales / max(1, $daysInYear), $totExpectedOrders / max(1, $daysInYear), $cal['hourly_weights'], $expAovY),

@@ -16,15 +16,19 @@ window.CafeFlow = window.CafeFlow || {};
 
   async function loadManagerDashboard() {
     try {
-      // 1. Load accounts overview
-      const accData = await api('accounts_api.php');
+      const todayIso = toIsoDate(new Date());
+      // Fetch accounts, inventory, and today's sales+waste summary in parallel
+      const [accData, invData, repData] = await Promise.all([
+        api('accounts_api.php'),
+        api('inventory_api.php'),
+        api('report.php?range=date&date=' + encodeURIComponent(todayIso) + '&include_mock=1')
+      ]);
+
       const userCountEl = $('#mgrCardUserCount');
       if (userCountEl) {
         userCountEl.textContent = (accData.overview && accData.overview.total ? accData.overview.total : 0) + ' accounts';
       }
 
-      // 2. Load inventory items count
-      const invData = await api('inventory_api.php');
       const supplyCountEl = $('#mgrCardSupplyCount');
       if (supplyCountEl) {
         const totalItems = (invData.items || []).length;
@@ -32,9 +36,6 @@ window.CafeFlow = window.CafeFlow || {};
         supplyCountEl.textContent = totalItems + ' items' + (lowCount > 0 ? ' (' + lowCount + ' low)' : '');
       }
 
-      // 3. Load today's sales + render dashboard charts
-      const todayIso = toIsoDate(new Date());
-      const repData = await api('report.php?range=date&date=' + encodeURIComponent(todayIso));
       const salesTodayEl = $('#mgrCardSalesToday');
       if (salesTodayEl) {
         const totalSales = (repData.summary && repData.summary.total) || 0;

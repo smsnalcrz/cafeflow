@@ -24,6 +24,8 @@ window.CafeFlow = window.CafeFlow || {};
 
   let reportRange = 'today'; // 'today' | 'date' | '7days' | 'month' | 'year'
 
+  let includeMockData = true; // Default to true so realistic 2025-2026 mock dataset is visible immediately
+
   let selectedDate = toIsoDate(now);
 
   let selected7DayStart = toIsoDate(addDays(now, -6));
@@ -54,6 +56,13 @@ window.CafeFlow = window.CafeFlow || {};
     $$('#rangeSeg button').forEach(b => {
       b.classList.toggle('on', b.dataset.range === reportRange);
     });
+
+    const allBtn = $('#repDatasetAllBtn');
+    const liveBtn = $('#repDatasetLiveBtn');
+    if (allBtn && liveBtn) {
+      allBtn.classList.toggle('on', includeMockData);
+      liveBtn.classList.toggle('on', !includeMockData);
+    }
 
     const todayGrp = $('#todayPickerGroup');
     if (todayGrp) todayGrp.hidden = reportRange !== 'today';
@@ -109,12 +118,13 @@ window.CafeFlow = window.CafeFlow || {};
   }
 
   function getReportUrl() {
-    if (reportRange === 'today') return 'report.php?range=today';
-    if (reportRange === 'date') return `report.php?range=date&date=${encodeURIComponent(selectedDate)}`;
-    if (reportRange === '7days') return `report.php?range=7days&start=${encodeURIComponent(selected7DayStart)}`;
-    if (reportRange === 'month') return `report.php?range=month&month=${encodeURIComponent(selectedMonth)}`;
-    if (reportRange === 'year') return `report.php?range=year&year=${encodeURIComponent(selectedYear)}`;
-    return 'report.php?range=today';
+    const mockParam = includeMockData ? '&include_mock=1' : '&include_mock=0';
+    if (reportRange === 'today') return `report.php?range=today${mockParam}`;
+    if (reportRange === 'date') return `report.php?range=date&date=${encodeURIComponent(selectedDate)}${mockParam}`;
+    if (reportRange === '7days') return `report.php?range=7days&start=${encodeURIComponent(selected7DayStart)}${mockParam}`;
+    if (reportRange === 'month') return `report.php?range=month&month=${encodeURIComponent(selectedMonth)}${mockParam}`;
+    if (reportRange === 'year') return `report.php?range=year&year=${encodeURIComponent(selectedYear)}${mockParam}`;
+    return `report.php?range=today${mockParam}`;
   }
 
   async function loadReport() {
@@ -2333,6 +2343,31 @@ window.CafeFlow = window.CafeFlow || {};
     );
     body.append(banner);
 
+    // Notice when viewing in Live POS Only mode with 0 live transactions while mock records exist
+    if (!includeMockData && Number(s.orders || 0) === 0 && Number(s.mock_orders || 0) > 0) {
+      const liveEmptyBanner = h('div', { class: 'dataset-alert-banner alert-mock', style: 'margin-bottom: 16px;' },
+        h('div', { class: 'dataset-alert-icon', html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' }),
+        h('div', { class: 'dataset-alert-body' },
+          h('div', { class: 'dataset-alert-header' },
+            h('span', { class: 'dataset-alert-title', text: 'Live POS Only Mode (0 Live Records)' }),
+            h('span', { class: 'dataset-alert-tag', text: `${s.mock_orders.toLocaleString()} Mock Records Available` })
+          ),
+          h('p', { class: 'dataset-alert-text', text: `Showing only actual live POS transactions (0 found for ${r.label}). There are ${s.mock_orders.toLocaleString()} simulated test transactions in the database.` }),
+          h('button', {
+            type: 'button',
+            class: 'btn small primary',
+            style: 'margin-top: 8px; width: fit-content;',
+            onclick: () => {
+              includeMockData = true;
+              syncToolbarUI();
+              loadReport();
+            }
+          }, 'Switch to All Data (Mock + Real)')
+        )
+      );
+      body.append(liveEmptyBanner);
+    }
+
     // Render Executive 5-Card KPI Summary
     body.append(renderExecutiveKpiGrid(r));
 
@@ -2749,15 +2784,16 @@ window.CafeFlow = window.CafeFlow || {};
 
 
     const isMultiDayRange = Boolean(r && r.start_date && r.end_date && r.start_date !== r.end_date);
+    const mockParam = includeMockData ? '&include_mock=1' : '&include_mock=0';
     let txUrl = 'transactions_api.php';
     if (isYearly) {
-      txUrl += `?range=year&year=${encodeURIComponent(r.year || selectedYear)}&limit=250`;
+      txUrl += `?range=year&year=${encodeURIComponent(r.year || selectedYear)}&limit=250${mockParam}`;
     } else if (isMultiDayRange) {
-      txUrl += `?start=${encodeURIComponent(r.start_date)}&end=${encodeURIComponent(r.end_date)}`;
+      txUrl += `?start=${encodeURIComponent(r.start_date)}&end=${encodeURIComponent(r.end_date)}${mockParam}`;
     } else if (r && r.start_date) {
-      txUrl += `?date=${encodeURIComponent(r.start_date)}`;
+      txUrl += `?date=${encodeURIComponent(r.start_date)}${mockParam}`;
     } else if (r && r.range) {
-      txUrl += `?range=${encodeURIComponent(r.range)}`;
+      txUrl += `?range=${encodeURIComponent(r.range)}${mockParam}`;
     }
 
     try {
@@ -3053,18 +3089,19 @@ window.CafeFlow = window.CafeFlow || {};
   function exportTransactions(start, end) {
 
     let url;
+    const mockParam = includeMockData ? '&include_mock=1' : '&include_mock=0';
 
     if (start && end && start !== end) {
 
-      url = `api/export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`;
+      url = `api/export_excel.php?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}${mockParam}`;
 
     } else if (start) {
 
-      url = `api/export_excel.php?date=${encodeURIComponent(start)}`;
+      url = `api/export_excel.php?date=${encodeURIComponent(start)}${mockParam}`;
 
     } else {
 
-      url = 'api/export_excel.php?all=1';
+      url = `api/export_excel.php?all=1${mockParam}`;
 
     }
 
@@ -3317,6 +3354,29 @@ window.CafeFlow = window.CafeFlow || {};
     if (printReportBtn) {
       printReportBtn.addEventListener('click', () => {
         window.print();
+      });
+    }
+
+    // Dataset Mode Toggle (All Data vs Live Only)
+    const repDatasetAllBtn = $('#repDatasetAllBtn');
+    if (repDatasetAllBtn) {
+      repDatasetAllBtn.addEventListener('click', () => {
+        if (!includeMockData) {
+          includeMockData = true;
+          syncToolbarUI();
+          loadReport();
+        }
+      });
+    }
+
+    const repDatasetLiveBtn = $('#repDatasetLiveBtn');
+    if (repDatasetLiveBtn) {
+      repDatasetLiveBtn.addEventListener('click', () => {
+        if (includeMockData) {
+          includeMockData = false;
+          syncToolbarUI();
+          loadReport();
+        }
       });
     }
 

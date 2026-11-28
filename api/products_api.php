@@ -23,6 +23,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 // GET: Fetch products list
 // -----------------------------------------------------------------------------
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
+    release_session_lock();
     $rows = $pdo->query(
         'SELECT p.product_id, p.name, p.category, p.price, p.image_url,
                 p.stock_quantity, p.track_stock, p.has_sizes, p.price_12oz, p.price_16oz, p.price_22oz,
@@ -42,6 +43,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
           ORDER BY pi.id ASC'
     )->fetchAll();
     $ingsByProd = [];
+    $rawIngsByProd = [];
     foreach ($allIngs as $ing) {
         $ingsByProd[$ing['product_id']][] = [
             'item_id'           => (int) $ing['item_id'],
@@ -51,6 +53,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             'restock_threshold' => (float) $ing['restock_threshold'],
             'deduction_amount'  => (float) $ing['deduction_amount'],
         ];
+        $rawIngsByProd[(int) $ing['product_id']][] = [
+            'item_id'          => (int) $ing['item_id'],
+            'deduction_amount' => (float) $ing['deduction_amount'],
+            'name'             => $ing['item_name'],
+            'unit_measure'     => $ing['unit_measure'],
+            'current_stock'    => (float) $ing['current_stock'],
+        ];
+    }
+
+    // Preload inventory stock map once to avoid N+1 queries during stock evaluation
+    $invStockRows = $pdo->query('SELECT item_id, current_stock, restock_threshold FROM inventory')->fetchAll();
+    $invItemMap = [];
+    foreach ($invStockRows as $invRow) {
+        $invItemMap[(int) $invRow['item_id']] = $invRow;
     }
 
     // Fetch size-specific prices
@@ -108,8 +124,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
             }
         }
 
-        // Always evaluate real-time stock state dynamically from raw inventory
-        $state = evaluate_product_stock_state($r, $pdo);
+        // Always evaluate real-time stock state dynamically from preloaded raw inventory
+        $evalRow = $r;
+        $evalRow['preloaded_ingredients'] = $rawIngsByProd[$pId] ?? [];
+        $state = evaluate_product_stock_state($evalRow, $pdo, $invItemMap);
 
         $firstIng = !empty($linkedIngredients) ? $linkedIngredients[0] : null;
 

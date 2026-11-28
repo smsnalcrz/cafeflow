@@ -26,6 +26,7 @@ require_once __DIR__ . '/../core/recipe_engine.php';
 
 // RBAC: Waste reports accessible to Manager and Barista roles
 $user = require_role(['barista', 'manager']);
+release_session_lock();
 
 require_method('GET');
 

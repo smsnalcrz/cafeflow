@@ -163,10 +163,16 @@ if ($returnCode === 0 && file_exists($tempFile) && filesize($tempFile) > 0) {
 // Log error details for store administrators
 error_log("CafeFlow Excel Generator Execution Failure (code $returnCode): " . implode("\n", $cmdOutput));
 
-// If legacy format was explicitly requested, allow single-sheet fallback
-if (!empty($_GET['legacy'])) {
-    require_once __DIR__ . '/../core/legacy_excel_fallback.php';
-    exit;
+// If legacy format was explicitly requested, or Python/openpyxl is unavailable, use dependency-free CSV export
+if (!empty($_GET['legacy']) || $returnCode !== 0) {
+    if ($typeParam === 'predictive') {
+        require_once __DIR__ . '/../core/predictive_csv_fallback.php';
+        exit;
+    }
+    if (!empty($_GET['legacy'])) {
+        require_once __DIR__ . '/../core/legacy_excel_fallback.php';
+        exit;
+    }
 }
 
 // Return clean, informative error instead of silently outputting a crippled 1-sheet file

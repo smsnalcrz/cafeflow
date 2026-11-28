@@ -377,7 +377,9 @@ function calculate_product_consumption(array $product, ?string $sizeCode, int $q
     // PRIORITY 1: Custom Explicit Ingredients Linked in DB
     // -------------------------------------------------------------
     $customIngs = [];
-    if ($pId > 0) {
+    if (isset($product['preloaded_ingredients']) && is_array($product['preloaded_ingredients'])) {
+        $customIngs = $product['preloaded_ingredients'];
+    } elseif ($pId > 0) {
         $st = $pdo->prepare(
             'SELECT pi.item_id, pi.deduction_amount, i.name, i.unit_measure, i.current_stock
                FROM product_ingredients pi
@@ -763,7 +765,7 @@ function evaluate_single_size_stock(array $product, ?string $sizeCode, PDO $pdo,
  * - If product does not have sizes:
  *   * Evaluates single serving stock directly.
  */
-function evaluate_product_stock_state(array $product, PDO $pdo): string
+function evaluate_product_stock_state(array $product, PDO $pdo, ?array $invItemMap = null): string
 {
     $category = trim($product['category'] ?? '');
     $isBeverage = !in_array(strtolower($category), ['pastry', 'meals', 'sandwich', 'snacks', 'croffle', 'coffle'], true);
@@ -791,7 +793,7 @@ function evaluate_product_stock_state(array $product, PDO $pdo): string
         $anyLow = false;
 
         foreach ($sizesToCheck as $sc) {
-            $st = evaluate_single_size_stock($product, $sc['code'], $pdo, null, $sc['label']);
+            $st = evaluate_single_size_stock($product, $sc['code'], $pdo, $invItemMap, $sc['label']);
             if ($st !== 'out') {
                 $allOut = false;
             } else {
@@ -814,7 +816,7 @@ function evaluate_product_stock_state(array $product, PDO $pdo): string
         return 'ok';
     }
 
-    return evaluate_single_size_stock($product, null, $pdo);
+    return evaluate_single_size_stock($product, null, $pdo, $invItemMap);
 }
 
 /**

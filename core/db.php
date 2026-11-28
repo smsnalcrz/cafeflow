@@ -5,7 +5,17 @@
  */
 
 if (!defined('DB_HOST')) define('DB_HOST', getenv('DB_HOST') ?: '127.0.0.1');
-if (!defined('DB_PORT')) define('DB_PORT', getenv('DB_PORT') ?: '3306');
+if (!defined('DB_PORT')) {
+    $envPort = getenv('DB_PORT');
+    $portCacheFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cafeflow_db_port.cache';
+    $cachedPort = ($envPort === false || $envPort === '') && is_file($portCacheFile)
+        ? trim((string) @file_get_contents($portCacheFile))
+        : '';
+    $resolvedPort = ($envPort !== false && $envPort !== '')
+        ? $envPort
+        : (in_array($cachedPort, ['3306', '3307'], true) ? $cachedPort : '3307');
+    define('DB_PORT', $resolvedPort);
+}
 if (!defined('DB_NAME')) define('DB_NAME', getenv('DB_NAME') ?: 'cafeflow');
 if (!defined('DB_USER')) define('DB_USER', getenv('DB_USER') ?: 'root');
 if (!defined('DB_PASS')) define('DB_PASS', getenv('DB_PASS') !== false ? getenv('DB_PASS') : ''); // XAMPP default: empty password
@@ -46,8 +56,8 @@ if (!function_exists('db')) {
     {
         static $pdo = null;
         if ($pdo === null) {
-            $configuredPort = defined('DB_PORT') ? (int) DB_PORT : 3306;
-            $portsToTry = array_values(array_unique(array_filter([$configuredPort, 3306, 3307])));
+            $configuredPort = defined('DB_PORT') ? (int) DB_PORT : 3307;
+            $portsToTry = array_values(array_unique(array_filter([$configuredPort, 3307, 3306])));
 
             $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
@@ -56,10 +66,12 @@ if (!function_exists('db')) {
             ];
 
             $lastException = null;
+            $connectedPort = null;
             foreach ($portsToTry as $port) {
                 try {
                     $dsn = 'mysql:host=' . DB_HOST . ';port=' . $port . ';dbname=' . DB_NAME . ';charset=utf8mb4';
                     $pdo = new PDO($dsn, DB_USER, DB_PASS, $options);
+                    $connectedPort = $port;
                     break;
                 } catch (PDOException $e) {
                     $lastException = $e;
@@ -73,6 +85,10 @@ if (!function_exists('db')) {
 
             if ($pdo === null) {
                 throw $lastException;
+            }
+
+            if ($connectedPort !== null && (string) $connectedPort !== (string) $configuredPort) {
+                @file_put_contents(sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'cafeflow_db_port.cache', (string) $connectedPort);
             }
 
             $pdo->exec("SET time_zone = '+08:00'");

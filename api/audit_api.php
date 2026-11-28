@@ -12,6 +12,7 @@ require_once __DIR__ . '/../core/audit.php';
 require_once __DIR__ . '/../core/csv.php';
 
 $currentUser = require_role('manager'); // Barista role receives HTTP 403 automatically
+release_session_lock();
 $pdo = db();
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
